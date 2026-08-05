@@ -6,7 +6,23 @@ import type {
   SearchResponse,
 } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+/** Normalize so a host without protocol never becomes a Vercel-relative path. */
+function resolveApiUrl(raw?: string): string {
+  const value = (raw ?? "http://localhost:4000").trim().replace(/\/+$/, "");
+  if (!value) return "http://localhost:4000";
+  if (/^https?:\/\//i.test(value)) return value;
+  // Railway / production hosts without scheme
+  if (
+    value.includes("railway.app") ||
+    value.includes("vercel.app") ||
+    value.includes(".")
+  ) {
+    return `https://${value}`;
+  }
+  return `http://${value}`;
+}
+
+const API_URL = resolveApiUrl(process.env.NEXT_PUBLIC_API_URL);
 
 export function getUserId(): string {
   if (typeof window === "undefined") return "anonymous";
