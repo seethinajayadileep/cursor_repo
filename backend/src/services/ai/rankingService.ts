@@ -74,6 +74,7 @@ export class AiRankingService {
   }
 
   async parseNaturalLanguage(query: string): Promise<Partial<SearchCriteria>> {
+    let parsed: Partial<SearchCriteria> = {};
     if (this.client) {
       try {
         const completion = await this.client.chat.completions.create({
@@ -84,18 +85,21 @@ export class AiRankingService {
             {
               role: "system",
               content:
-                'Extract job search criteria as JSON with keys: role, location, experienceLevel, employmentType, salaryMin, salaryMax, workMode, companySize, skills (string[]). Use null for unknown. experienceLevel one of internship|entry|mid|senior|lead|executive|any. workMode one of remote|hybrid|onsite|any.',
+                'Extract job search criteria as JSON with keys: role, location, experienceLevel, employmentType, salaryMin, salaryMax, workMode, companySize, skills (string[]). Use null for unknown. experienceLevel one of internship|entry|mid|senior|lead|executive|any. workMode one of remote|hybrid|onsite|any. role must be a full job title like "Python Developer", never a bare language name.',
             },
             { role: "user", content: query },
           ],
         });
         const text = completion.choices[0]?.message?.content ?? "{}";
-        return JSON.parse(text) as Partial<SearchCriteria>;
+        parsed = JSON.parse(text) as Partial<SearchCriteria>;
       } catch (error) {
         console.warn("[ai] NL parse failed:", error);
+        parsed = heuristicParseNaturalLanguage(query);
       }
+    } else {
+      parsed = heuristicParseNaturalLanguage(query);
     }
-    return heuristicParseNaturalLanguage(query);
+    return polishParsedCriteria(parsed, query);
   }
 
   private async rankWithLlm(
@@ -338,6 +342,39 @@ function estimateDifficulty(
   if (/junior|entry|intern/i.test(job.title)) return "easy";
   if (score >= 85) return "moderate";
   return "moderate";
+}
+
+export function polishParsedCriteria(
+  parsed: Partial<SearchCriteria>,
+  originalQuery?: string
+): Partial<SearchCriteria> {
+  const next = { ...parsed };
+  let role = (next.role || "").trim();
+  if (/^(python|react|java|golang|typescript|javascript|kotlin|rust|go)$/i.test(role)) {
+    const label = role.toLowerCase() === "go" || role.toLowerCase() === "golang"
+      ? "Go"
+      : role[0].toUpperCase() + role.slice(1);
+    role = `${label} Developer`;
+  }
+  if (!role) role = "Software Engineer";
+  next.role = role;
+
+  if ((!next.skills || next.skills.length === 0) && originalQuery) {
+    const skills: string[] = [];
+    for (const skill of ["Python", "TypeScript", "JavaScript", "React", "Java", "Go", "Kotlin", "Rust", "Node"]) {
+      if (new RegExp(`\\b${skill}\\b`, "i").test(originalQuery)) skills.push(skill === "Node" ? "Node.js" : skill);
+    }
+    if (skills.length) next.skills = skills;
+  }
+
+  if (!next.location && originalQuery && /\beurope\b/i.test(originalQuery)) {
+    next.location = "Europe";
+  }
+  if (!next.workMode && originalQuery && /\bremote\b/i.test(originalQuery)) {
+    next.workMode = "remote";
+  }
+
+  return next;
 }
 
 export function heuristicParseNaturalLanguage(

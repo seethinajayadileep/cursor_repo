@@ -329,6 +329,18 @@ export default function HomePage() {
               Python jobs in Europe paying over €80k”.
             </p>
           )}
+
+          {result && !loading && result.jobs.length === 0 && (
+            <div className="rounded-xl border border-white/10 bg-ink-950/50 p-6 text-ink-200">
+              <p className="font-display text-xl text-mist">No matching roles</p>
+              <p className="mt-2 text-sm text-ink-300">
+                Try a broader location, clear filters, or another job title.
+                {result.mode === "demo"
+                  ? " (Demo fallback — Apify returned no listings.)"
+                  : ""}
+              </p>
+            </div>
+          )}
         </div>
 
         <aside className="space-y-6 lg:sticky lg:top-6 lg:self-start">

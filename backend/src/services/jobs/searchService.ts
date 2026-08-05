@@ -1,11 +1,7 @@
-import { aiRankingService } from "../ai/rankingService.js";
-import { apifyService } from "../apify/apifyService.js";
-import { locationMatches } from "../apify/demoData.js";
-import { cacheService } from "../cache/cacheService.js";
-import { databaseService } from "../database/databaseService.js";
-import { cleanAndDeduplicate } from "../jobs/normalize.js";
+import { config } from "../../config/index.js";
 import type {
   CompanyTrend,
+  NormalizedJob,
   RankedJob,
   ResumeProfile,
   SalaryInsight,
@@ -15,10 +11,15 @@ import type {
   SortOption,
 } from "../../types/index.js";
 import { createId, hashCriteria } from "../../utils/helpers.js";
-import { config } from "../../config/index.js";
+import { aiRankingService } from "../ai/rankingService.js";
+import { apifyService } from "../apify/apifyService.js";
+import { locationMatches } from "../apify/demoData.js";
+import { cacheService } from "../cache/cacheService.js";
+import { databaseService } from "../database/databaseService.js";
+import { cleanAndDeduplicate } from "../jobs/normalize.js";
 
 const progressStore = new Map<string, SearchProgress>();
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 
 export class JobSearchService {
   getProgress(searchId: string): SearchProgress | null {
@@ -71,16 +72,11 @@ export class JobSearchService {
       mode === "demo" ? "demo" : "apify"
     );
 
-    // Hard location filter for both live + demo results
-    if (criteria.location?.trim()) {
-      const before = normalized.length;
-      normalized = normalized.filter((job) =>
-        locationMatches(job.location, job.workMode, criteria.location)
-      );
-      console.log(
-        `[search] location filter "${criteria.location}": ${before} → ${normalized.length}`
-      );
-    }
+    const beforeFilters = normalized.length;
+    normalized = applyCriteriaFilters(normalized, criteria);
+    console.log(
+      `[search] filters applied: ${beforeFilters} → ${normalized.length} (location=${criteria.location}, workMode=${criteria.workMode})`
+    );
 
     await setProgress({
       stage: "ranking",
@@ -114,7 +110,6 @@ export class JobSearchService {
     };
 
     await setProgress(result.progress!);
-    // Cache demo results briefly so bad scrapes don't stick for an hour
     const ttl =
       mode === "demo"
         ? Math.min(120, config.cacheTtlSeconds)
@@ -137,7 +132,13 @@ export class JobSearchService {
       employmentType?: string;
       minScore?: number;
     }
-  ): { jobs: RankedJob[]; total: number; page: number; pageSize: number; hasMore: boolean } {
+  ): {
+    jobs: RankedJob[];
+    total: number;
+    page: number;
+    pageSize: number;
+    hasMore: boolean;
+  } {
     let filtered = [...jobs];
 
     if (opts.workMode && opts.workMode !== "any") {
@@ -182,7 +183,8 @@ export class JobSearchService {
     for (const job of withSalary) {
       const key = job.workMode;
       const mid =
-        ((job.salaryMin ?? job.salaryMax!) + (job.salaryMax ?? job.salaryMin!)) / 2;
+        ((job.salaryMin ?? job.salaryMax!) + (job.salaryMax ?? job.salaryMin!)) /
+        2;
       if (!byWorkMode[key]) byWorkMode[key] = { average: 0, count: 0 };
       byWorkMode[key].average += mid;
       byWorkMode[key].count += 1;
@@ -196,7 +198,8 @@ export class JobSearchService {
     const companyMap = new Map<string, { total: number; count: number }>();
     for (const job of withSalary) {
       const mid =
-        ((job.salaryMin ?? job.salaryMax!) + (job.salaryMax ?? job.salaryMin!)) / 2;
+        ((job.salaryMin ?? job.salaryMax!) + (job.salaryMax ?? job.salaryMin!)) /
+        2;
       const entry = companyMap.get(job.company) ?? { total: 0, count: 0 };
       entry.total += mid;
       entry.count += 1;
@@ -225,7 +228,12 @@ export class JobSearchService {
   buildCompanyTrends(jobs: RankedJob[]): CompanyTrend[] {
     const map = new Map<
       string,
-      { openings: number; scoreSum: number; remote: number; roles: Map<string, number> }
+      {
+        openings: number;
+        scoreSum: number;
+        remote: number;
+        roles: Map<string, number>;
+      }
     >();
 
     for (const job of jobs) {
@@ -271,17 +279,60 @@ export class JobSearchService {
   }
 }
 
+function applyCriteriaFilters(jobs: NormalizedJob[], criteria: SearchCriteria) {
+  return jobs.filter((job) => {
+    if (
+      criteria.location?.trim() &&
+      !locationMatches(job.location, job.workMode, criteria.location)
+    ) {
+      return false;
+    }
+
+    if (criteria.workMode && criteria.workMode !== "any") {
+      if (job.workMode === criteria.workMode) {
+        // ok
+      } else if (job.workMode !== "unknown") {
+        return false;
+      } else if (criteria.workMode === "remote") {
+        const blob = `${job.location} ${job.description}`.toLowerCase();
+        if (!/\bremote\b|work from home|\bwfh\b/.test(blob)) return false;
+      }
+    }
+
+    if (
+      criteria.employmentType &&
+      criteria.employmentType !== "any" &&
+      job.employmentType !== criteria.employmentType
+    ) {
+      return false;
+    }
+
+    if (criteria.salaryMin) {
+      const top = job.salaryMax ?? job.salaryMin;
+      if (top !== null && top < criteria.salaryMin) return false;
+    }
+    if (criteria.salaryMax) {
+      const bottom = job.salaryMin ?? job.salaryMax;
+      if (bottom !== null && bottom > criteria.salaryMax) return false;
+    }
+
+    return true;
+  });
+}
+
 function sortJobs(jobs: RankedJob[], sort: SortOption): RankedJob[] {
   const copy = [...jobs];
   switch (sort) {
     case "salary":
       return copy.sort(
-        (a, b) => (b.salaryMax ?? b.salaryMin ?? 0) - (a.salaryMax ?? a.salaryMin ?? 0)
+        (a, b) =>
+          (b.salaryMax ?? b.salaryMin ?? 0) - (a.salaryMax ?? a.salaryMin ?? 0)
       );
     case "date":
       return copy.sort(
         (a, b) =>
-          new Date(b.postedAt ?? 0).getTime() - new Date(a.postedAt ?? 0).getTime()
+          new Date(b.postedAt ?? 0).getTime() -
+          new Date(a.postedAt ?? 0).getTime()
       );
     case "company":
       return copy.sort((a, b) => a.company.localeCompare(b.company));

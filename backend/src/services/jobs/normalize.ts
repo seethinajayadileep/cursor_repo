@@ -10,30 +10,37 @@ import {
 
 export function normalizeJob(raw: RawJob, source = "apify"): NormalizedJob {
   const title = String(raw.title ?? "Untitled role").trim();
-  const company = String(raw.company ?? raw.companyName ?? "Unknown company").trim();
-  const location = String(raw.location ?? "Not specified").trim();
+  const company = String(
+    raw.company ?? raw.companyName ?? "Unknown company"
+  ).trim();
+  const location = String(
+    typeof raw.location === "object" && raw.location
+      ? (raw.location as { defaultLocalizedName?: string; abbreviatedLocalizedName?: string })
+          .defaultLocalizedName ||
+          (raw.location as { abbreviatedLocalizedName?: string })
+            .abbreviatedLocalizedName ||
+          "Not specified"
+      : raw.location ?? "Not specified"
+  ).trim();
+
   const descriptionRaw = String(
-    raw.description ?? raw.descriptionHtml ?? ""
+    raw.descriptionText ?? raw.description ?? raw.descriptionHtml ?? ""
   );
   const description = stripHtml(descriptionRaw).slice(0, 4000);
 
-  const salaryMin =
-    typeof raw.salaryMin === "number"
-      ? raw.salaryMin
-      : parseSalaryNumber(raw.salary);
-  const salaryMax =
-    typeof raw.salaryMax === "number"
-      ? raw.salaryMax
-      : parseSalaryMax(raw.salary) ?? salaryMin;
+  const salaryParsed = parseSalaryFields(raw);
+  const salaryMin = salaryParsed.min;
+  const salaryMax = salaryParsed.max;
+  const currency = salaryParsed.currency ?? raw.currency?.toString() ?? null;
 
   const salary =
     typeof raw.salary === "string" && raw.salary.trim()
       ? raw.salary.trim()
-      : formatSalary(salaryMin, salaryMax, raw.currency);
+      : salaryParsed.label || formatSalary(salaryMin, salaryMax, currency);
 
   const skills = Array.isArray(raw.skills)
     ? raw.skills.map(String).filter(Boolean)
-    : extractSkillsFromText(`${title} ${description}`);
+    : extractSkillsFromText(`${title}\n${description}`);
 
   const { applyUrl, linkedinUrl, isExternalApply } = resolveApplyLinks(raw);
 
@@ -54,13 +61,16 @@ export function normalizeJob(raw: RawJob, source = "apify"): NormalizedJob {
     salary,
     salaryMin: salaryMin ?? null,
     salaryMax: salaryMax ?? null,
-    currency: raw.currency?.toString() ?? null,
+    currency,
     employmentType: normalizeEmploymentType(
-      (raw.employmentType || raw.jobType)?.toString()
+      (
+        raw.employmentType ||
+        raw.jobType ||
+        raw.contractType ||
+        (Array.isArray(raw.benefits) ? raw.benefits.join(" ") : "")
+      )?.toString()
     ),
-    workMode: normalizeWorkMode(
-      (raw.workMode || raw.workplaceType || location)?.toString()
-    ),
+    workMode: resolveWorkMode(raw, location, description),
     description,
     postedAt,
     applyUrl,
@@ -72,6 +82,81 @@ export function normalizeJob(raw: RawJob, source = "apify"): NormalizedJob {
     experienceLevel: raw.experienceLevel?.toString() ?? null,
     source,
   };
+}
+
+function resolveWorkMode(
+  raw: RawJob,
+  location: string,
+  description: string
+): ReturnType<typeof normalizeWorkMode> {
+  const benefits = Array.isArray(raw.benefits)
+    ? raw.benefits.map(String).join(" ")
+    : String(raw.benefits ?? "");
+  const blob = [
+    raw.workMode,
+    raw.workplaceType,
+    raw.workType,
+    raw.workplace,
+    raw.remote,
+    benefits,
+    location,
+    description.slice(0, 500),
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  return normalizeWorkMode(blob);
+}
+
+function parseSalaryFields(raw: RawJob): {
+  min: number | null;
+  max: number | null;
+  currency: string | null;
+  label: string | null;
+} {
+  if (typeof raw.salaryMin === "number" || typeof raw.salaryMax === "number") {
+    return {
+      min: typeof raw.salaryMin === "number" ? raw.salaryMin : null,
+      max: typeof raw.salaryMax === "number" ? raw.salaryMax : null,
+      currency: raw.currency?.toString() ?? null,
+      label: null,
+    };
+  }
+
+  const info = raw.salaryInfo;
+  if (Array.isArray(info) && info.length > 0) {
+    const nums = info
+      .map((v) => parseSalaryNumber(v))
+      .filter((n): n is number => n !== null);
+    const joined = info.map(String).join(" – ");
+    const currency =
+      detectCurrency(joined) ?? raw.currency?.toString() ?? null;
+    return {
+      min: nums[0] ?? null,
+      max: nums[nums.length - 1] ?? nums[0] ?? null,
+      currency,
+      label: joined || null,
+    };
+  }
+
+  if (typeof raw.salary === "string") {
+    return {
+      min: parseSalaryNumber(raw.salary),
+      max: parseSalaryMax(raw.salary),
+      currency: detectCurrency(raw.salary),
+      label: raw.salary.trim() || null,
+    };
+  }
+
+  return { min: null, max: null, currency: null, label: null };
+}
+
+function detectCurrency(text: string): string | null {
+  if (/₹|inr/i.test(text)) return "INR";
+  if (/€|eur/i.test(text)) return "EUR";
+  if (/£|gbp/i.test(text)) return "GBP";
+  if (/\$|usd/i.test(text)) return "USD";
+  return null;
 }
 
 function isLinkedInUrl(url: string): boolean {
@@ -155,7 +240,9 @@ export function cleanAndDeduplicate(
 
 function parseSalaryMax(value: unknown): number | null {
   if (typeof value !== "string") return null;
-  const matches = [...value.replace(/,/g, "").matchAll(/(\d+(?:\.\d+)?)\s*([kK])?/g)];
+  const matches = [
+    ...value.replace(/,/g, "").matchAll(/(\d+(?:\.\d+)?)\s*([kK])?/g),
+  ];
   if (matches.length < 2) return parseSalaryNumber(value);
   const last = matches[matches.length - 1];
   let num = Number(last[1]);
@@ -181,9 +268,7 @@ const SKILL_LEXICON = [
   "TypeScript",
   "JavaScript",
   "Python",
-  "Java",
   "Kotlin",
-  "Go",
   "Rust",
   "React",
   "Next.js",
@@ -203,11 +288,11 @@ const SKILL_LEXICON = [
   "Terraform",
   "GraphQL",
   "REST",
-  "Swift",
   "SwiftUI",
+  "Swift",
   "PyTorch",
-  "JAX",
   "TensorFlow",
+  "JAX",
   "SQL",
   "Figma",
   "CI/CD",
@@ -218,11 +303,24 @@ const SKILL_LEXICON = [
   "Distributed Systems",
   "Machine Learning",
   "MLOps",
+  "Java",
+  "Go",
 ];
 
 export function extractSkillsFromText(text: string): string[] {
-  const lower = text.toLowerCase();
-  return SKILL_LEXICON.filter((skill) =>
-    lower.includes(skill.toLowerCase())
-  ).slice(0, 12);
+  const matches: string[] = [];
+  for (const skill of SKILL_LEXICON) {
+    if (skillMatches(text, skill)) matches.push(skill);
+  }
+  return matches.slice(0, 12);
+}
+
+function skillMatches(text: string, skill: string): boolean {
+  const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Word-boundary style match so "Go" != "ongoing", "Java" != "JavaScript"
+  const pattern =
+    skill.length <= 3
+      ? new RegExp(`(?:^|[^A-Za-z])${escaped}(?:[^A-Za-z]|$)`, "i")
+      : new RegExp(`(?:^|[^A-Za-z])${escaped}(?:[^A-Za-z]|$)`, "i");
+  return pattern.test(text);
 }

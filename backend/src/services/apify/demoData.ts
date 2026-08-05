@@ -432,21 +432,17 @@ const ROLE_KEYWORDS: Record<string, string[]> = {
   mobile: ["mobile", "ios", "android"],
 };
 
-const INDIA_CITIES = [
-  "hyderabad",
-  "hyd",
-  "bangalore",
-  "bengaluru",
-  "chennai",
-  "mumbai",
-  "pune",
-  "delhi",
-  "gurgaon",
-  "gurugram",
-  "noida",
-  "kolkata",
-  "india",
-];
+const INDIA_CITY_ALIASES: Record<string, string[]> = {
+  hyderabad: ["hyderabad", "hyd", "telangana"],
+  bangalore: ["bangalore", "bengaluru", "blr", "karnataka"],
+  chennai: ["chennai", "madras", "tamil nadu"],
+  mumbai: ["mumbai", "bombay", "maharashtra"],
+  pune: ["pune"],
+  delhi: ["delhi", "new delhi", "ncr"],
+  gurgaon: ["gurgaon", "gurugram"],
+  noida: ["noida"],
+  kolkata: ["kolkata", "calcutta"],
+};
 
 export function locationMatches(
   jobLocation: string,
@@ -457,20 +453,37 @@ export function locationMatches(
   const loc = query.toLowerCase().trim();
   const hay = jobLocation.toLowerCase();
 
-  if (hay.includes(loc) || loc.includes(hay.split(",")[0]?.trim() ?? "")) return true;
+  if (hay.includes(loc)) return true;
   if (loc === "remote" || loc.includes("remote")) return jobWorkMode === "remote";
 
   if (loc.includes("europe")) {
-    return /europe|london|stockholm|berlin|amsterdam|paris|€/i.test(`${jobLocation}`);
-  }
-
-  // Treat Indian city searches as India-local
-  if (INDIA_CITIES.some((c) => loc.includes(c) || loc === c)) {
-    return (
-      INDIA_CITIES.some((c) => hay.includes(c)) ||
-      /₹|india/i.test(`${jobLocation}`)
+    return /europe|london|stockholm|berlin|amsterdam|paris|dublin|munich|madrid/i.test(
+      jobLocation
     );
   }
+
+  // Exact-ish Indian city match (do NOT treat all India as a match for one city)
+  for (const [city, aliases] of Object.entries(INDIA_CITY_ALIASES)) {
+    const queryIsCity =
+      loc === city ||
+      aliases.some((a) => loc === a || loc.includes(a)) ||
+      loc.includes(city);
+    if (!queryIsCity) continue;
+    return aliases.some((a) => hay.includes(a)) || hay.includes(city);
+  }
+
+  if (loc === "india" || loc.includes("india")) {
+    return (
+      /india|₹/i.test(jobLocation) ||
+      Object.values(INDIA_CITY_ALIASES).some((aliases) =>
+        aliases.some((a) => hay.includes(a))
+      )
+    );
+  }
+
+  // Generic fallback: first token of job location
+  const jobCity = hay.split(",")[0]?.trim() ?? "";
+  if (jobCity && (loc.includes(jobCity) || jobCity.includes(loc))) return true;
 
   return false;
 }

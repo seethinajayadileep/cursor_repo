@@ -71,6 +71,51 @@ describe("apply link resolution", () => {
   });
 });
 
+describe("demo location filter", () => {
+  it("returns Hyderabad jobs only for Hyderabad search", async () => {
+    const { filterDemoJobs } = await import("../apify/demoData.js");
+    const jobs = filterDemoJobs({
+      role: "Software Engineer",
+      location: "Hyderabad",
+    });
+    assert.ok(jobs.length > 0);
+    for (const job of jobs) {
+      assert.match(job.location, /hyderabad/i);
+    }
+  });
+
+  it("does not return Bangalore jobs for Hyderabad search", async () => {
+    const { locationMatches } = await import("../apify/demoData.js");
+    assert.equal(
+      locationMatches("Bengaluru, Karnataka, India", "hybrid", "Hyderabad"),
+      false
+    );
+    assert.equal(
+      locationMatches("Hyderabad, Telangana, India", "hybrid", "Hyderabad"),
+      true
+    );
+  });
+});
+
+describe("skill extraction", () => {
+  it("does not match Go inside ongoing", async () => {
+    const { extractSkillsFromText } = await import("./normalize.js");
+    const skills = extractSkillsFromText(
+      "We are ongoing partners building trust with organizations using React and TypeScript"
+    );
+    assert.ok(skills.includes("React"));
+    assert.ok(skills.includes("TypeScript"));
+    assert.ok(!skills.includes("Go"));
+  });
+
+  it("does not match Java inside JavaScript", async () => {
+    const { extractSkillsFromText } = await import("./normalize.js");
+    const skills = extractSkillsFromText("Strong JavaScript and Node.js skills");
+    assert.ok(skills.includes("JavaScript"));
+    assert.ok(!skills.includes("Java"));
+  });
+});
+
 describe("ai heuristic ranking", () => {
   it("scores remote title matches higher", () => {
     const ai = new AiRankingService();
