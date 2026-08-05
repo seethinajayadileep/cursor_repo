@@ -17,14 +17,31 @@ export default function PortalDashboardPage() {
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [prefs, setPrefs] = useState<PortalMe["prefs"] | null>(null);
+  const [rolesText, setRolesText] = useState("Software Engineer");
+  const [manualSkillsText, setManualSkillsText] = useState("");
   const [resumeText, setResumeText] = useState("");
   const [tgLink, setTgLink] = useState<string | null>(null);
+  const [tgToken, setTgToken] = useState<string | null>(null);
+  const [chatIdInput, setChatIdInput] = useState("");
 
   async function load() {
     try {
       const me = await portalApi.me();
       setData(me);
-      setPrefs(me.prefs);
+      const normalizedPrefs: PortalMe["prefs"] = {
+        ...me.prefs,
+        roles:
+          me.prefs.roles?.length > 0
+            ? me.prefs.roles
+            : me.prefs.role
+              ? [me.prefs.role]
+              : ["Software Engineer"],
+        skillsMode: me.prefs.skillsMode === "manual" ? "manual" : "auto",
+        manualSkills: me.prefs.manualSkills ?? [],
+      };
+      setPrefs(normalizedPrefs);
+      setRolesText(normalizedPrefs.roles.join(", "));
+      setManualSkillsText(normalizedPrefs.manualSkills.join(", "));
       setError(null);
     } catch (err) {
       setPortalToken(null);
@@ -46,10 +63,34 @@ export default function PortalDashboardPage() {
   async function savePrefs(e: FormEvent) {
     e.preventDefault();
     if (!prefs) return;
+    const roles = rolesText
+      .split(/[,|\n]/)
+      .map((r) => r.trim())
+      .filter(Boolean)
+      .slice(0, 5);
+    if (roles.length === 0) {
+      setStatus("Add at least one role");
+      return;
+    }
+    const manualSkills = manualSkillsText
+      .split(/[,|\n]/)
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .slice(0, 40);
+
     setStatus("Saving preferences…");
     try {
-      const res = await portalApi.savePrefs(prefs);
+      const payload: PortalMe["prefs"] = {
+        ...prefs,
+        roles,
+        role: roles[0],
+        skillsMode: prefs.skillsMode,
+        manualSkills,
+      };
+      const res = await portalApi.savePrefs(payload);
       setPrefs(res.prefs);
+      setRolesText((res.prefs.roles ?? [res.prefs.role]).join(", "));
+      setManualSkillsText((res.prefs.manualSkills ?? []).join(", "));
       setStatus("Preferences saved");
       await load();
     } catch (err) {
@@ -78,9 +119,44 @@ export default function PortalDashboardPage() {
     try {
       const res = await portalApi.linkTelegram();
       setTgLink(res.deepLink);
+      setTgToken(res.token);
       setStatus(res.instructions);
+      if (res.deepLink) {
+        window.open(res.deepLink, "_blank", "noopener,noreferrer");
+      }
+      // Poll for successful link after user presses Start
+      for (let i = 0; i < 20; i++) {
+        await new Promise((r) => setTimeout(r, 2000));
+        const me = await portalApi.me();
+        if (me.telegram.linked) {
+          setData(me);
+          setStatus("Telegram connected ✅");
+          return;
+        }
+      }
+      setStatus(
+        "Still waiting for Start in Telegram. You can also paste your Chat ID below."
+      );
     } catch (err) {
       setStatus(err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  async function connectByChatId(e: FormEvent) {
+    e.preventDefault();
+    const chatId = chatIdInput.trim();
+    if (!chatId) {
+      setStatus("Enter your Telegram chat ID");
+      return;
+    }
+    setStatus("Linking Chat ID…");
+    try {
+      await portalApi.connectChatId(chatId);
+      setStatus("Telegram connected via Chat ID ✅");
+      setChatIdInput("");
+      await load();
+    } catch (err) {
+      setStatus(err instanceof Error ? err.message : "Chat ID link failed");
     }
   }
 
@@ -90,7 +166,7 @@ export default function PortalDashboardPage() {
       const res = await portalApi.runDigest();
       setStatus(
         res.ok
-          ? `Digest sent (${res.latest?.jobsSent ?? 0} jobs)`
+          ? `Digest sent (${res.latest?.jobsSent ?? 0} fresh jobs)`
           : res.latest?.message || "Digest finished with issues"
       );
       await load();
@@ -151,7 +227,7 @@ export default function PortalDashboardPage() {
         <section className="space-y-3 border-t border-white/10 pt-6">
           <h2 className="font-display text-2xl text-mist">Resume & skills</h2>
           <p className="text-sm text-ink-300">
-            Upload PDF/TXT. Skills drive personalized ranking for daily digests.
+            Choose auto (from resume) or manual skills for ranking digests.
           </p>
           {data.resume ? (
             <div className="text-sm text-ink-200">
@@ -160,7 +236,7 @@ export default function PortalDashboardPage() {
                 {new Date(data.resume.updatedAt).toLocaleString()}
               </p>
               <p className="mt-2 text-xs text-ink-400">
-                Skills: {data.resume.skills.join(", ") || "none detected"}
+                Resume skills: {data.resume.skills.join(", ") || "none detected"}
               </p>
             </div>
           ) : (
@@ -193,10 +269,11 @@ export default function PortalDashboardPage() {
           <h2 className="font-display text-2xl text-mist">Daily search prefs</h2>
           <form onSubmit={savePrefs} className="grid gap-2 sm:grid-cols-2">
             <label className="text-xs text-ink-400 sm:col-span-2">
-              Role
+              Roles (comma-separated, up to 5)
               <input
-                value={prefs.role}
-                onChange={(e) => setPrefs({ ...prefs, role: e.target.value })}
+                value={rolesText}
+                onChange={(e) => setRolesText(e.target.value)}
+                placeholder="Software Engineer, Backend Developer"
                 className="mt-1 w-full rounded-lg border border-white/10 bg-ink-950/50 px-3 py-2 text-sm text-mist"
               />
             </label>
@@ -208,6 +285,33 @@ export default function PortalDashboardPage() {
                 className="mt-1 w-full rounded-lg border border-white/10 bg-ink-950/50 px-3 py-2 text-sm text-mist"
               />
             </label>
+            <label className="text-xs text-ink-400 sm:col-span-2">
+              Skills matching
+              <select
+                value={prefs.skillsMode}
+                onChange={(e) =>
+                  setPrefs({
+                    ...prefs,
+                    skillsMode: e.target.value as "auto" | "manual",
+                  })
+                }
+                className="mt-1 w-full rounded-lg border border-white/10 bg-ink-950/50 px-3 py-2 text-sm text-mist"
+              >
+                <option value="auto">Auto from resume</option>
+                <option value="manual">Manual skills list</option>
+              </select>
+            </label>
+            {prefs.skillsMode === "manual" && (
+              <label className="text-xs text-ink-400 sm:col-span-2">
+                Manual skills (comma-separated)
+                <input
+                  value={manualSkillsText}
+                  onChange={(e) => setManualSkillsText(e.target.value)}
+                  placeholder="React, Node.js, PostgreSQL, TypeScript"
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-ink-950/50 px-3 py-2 text-sm text-mist"
+                />
+              </label>
+            )}
             <label className="text-xs text-ink-400">
               Work mode
               <select
@@ -222,7 +326,7 @@ export default function PortalDashboardPage() {
               </select>
             </label>
             <label className="text-xs text-ink-400">
-              Top N jobs
+              Top N fresh jobs
               <input
                 type="number"
                 min={1}
@@ -242,7 +346,7 @@ export default function PortalDashboardPage() {
                   setPrefs({ ...prefs, alertsEnabled: e.target.checked })
                 }
               />
-              Enable 5 AM Telegram digests
+              Enable 5 AM Telegram digests (skips already-sent jobs)
             </label>
             <button
               type="submit"
@@ -257,13 +361,16 @@ export default function PortalDashboardPage() {
           <h2 className="font-display text-2xl text-mist">Telegram</h2>
           <p className="text-sm text-ink-300">
             {data.telegram.linked
-              ? `Linked${data.telegram.username ? ` (@${data.telegram.username})` : ""}`
+              ? `Linked${data.telegram.username ? ` (@${data.telegram.username})` : ""}${data.telegram.chatId ? ` · chat ${data.telegram.chatId}` : ""}`
               : "Not linked yet"}
           </p>
           {!data.telegram.botConfigured && (
             <p className="text-xs text-amber-200">
-              Set TELEGRAM_BOT_TOKEN + TELEGRAM_BOT_USERNAME on Railway to enable live sends.
+              Set TELEGRAM_BOT_TOKEN on Railway (username is auto-detected).
             </p>
+          )}
+          {data.telegram.botUsername && (
+            <p className="text-xs text-ink-400">Bot: @{data.telegram.botUsername}</p>
           )}
           <div className="flex flex-wrap gap-2">
             <button
@@ -304,6 +411,31 @@ export default function PortalDashboardPage() {
               Open Telegram bot to confirm →
             </a>
           )}
+          {tgToken && !data.telegram.linked && (
+            <p className="text-xs text-ink-400">
+              Or message the bot:{" "}
+              <code className="text-mist">/start {tgToken}</code>
+            </p>
+          )}
+          <form onSubmit={connectByChatId} className="space-y-2 pt-2">
+            <p className="text-xs text-ink-400">
+              Fallback: get your Chat ID from @userinfobot, then paste it here.
+            </p>
+            <div className="flex gap-2">
+              <input
+                value={chatIdInput}
+                onChange={(e) => setChatIdInput(e.target.value)}
+                placeholder="Telegram chat ID"
+                className="min-w-0 flex-1 rounded-lg border border-white/10 bg-ink-950/50 px-3 py-2 text-sm text-mist"
+              />
+              <button
+                type="submit"
+                className="rounded-lg border border-white/15 px-3 py-2 text-sm text-ink-200"
+              >
+                Link ID
+              </button>
+            </div>
+          </form>
         </section>
 
         <section className="space-y-3 border-t border-white/10 pt-6">

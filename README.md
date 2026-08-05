@@ -83,8 +83,10 @@ Private portal is at **`/portal`** (login/register) and **`/portal/dashboard`**.
 Features:
 - User registration / login (JWT)
 - Resume PDF upload + skill extraction
-- Daily search preferences
+- Multiple daily search roles + location filters
+- Skills matching: **auto from resume** or **manual skills list**
 - Telegram connect + morning digest at **5:00 AM** (`Asia/Kolkata` by default)
+- Digests only send **fresh jobs** (already-sent listings are skipped)
 - Manual “Send test digest now”
 
 ### Extra Railway env for Portal
@@ -92,17 +94,17 @@ Features:
 ```
 JWT_SECRET=long-random-string
 TELEGRAM_BOT_TOKEN=from-BotFather
-TELEGRAM_BOT_USERNAME=YourBotName
+TELEGRAM_BOT_USERNAME=YourBotName   # optional — auto-detected via getMe
 DIGEST_CRON=0 5 * * *
 DIGEST_TIMEZONE=Asia/Kolkata
 PUBLIC_APP_URL=https://your-frontend.vercel.app
 ```
 
 Telegram setup:
-1. Create bot with BotFather → copy token + username  
-2. Set webhook (optional but recommended):  
-   `https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<your-api>/api/portal/telegram/webhook`  
-3. In Portal → Connect Telegram → open link → Start  
+1. Create bot with BotFather → copy token into `TELEGRAM_BOT_TOKEN`
+2. Redeploy Railway — the API long-polls Telegram (no webhook required)
+3. In Portal → **Connect Telegram** → press Start in the bot
+4. Fallback: paste your Chat ID from `@userinfobot` into the portal “Link ID” field
 
 ## Docker
 

@@ -6,9 +6,14 @@ export interface PortalUser {
   createdAt: string;
 }
 
+export type SkillsMode = "auto" | "manual";
+
 export interface PortalPrefs {
   userId: string;
+  /** Primary role (kept for compatibility) */
   role: string;
+  /** Multiple roles to search daily */
+  roles: string[];
   location: string;
   experienceLevel: string;
   employmentType: string;
@@ -16,6 +21,9 @@ export interface PortalPrefs {
   companySize: string;
   salaryMin?: number;
   salaryMax?: number;
+  /** auto = use resume skills; manual = use manualSkills */
+  skillsMode: SkillsMode;
+  manualSkills: string[];
   alertsEnabled: boolean;
   topN: number;
   updatedAt: string;
@@ -36,5 +44,10 @@ export interface AlertRun {
   status: "success" | "skipped" | "error";
   jobsSent: number;
   message?: string;
-  preview?: Array<{ title: string; company: string; score: number; applyUrl?: string | null }>;
+  preview?: Array<{
+    title: string;
+    company: string;
+    score: number;
+    applyUrl?: string | null;
+  }>;
 }

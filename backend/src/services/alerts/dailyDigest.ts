@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { config } from "../../config/index.js";
-import type { SearchCriteria } from "../../types/index.js";
+import type { RankedJob, SearchCriteria } from "../../types/index.js";
 import { createId } from "../../utils/helpers.js";
 import { databaseService } from "../database/databaseService.js";
 import { jobSearchService } from "../jobs/searchService.js";
@@ -93,34 +93,76 @@ export class DailyDigestService {
       return false;
     }
 
-    const criteria: SearchCriteria = {
-      role: prefs.role,
-      location: prefs.location,
-      experienceLevel: prefs.experienceLevel as SearchCriteria["experienceLevel"],
-      employmentType: prefs.employmentType as SearchCriteria["employmentType"],
-      workMode: prefs.workMode as SearchCriteria["workMode"],
-      companySize: prefs.companySize as SearchCriteria["companySize"],
-      salaryMin: prefs.salaryMin,
-      salaryMax: prefs.salaryMax,
-      skills: resume?.skills,
-      userId,
-    };
+    const roles =
+      prefs.roles?.length > 0
+        ? prefs.roles
+        : prefs.role
+          ? [prefs.role]
+          : ["Software Engineer"];
 
-    const result = await jobSearchService.search(criteria, {
-      userId,
-      forceRefresh: true,
-      resume: resume
-        ? { text: resume.text, skills: resume.skills }
-        : null,
-    });
+    const skills =
+      prefs.skillsMode === "manual"
+        ? prefs.manualSkills
+        : resume?.skills ?? [];
+
+    const resumeForRank =
+      prefs.skillsMode === "manual"
+        ? {
+            text: skills.length
+              ? `Target skills: ${skills.join(", ")}`
+              : resume?.text ?? "",
+            skills,
+          }
+        : resume
+          ? { text: resume.text, skills: resume.skills }
+          : skills.length
+            ? { text: `Skills: ${skills.join(", ")}`, skills }
+            : null;
+
+    const seenIds = new Set<string>();
+    const merged: RankedJob[] = [];
+    let lastMode = "demo";
+
+    for (const role of roles.slice(0, 5)) {
+      const criteria: SearchCriteria = {
+        role,
+        location: prefs.location,
+        experienceLevel: prefs.experienceLevel as SearchCriteria["experienceLevel"],
+        employmentType: prefs.employmentType as SearchCriteria["employmentType"],
+        workMode: prefs.workMode as SearchCriteria["workMode"],
+        companySize: prefs.companySize as SearchCriteria["companySize"],
+        salaryMin: prefs.salaryMin,
+        salaryMax: prefs.salaryMax,
+        skills: skills.length ? skills : undefined,
+        userId,
+      };
+
+      const result = await jobSearchService.search(criteria, {
+        userId,
+        forceRefresh: true,
+        resume: resumeForRank,
+      });
+      lastMode = result.mode;
+      for (const job of result.jobs) {
+        if (seenIds.has(job.id)) continue;
+        seenIds.add(job.id);
+        merged.push(job);
+      }
+    }
+
+    merged.sort((a, b) => (b.score ?? 0) - (a.score ?? 0));
+
+    const alreadySent = await databaseService.getSentJobIds(userId);
+    const fresh = merged.filter((j) => !alreadySent.has(j.id));
 
     const topN = Math.max(1, Math.min(10, prefs.topN || config.digestTopN));
-    const top = result.jobs.slice(0, topN);
+    const top = fresh.slice(0, topN);
+    const rolesLabel = roles.join(" / ");
 
     if (top.length === 0) {
       await telegramService.sendMessage(
         telegram.chatId,
-        `Scout morning digest\nNo matching roles today for ${prefs.role} · ${prefs.location}.`
+        `Scout morning digest\nNo fresh matches today for ${rolesLabel} · ${prefs.location}.\n(Already-sent jobs are skipped.)`
       );
       await databaseService.saveAlertRun({
         id: createId("ar"),
@@ -128,14 +170,17 @@ export class DailyDigestService {
         ranAt: new Date().toISOString(),
         status: "success",
         jobsSent: 0,
-        message: "No jobs matched",
+        message: alreadySent.size
+          ? "No fresh jobs (duplicates skipped)"
+          : "No jobs matched",
       });
       return true;
     }
 
     const lines = [
-      `☀️ Scout morning digest (${prefs.role} · ${prefs.location})`,
-      `Top ${top.length} matches · mode ${result.mode}`,
+      `☀️ Scout morning digest (${rolesLabel} · ${prefs.location})`,
+      `Top ${top.length} fresh matches · mode ${lastMode}`,
+      `Skills: ${prefs.skillsMode === "manual" ? "manual" : "from resume"}`,
       "",
       ...top.map(
         (j, i) =>
@@ -150,13 +195,20 @@ export class DailyDigestService {
       lines.join("\n")
     );
 
+    if (ok) {
+      await databaseService.markJobsSent(
+        userId,
+        top.map((j) => ({ id: j.id, title: j.title, company: j.company }))
+      );
+    }
+
     await databaseService.saveAlertRun({
       id: createId("ar"),
       userId,
       ranAt: new Date().toISOString(),
       status: ok ? "success" : "error",
-      jobsSent: top.length,
-      message: ok ? "Digest sent" : "Telegram send failed",
+      jobsSent: ok ? top.length : 0,
+      message: ok ? "Digest sent (fresh only)" : "Telegram send failed",
       preview: top.map((j) => ({
         title: j.title,
         company: j.company,

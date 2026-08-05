@@ -1,5 +1,3 @@
-import type { SearchCriteria } from "@/types";
-
 const API_URL = (() => {
   const raw = (process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000")
     .trim()
@@ -52,6 +50,7 @@ export interface PortalMe {
   user: { id: string; email: string; name: string; createdAt: string };
   prefs: {
     role: string;
+    roles: string[];
     location: string;
     experienceLevel: string;
     employmentType: string;
@@ -59,6 +58,8 @@ export interface PortalMe {
     companySize: string;
     salaryMin?: number;
     salaryMax?: number;
+    skillsMode: "auto" | "manual";
+    manualSkills: string[];
     alertsEnabled: boolean;
     topN: number;
   };
@@ -120,9 +121,16 @@ export const portalApi = {
     portalRequest<{
       token: string;
       deepLink: string | null;
+      botUsername: string | null;
       instructions: string;
       botConfigured: boolean;
     }>("/telegram/link", { method: "POST" }),
+
+  connectChatId: (chatId: string, username?: string) =>
+    portalRequest<{ ok: boolean; chatId: string }>("/telegram/chat-id", {
+      method: "POST",
+      body: JSON.stringify({ chatId, username }),
+    }),
 
   unlinkTelegram: () =>
     portalRequest<{ ok: boolean }>("/telegram/unlink", { method: "POST" }),
@@ -136,5 +144,3 @@ export const portalApi = {
   history: () =>
     portalRequest<{ runs: PortalMe["recentRuns"] }>("/digest/history"),
 };
-
-export type { SearchCriteria };

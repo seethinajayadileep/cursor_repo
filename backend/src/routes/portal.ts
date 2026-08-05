@@ -30,7 +30,8 @@ const loginSchema = z.object({
 });
 
 const prefsSchema = z.object({
-  role: z.string().min(1).max(120),
+  role: z.string().min(1).max(120).optional(),
+  roles: z.array(z.string().min(1).max(120)).min(1).max(5).optional(),
   location: z.string().min(1).max(120),
   experienceLevel: z.string().default("any"),
   employmentType: z.string().default("any"),
@@ -38,8 +39,19 @@ const prefsSchema = z.object({
   companySize: z.string().default("any"),
   salaryMin: z.number().nonnegative().optional(),
   salaryMax: z.number().nonnegative().optional(),
+  skillsMode: z.enum(["auto", "manual"]).default("auto"),
+  manualSkills: z.array(z.string().min(1).max(80)).max(40).default([]),
   alertsEnabled: z.boolean().default(true),
   topN: z.number().int().min(1).max(10).default(5),
+});
+
+const chatIdSchema = z.object({
+  chatId: z
+    .string()
+    .min(1)
+    .max(40)
+    .regex(/^-?\d+$/, "Chat ID must be numeric"),
+  username: z.string().max(80).optional(),
 });
 
 portalRouter.post("/auth/register", async (req, res, next) => {
@@ -107,7 +119,8 @@ portalRouter.get("/me", requireAuth, async (req: AuthedRequest, res, next) => {
         username: telegram?.username || null,
         linkedAt: telegram?.linkedAt || null,
         botConfigured: hasTelegram,
-        botUsername: config.telegramBotUsername || null,
+        botUsername:
+          telegramService.botUsername() || config.telegramBotUsername || null,
       },
       recentRuns: runs,
       schedule: {
@@ -123,9 +136,27 @@ portalRouter.get("/me", requireAuth, async (req: AuthedRequest, res, next) => {
 portalRouter.put("/prefs", requireAuth, async (req: AuthedRequest, res, next) => {
   try {
     const body = prefsSchema.parse(req.body);
+    const roles =
+      body.roles && body.roles.length > 0
+        ? body.roles.map((r) => r.trim()).filter(Boolean)
+        : body.role
+          ? [body.role.trim()]
+          : ["Software Engineer"];
     const prefs: PortalPrefs = {
       userId: req.user!.sub,
-      ...body,
+      role: roles[0],
+      roles,
+      location: body.location,
+      experienceLevel: body.experienceLevel,
+      employmentType: body.employmentType,
+      workMode: body.workMode,
+      companySize: body.companySize,
+      salaryMin: body.salaryMin,
+      salaryMax: body.salaryMax,
+      skillsMode: body.skillsMode,
+      manualSkills: body.manualSkills,
+      alertsEnabled: body.alertsEnabled,
+      topN: body.topN,
       updatedAt: new Date().toISOString(),
     };
     const saved = await databaseService.savePrefs(prefs);
@@ -167,15 +198,39 @@ portalRouter.post(
 
 portalRouter.post("/telegram/link", requireAuth, async (req: AuthedRequest, res, next) => {
   try {
-    const { token, deepLink } = await telegramService.createLinkToken(req.user!.sub);
+    const { token, deepLink, botUsername } = await telegramService.createLinkToken(
+      req.user!.sub
+    );
     res.json({
       token,
       deepLink,
+      botUsername,
       instructions: deepLink
-        ? "Open the Telegram link and press Start to connect."
-        : "Set TELEGRAM_BOT_USERNAME, or send /start <token> to your bot manually.",
+        ? "Open the Telegram link and press Start. The bot will link automatically."
+        : `Bot username unknown. Message your bot with: /start ${token}`,
       botConfigured: hasTelegram,
+      polling: hasTelegram,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+portalRouter.post("/telegram/chat-id", requireAuth, async (req: AuthedRequest, res, next) => {
+  try {
+    const body = chatIdSchema.parse(req.body);
+    await databaseService.linkTelegramByChatId(
+      req.user!.sub,
+      body.chatId,
+      body.username ?? null
+    );
+    if (hasTelegram) {
+      await telegramService.sendMessage(
+        body.chatId,
+        "✅ Scout Portal connected via Chat ID. You’ll receive fresh job digests around 5:00 AM."
+      );
+    }
+    res.json({ ok: true, chatId: body.chatId });
   } catch (error) {
     next(error);
   }
@@ -190,7 +245,7 @@ portalRouter.post("/telegram/unlink", requireAuth, async (req: AuthedRequest, re
   }
 });
 
-// Public webhook for Telegram (set in BotFather / setWebhook)
+// Public webhook for Telegram (optional — polling also works)
 portalRouter.post("/telegram/webhook", async (req, res, next) => {
   try {
     await telegramService.handleUpdate(req.body);
