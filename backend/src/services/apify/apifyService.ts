@@ -35,6 +35,8 @@ export class ApifyService {
       });
 
       const input = this.buildActorInput(criteria);
+      console.log("[apify] actor input:", JSON.stringify(input));
+
       const run = await this.client.actor(config.apifyActorId).call(input, {
         waitSecs: 180,
       });
@@ -46,11 +48,14 @@ export class ApifyService {
         runId: run.id,
       });
 
-      const { items } = await this.client.dataset(run.defaultDatasetId).listItems();
+      const { items } = await this.client
+        .dataset(run.defaultDatasetId)
+        .listItems({ limit: 100 });
       const jobs = (items as RawJob[]) ?? [];
+      console.log(`[apify] run=${run.id} status=${run.status} items=${jobs.length}`);
 
       if (jobs.length === 0) {
-        // Fall back to demo if actor returned nothing useful
+        console.warn("[apify] Actor returned 0 jobs — falling back to demo");
         const demo = await this.scrapeDemo(criteria, onProgress);
         return { ...demo, mode: "demo" };
       }
@@ -63,15 +68,30 @@ export class ApifyService {
   }
 
   private buildActorInput(criteria: SearchCriteria) {
-    const queries = [criteria.role];
-    if (criteria.location) queries.push(criteria.location);
+    const role = (criteria.role || "Software Engineer").trim();
+    const location = (criteria.location || "").trim();
+    const linkedInUrl = buildLinkedInJobsUrl(role, location, criteria.workMode);
 
+    // Support common LinkedIn job scraper actor input shapes
     return {
-      queries: [`${criteria.role} ${criteria.location}`.trim()],
-      locations: criteria.location ? [criteria.location] : [],
-      maxItems: 40,
+      // URL-based actors (curious_coder/linkedin-jobs-scraper and similar)
+      urls: [linkedInUrl],
+      startUrls: [{ url: linkedInUrl }],
+      // Keyword-based actors
+      queries: [`${role} ${location}`.trim()],
+      keyword: role,
+      keywords: role,
+      location,
+      locations: location ? [location] : [],
       count: 40,
-      experienceLevel: criteria.experienceLevel === "any" ? undefined : criteria.experienceLevel,
+      maxItems: 40,
+      rows: 40,
+      scrapeCompany: false,
+      proxy: {
+        useApifyProxy: true,
+      },
+      experienceLevel:
+        criteria.experienceLevel === "any" ? undefined : criteria.experienceLevel,
       contractType:
         criteria.employmentType && criteria.employmentType !== "any"
           ? criteria.employmentType
@@ -93,19 +113,19 @@ export class ApifyService {
 
     await onProgress?.({
       stage: "scraping",
-      message: "Running demo scraper (no Apify token configured)…",
+      message: "Using demo dataset (Apify returned no usable jobs)…",
       percent: 15,
       runId,
     });
-    await sleep(400);
+    await sleep(300);
 
     await onProgress?.({
       stage: "scraping",
-      message: "Collecting listings from demo sources…",
+      message: "Filtering demo listings by role and location…",
       percent: 40,
       runId,
     });
-    await sleep(500);
+    await sleep(300);
 
     const filtered = filterDemoJobs({
       role: criteria.role || criteria.naturalLanguage || "software",
@@ -118,7 +138,7 @@ export class ApifyService {
       companySize: criteria.companySize,
     });
 
-    // If role is too strict, relax role only — never drop the location filter
+    // Relax role only — never drop the location filter
     const jobs: RawJob[] =
       filtered.length > 0
         ? filtered
@@ -137,7 +157,7 @@ export class ApifyService {
       stage: "scraping",
       message:
         jobs.length > 0
-          ? `Fetched ${jobs.length} job listings`
+          ? `Fetched ${jobs.length} demo job listings`
           : `No demo listings matched ${criteria.location || "that search"}`,
       percent: 60,
       runId,
@@ -145,6 +165,19 @@ export class ApifyService {
 
     return { jobs, mode: "demo", runId };
   }
+}
+
+function buildLinkedInJobsUrl(
+  role: string,
+  location: string,
+  workMode?: string
+): string {
+  const params = new URLSearchParams();
+  params.set("keywords", role);
+  if (location) params.set("location", location);
+  if (workMode === "remote") params.set("f_WT", "2");
+  params.set("f_TPR", "r604800"); // past week
+  return `https://www.linkedin.com/jobs/search/?${params.toString()}`;
 }
 
 export const apifyService = new ApifyService();

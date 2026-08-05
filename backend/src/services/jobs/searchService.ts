@@ -1,5 +1,6 @@
 import { aiRankingService } from "../ai/rankingService.js";
 import { apifyService } from "../apify/apifyService.js";
+import { locationMatches } from "../apify/demoData.js";
 import { cacheService } from "../cache/cacheService.js";
 import { databaseService } from "../database/databaseService.js";
 import { cleanAndDeduplicate } from "../jobs/normalize.js";
@@ -14,8 +15,10 @@ import type {
   SortOption,
 } from "../../types/index.js";
 import { createId, hashCriteria } from "../../utils/helpers.js";
+import { config } from "../../config/index.js";
 
 const progressStore = new Map<string, SearchProgress>();
+const CACHE_VERSION = "v2";
 
 export class JobSearchService {
   getProgress(searchId: string): SearchProgress | null {
@@ -31,7 +34,7 @@ export class JobSearchService {
     } = {}
   ): Promise<SearchResult> {
     const userId = options.userId ?? criteria.userId ?? "anonymous";
-    const cacheKey = `search:${hashCriteria(criteria)}:${options.resume?.skills?.join(",") ?? ""}`;
+    const cacheKey = `search:${CACHE_VERSION}:${hashCriteria(criteria)}:${options.resume?.skills?.join(",") ?? ""}`;
 
     if (!options.forceRefresh) {
       const cached = await cacheService.get<SearchResult>(cacheKey);
@@ -63,7 +66,21 @@ export class JobSearchService {
       runId,
     });
 
-    const normalized = cleanAndDeduplicate(rawJobs);
+    let normalized = cleanAndDeduplicate(
+      rawJobs,
+      mode === "demo" ? "demo" : "apify"
+    );
+
+    // Hard location filter for both live + demo results
+    if (criteria.location?.trim()) {
+      const before = normalized.length;
+      normalized = normalized.filter((job) =>
+        locationMatches(job.location, job.workMode, criteria.location)
+      );
+      console.log(
+        `[search] location filter "${criteria.location}": ${before} → ${normalized.length}`
+      );
+    }
 
     await setProgress({
       stage: "ranking",
@@ -97,10 +114,14 @@ export class JobSearchService {
     };
 
     await setProgress(result.progress!);
-    await cacheService.set(cacheKey, result);
+    // Cache demo results briefly so bad scrapes don't stick for an hour
+    const ttl =
+      mode === "demo"
+        ? Math.min(120, config.cacheTtlSeconds)
+        : config.cacheTtlSeconds;
+    await cacheService.set(cacheKey, result, ttl);
     await databaseService.saveSearchResult(result, userId);
 
-    // Clean progress after a while
     setTimeout(() => progressStore.delete(searchId), 10 * 60 * 1000);
 
     return result;

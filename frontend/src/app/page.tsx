@@ -83,6 +83,7 @@ export default function HomePage() {
         page: 1,
         pageSize: 8,
         sort,
+        forceRefresh: true,
       });
       setProgress({ percent: 100, message: "Ranked results ready" });
       setResult(res);

@@ -448,7 +448,11 @@ const INDIA_CITIES = [
   "india",
 ];
 
-function locationMatches(jobLocation: string, jobWorkMode: string, query: string): boolean {
+export function locationMatches(
+  jobLocation: string,
+  jobWorkMode: string,
+  query: string
+): boolean {
   if (!query || query === "anywhere") return true;
   const loc = query.toLowerCase().trim();
   const hay = jobLocation.toLowerCase();
@@ -460,12 +464,11 @@ function locationMatches(jobLocation: string, jobWorkMode: string, query: string
     return /europe|london|stockholm|berlin|amsterdam|paris|€/i.test(`${jobLocation}`);
   }
 
-  // Treat Indian city searches as India-local (and allow remote-India style listings)
+  // Treat Indian city searches as India-local
   if (INDIA_CITIES.some((c) => loc.includes(c) || loc === c)) {
     return (
       INDIA_CITIES.some((c) => hay.includes(c)) ||
-      /₹|india/i.test(`${jobLocation}`) ||
-      (jobWorkMode === "remote" && /india|bangalore|hyderabad|chennai/i.test(hay))
+      /₹|india/i.test(`${jobLocation}`)
     );
   }
 

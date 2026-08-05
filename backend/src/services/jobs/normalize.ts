@@ -73,12 +73,15 @@ export function normalizeJob(raw: RawJob, source = "apify"): NormalizedJob {
   };
 }
 
-export function cleanAndDeduplicate(rawJobs: RawJob[]): NormalizedJob[] {
+export function cleanAndDeduplicate(
+  rawJobs: RawJob[],
+  source = "apify"
+): NormalizedJob[] {
   const seen = new Set<string>();
   const normalized: NormalizedJob[] = [];
 
   for (const raw of rawJobs) {
-    const job = normalizeJob(raw);
+    const job = normalizeJob(raw, source);
     if (!job.title || job.title === "Untitled role") continue;
     if (!job.company || job.company === "Unknown company") continue;
 
