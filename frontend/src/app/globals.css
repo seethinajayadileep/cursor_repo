@@ -1,0 +1,51 @@
+@import url("https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Outfit:wght@300;400;500;600;700&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "Outfit", system-ui, sans-serif;
+  color-scheme: dark;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply min-h-screen bg-ink-950 font-sans text-mist antialiased;
+  background-image:
+    radial-gradient(ellipse 90% 55% at 80% -10%, rgba(216, 255, 62, 0.12), transparent 50%),
+    radial-gradient(ellipse 60% 40% at 0% 100%, rgba(49, 73, 61, 0.55), transparent 55%),
+    linear-gradient(180deg, #0a1410 0%, #122019 45%, #0a1410 100%);
+  background-attachment: fixed;
+}
+
+html:not(.dark) body {
+  color-scheme: light;
+  @apply bg-mist text-ink-900;
+  background-image:
+    radial-gradient(ellipse 80% 50% at 85% 0%, rgba(216, 255, 62, 0.28), transparent 50%),
+    radial-gradient(ellipse 50% 40% at 0% 90%, rgba(79, 115, 94, 0.2), transparent 50%),
+    linear-gradient(180deg, #eef5f0 0%, #dce8e1 100%);
+}
+
+html:not(.dark) .text-mist {
+  @apply text-ink-900;
+}
+
+html:not(.dark) .text-ink-200,
+html:not(.dark) .text-ink-300,
+html:not(.dark) .text-ink-400 {
+  @apply text-ink-600;
+}
+
+html:not(.dark) header {
+  @apply border-ink-200/70 bg-white/70;
+}
+
+::selection {
+  background: rgba(216, 255, 62, 0.35);
+}
