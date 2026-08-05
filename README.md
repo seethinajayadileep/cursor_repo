@@ -75,6 +75,35 @@ Browser → Vercel (Next.js)
 
 Without Apify/OpenAI keys the API still works in **demo mode**.
 
+## Portal (separate from public Discover)
+
+Public search stays at `/`.  
+Private portal is at **`/portal`** (login/register) and **`/portal/dashboard`**.
+
+Features:
+- User registration / login (JWT)
+- Resume PDF upload + skill extraction
+- Daily search preferences
+- Telegram connect + morning digest at **5:00 AM** (`Asia/Kolkata` by default)
+- Manual “Send test digest now”
+
+### Extra Railway env for Portal
+
+```
+JWT_SECRET=long-random-string
+TELEGRAM_BOT_TOKEN=from-BotFather
+TELEGRAM_BOT_USERNAME=YourBotName
+DIGEST_CRON=0 5 * * *
+DIGEST_TIMEZONE=Asia/Kolkata
+PUBLIC_APP_URL=https://your-frontend.vercel.app
+```
+
+Telegram setup:
+1. Create bot with BotFather → copy token + username  
+2. Set webhook (optional but recommended):  
+   `https://api.telegram.org/bot<TOKEN>/setWebhook?url=https://<your-api>/api/portal/telegram/webhook`  
+3. In Portal → Connect Telegram → open link → Start  
+
 ## Docker
 
 ```bash

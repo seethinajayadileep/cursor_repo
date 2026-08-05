@@ -10,7 +10,7 @@ import {
 import { cacheService } from "../services/cache/cacheService.js";
 import { apifyService } from "../services/apify/apifyService.js";
 import { extractResumeText } from "../services/resume/parseResume.js";
-import { hasApify, hasOpenAI } from "../config/index.js";
+import { hasApify, hasOpenAI, hasTelegram } from "../config/index.js";
 import type { RankedJob, SearchCriteria } from "../types/index.js";
 import {
   alertSchema,
@@ -51,6 +51,7 @@ apiRouter.get("/health", (_req, res) => {
       ai: hasOpenAI && aiRankingService.isLive() ? "openai" : "heuristic",
       cache: cacheService.mode(),
       database: databaseService.mode(),
+      telegram: hasTelegram ? "configured" : "off",
     },
   });
 });

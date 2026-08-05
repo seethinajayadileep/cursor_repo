@@ -9,6 +9,7 @@ const links = [
   { href: "/", label: "Discover" },
   { href: "/saved", label: "Saved" },
   { href: "/insights", label: "Insights" },
+  { href: "/portal", label: "Portal" },
 ];
 
 export function Header() {
@@ -34,9 +35,10 @@ export function Header() {
               href={link.href}
               className={clsx(
                 "rounded-md px-3 py-1.5 text-sm transition",
-                pathname === link.href
-                  ? "bg-signal/15 text-signal"
-                  : "text-ink-200 hover:bg-white/5 hover:text-mist"
+                pathname === link.href ||
+                  (link.href !== "/" && pathname.startsWith(link.href))
+                    ? "bg-signal/15 text-signal"
+                    : "text-ink-200 hover:bg-white/5 hover:text-mist"
               )}
             >
               {link.label}

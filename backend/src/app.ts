@@ -3,6 +3,7 @@ import express from "express";
 import { ZodError } from "zod";
 import { config } from "./config/index.js";
 import { apiRouter } from "./routes/api.js";
+import { portalRouter } from "./routes/portal.js";
 
 function resolveCorsOrigin(): CorsOptions["origin"] {
   const configured = config.corsOrigin
@@ -57,6 +58,7 @@ export function createApp() {
   });
 
   app.use("/api", apiRouter);
+  app.use("/api/portal", portalRouter);
 
   app.use(
     (

@@ -1,5 +1,6 @@
 import { createApp } from "./app.js";
 import { config } from "./config/index.js";
+import { dailyDigestService } from "./services/alerts/dailyDigest.js";
 import { cacheService } from "./services/cache/cacheService.js";
 import { databaseService } from "./services/database/databaseService.js";
 
@@ -14,6 +15,7 @@ async function main() {
     console.log(
       `Mode — Apify: ${config.apifyToken ? "live" : "demo"}, AI: ${config.openaiApiKey ? "openai" : "heuristic"}, Cache: ${cacheService.mode()}, DB: ${databaseService.mode()}`
     );
+    dailyDigestService.startCron();
   });
 }
 
