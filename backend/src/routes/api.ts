@@ -9,6 +9,7 @@ import {
 } from "../services/jobs/searchService.js";
 import { cacheService } from "../services/cache/cacheService.js";
 import { apifyService } from "../services/apify/apifyService.js";
+import { extractResumeText } from "../services/resume/parseResume.js";
 import { hasApify, hasOpenAI } from "../config/index.js";
 import type { RankedJob, SearchCriteria } from "../types/index.js";
 import {
@@ -20,7 +21,24 @@ import {
 
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 2 * 1024 * 1024 },
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const name = file.originalname.toLowerCase();
+    const mime = (file.mimetype || "").toLowerCase();
+    const ok =
+      mime.includes("pdf") ||
+      mime.includes("text") ||
+      mime.includes("markdown") ||
+      name.endsWith(".pdf") ||
+      name.endsWith(".txt") ||
+      name.endsWith(".md") ||
+      name.endsWith(".csv");
+    if (!ok) {
+      cb(new Error("Only PDF, TXT, MD, or CSV resumes are supported"));
+      return;
+    }
+    cb(null, true);
+  },
 });
 
 export const apiRouter = Router();
@@ -291,21 +309,28 @@ apiRouter.get("/alerts", async (req, res, next) => {
 apiRouter.post("/resume", upload.single("resume"), async (req, res, next) => {
   try {
     const userId = String(req.body.userId ?? "anonymous");
-    let text = String(req.body.text ?? "");
-    if (req.file) {
-      text = req.file.buffer.toString("utf8");
-    }
+    const pasted = String(req.body.text ?? "");
+    const { text, source } = await extractResumeText(req.file, pasted);
+
     if (!text.trim()) {
-      res.status(400).json({ error: "Resume text or file required" });
+      res.status(400).json({
+        error:
+          "Resume text or file required. For PDFs, use a text-based PDF (not a scanned image).",
+      });
       return;
     }
+
     const skills = extractSkillsFromText(text);
-    await databaseService.saveResume(userId, text.slice(0, 20000), skills);
+    await databaseService.saveResume(userId, text.slice(0, 50000), skills);
     res.json({
       userId,
       skills,
       characters: text.length,
-      message: "Resume saved for personalized ranking",
+      source,
+      message:
+        source === "pdf"
+          ? "PDF resume parsed and saved for personalized ranking"
+          : "Resume saved for personalized ranking",
     });
   } catch (error) {
     next(error);
