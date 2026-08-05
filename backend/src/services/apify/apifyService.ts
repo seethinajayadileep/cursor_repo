@@ -118,15 +118,27 @@ export class ApifyService {
       companySize: criteria.companySize,
     });
 
-    // Ensure we always return something useful in demo mode
+    // If role is too strict, relax role only — never drop the location filter
     const jobs: RawJob[] =
       filtered.length > 0
         ? filtered
-        : filterDemoJobs({ role: "engineer", location: "" });
+        : filterDemoJobs({
+            role: "engineer",
+            location: criteria.location || "",
+            experienceLevel: criteria.experienceLevel,
+            employmentType: criteria.employmentType,
+            workMode: criteria.workMode,
+            salaryMin: criteria.salaryMin,
+            salaryMax: criteria.salaryMax,
+            companySize: criteria.companySize,
+          });
 
     await onProgress?.({
       stage: "scraping",
-      message: `Fetched ${jobs.length} job listings`,
+      message:
+        jobs.length > 0
+          ? `Fetched ${jobs.length} job listings`
+          : `No demo listings matched ${criteria.location || "that search"}`,
       percent: 60,
       runId,
     });

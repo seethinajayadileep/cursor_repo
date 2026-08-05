@@ -325,6 +325,96 @@ export const DEMO_JOBS = [
     skills: ["AppSec", "Threat Modeling", "Python", "Cloud Security", "Identity"],
     experienceLevel: "senior",
   },
+  {
+    title: "Software Engineer",
+    company: "Microsoft",
+    location: "Hyderabad, India",
+    salary: "₹18L – ₹35L",
+    salaryMin: 1800000,
+    salaryMax: 3500000,
+    currency: "INR",
+    employmentType: "full-time",
+    workMode: "hybrid" as const,
+    description:
+      "Build cloud and productivity experiences for Microsoft 365 and Azure customers. Work with TypeScript, C#, and large-scale distributed systems from the Hyderabad campus.",
+    postedAt: daysAgo(1),
+    applyUrl: "https://careers.microsoft.com",
+    companySize: "enterprise",
+    skills: ["TypeScript", "C#", "Azure", "Distributed Systems", "React"],
+    experienceLevel: "mid",
+  },
+  {
+    title: "Senior Software Engineer",
+    company: "Google",
+    location: "Hyderabad, India",
+    salary: "₹35L – ₹65L",
+    salaryMin: 3500000,
+    salaryMax: 6500000,
+    currency: "INR",
+    employmentType: "full-time",
+    workMode: "hybrid" as const,
+    description:
+      "Design and ship backend services powering Google products used by millions in India and globally. Strong DSA, Java/Go, and system design skills required.",
+    postedAt: daysAgo(2),
+    applyUrl: "https://careers.google.com",
+    companySize: "enterprise",
+    skills: ["Java", "Go", "System Design", "Distributed Systems", "Kubernetes"],
+    experienceLevel: "senior",
+  },
+  {
+    title: "Full Stack Developer",
+    company: "PhonePe",
+    location: "Hyderabad, India",
+    salary: "₹20L – ₹40L",
+    salaryMin: 2000000,
+    salaryMax: 4000000,
+    currency: "INR",
+    employmentType: "full-time",
+    workMode: "onsite" as const,
+    description:
+      "Build consumer fintech experiences at scale. React, Node.js, and Java microservices across payments and merchant products.",
+    postedAt: daysAgo(3),
+    applyUrl: "https://www.phonepe.com/careers",
+    companySize: "large",
+    skills: ["React", "Node.js", "Java", "Kafka", "PostgreSQL"],
+    experienceLevel: "mid",
+  },
+  {
+    title: "Backend Engineer",
+    company: "Amazon",
+    location: "Hyderabad, India",
+    salary: "₹25L – ₹50L",
+    salaryMin: 2500000,
+    salaryMax: 5000000,
+    currency: "INR",
+    employmentType: "full-time",
+    workMode: "hybrid" as const,
+    description:
+      "Own services within Amazon's retail and AWS-adjacent teams. Java, distributed systems, and operational excellence.",
+    postedAt: daysAgo(4),
+    applyUrl: "https://www.amazon.jobs",
+    companySize: "enterprise",
+    skills: ["Java", "AWS", "Distributed Systems", "DynamoDB", "Kotlin"],
+    experienceLevel: "mid",
+  },
+  {
+    title: "Software Development Engineer",
+    company: "ServiceNow",
+    location: "Hyderabad, India",
+    salary: "₹15L – ₹28L",
+    salaryMin: 1500000,
+    salaryMax: 2800000,
+    currency: "INR",
+    employmentType: "full-time",
+    workMode: "hybrid" as const,
+    description:
+      "Develop platform features for enterprise workflow automation. JavaScript, Java, and cloud-native services.",
+    postedAt: daysAgo(2),
+    applyUrl: "https://www.servicenow.com/careers.html",
+    companySize: "enterprise",
+    skills: ["JavaScript", "Java", "REST APIs", "Cloud", "SQL"],
+    experienceLevel: "entry",
+  },
 ];
 
 function daysAgo(n: number): string {
@@ -341,6 +431,46 @@ const ROLE_KEYWORDS: Record<string, string[]> = {
   security: ["security", "appsec"],
   mobile: ["mobile", "ios", "android"],
 };
+
+const INDIA_CITIES = [
+  "hyderabad",
+  "hyd",
+  "bangalore",
+  "bengaluru",
+  "chennai",
+  "mumbai",
+  "pune",
+  "delhi",
+  "gurgaon",
+  "gurugram",
+  "noida",
+  "kolkata",
+  "india",
+];
+
+function locationMatches(jobLocation: string, jobWorkMode: string, query: string): boolean {
+  if (!query || query === "anywhere") return true;
+  const loc = query.toLowerCase().trim();
+  const hay = jobLocation.toLowerCase();
+
+  if (hay.includes(loc) || loc.includes(hay.split(",")[0]?.trim() ?? "")) return true;
+  if (loc === "remote" || loc.includes("remote")) return jobWorkMode === "remote";
+
+  if (loc.includes("europe")) {
+    return /europe|london|stockholm|berlin|amsterdam|paris|€/i.test(`${jobLocation}`);
+  }
+
+  // Treat Indian city searches as India-local (and allow remote-India style listings)
+  if (INDIA_CITIES.some((c) => loc.includes(c) || loc === c)) {
+    return (
+      INDIA_CITIES.some((c) => hay.includes(c)) ||
+      /₹|india/i.test(`${jobLocation}`) ||
+      (jobWorkMode === "remote" && /india|bangalore|hyderabad|chennai/i.test(hay))
+    );
+  }
+
+  return false;
+}
 
 export function filterDemoJobs(opts: {
   role: string;
@@ -367,18 +497,7 @@ export function filterDemoJobs(opts: {
           group.some((g) => hay.includes(g))
       );
 
-    const locMatch =
-      !location ||
-      location === "anywhere" ||
-      location === "remote" ||
-      job.location.toLowerCase().includes(location) ||
-      (location.includes("remote") && job.workMode === "remote") ||
-      (location.includes("europe") &&
-        /europe|london|stockholm|remote — europe|€/i.test(
-          `${job.location} ${job.salary}`
-        )) ||
-      (location.includes("india") &&
-        /bangalore|chennai|india|₹/i.test(`${job.location} ${job.salary}`));
+    const locMatch = locationMatches(job.location, job.workMode, location);
 
     const expMatch =
       !opts.experienceLevel ||

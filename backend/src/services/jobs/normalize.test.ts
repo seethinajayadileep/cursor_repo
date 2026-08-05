@@ -47,6 +47,20 @@ describe("natural language parse", () => {
   });
 });
 
+describe("demo location filter", () => {
+  it("returns Hyderabad jobs only for Hyderabad search", async () => {
+    const { filterDemoJobs } = await import("../apify/demoData.js");
+    const jobs = filterDemoJobs({
+      role: "Software Engineer",
+      location: "Hyderabad",
+    });
+    assert.ok(jobs.length > 0);
+    for (const job of jobs) {
+      assert.match(job.location, /hyderabad|india/i);
+    }
+  });
+});
+
 describe("ai heuristic ranking", () => {
   it("scores remote title matches higher", () => {
     const ai = new AiRankingService();
