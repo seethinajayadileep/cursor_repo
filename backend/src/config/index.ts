@@ -16,7 +16,7 @@ export const config = {
   openaiApiKey: process.env.OPENAI_API_KEY ?? "",
   openaiModel: process.env.OPENAI_MODEL ?? "gpt-4o-mini",
   databaseUrl: process.env.DATABASE_URL ?? "",
-  redisUrl: process.env.REDIS_URL ?? "",
+  redisUrl: process.env.REDIS_URL || process.env.REDIS_PRIVATE_URL || "",
   cacheTtlSeconds: Number(process.env.CACHE_TTL_SECONDS ?? 3600),
   dataDir: path.resolve(__dirname, "../../data"),
 } as const;

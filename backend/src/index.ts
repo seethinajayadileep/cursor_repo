@@ -8,8 +8,9 @@ async function main() {
   await databaseService.init();
 
   const app = createApp();
-  app.listen(config.port, () => {
-    console.log(`Scout API listening on http://localhost:${config.port}`);
+  const host = process.env.HOST ?? "0.0.0.0";
+  app.listen(config.port, host, () => {
+    console.log(`Scout API listening on http://${host}:${config.port}`);
     console.log(
       `Mode — Apify: ${config.apifyToken ? "live" : "demo"}, AI: ${config.openaiApiKey ? "openai" : "heuristic"}, Cache: ${cacheService.mode()}, DB: ${databaseService.mode()}`
     );

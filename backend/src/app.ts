@@ -1,15 +1,47 @@
-import cors from "cors";
+import cors, { type CorsOptions } from "cors";
 import express from "express";
 import { ZodError } from "zod";
 import { config } from "./config/index.js";
 import { apiRouter } from "./routes/api.js";
 
+function resolveCorsOrigin(): CorsOptions["origin"] {
+  const configured = config.corsOrigin
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  return (origin, callback) => {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+    if (configured.includes("*") || configured.includes(origin)) {
+      callback(null, true);
+      return;
+    }
+    // Allow Vercel preview URLs when a production vercel.app origin is configured
+    try {
+      if (
+        configured.some((o) => o.includes("vercel.app")) &&
+        /\.vercel\.app$/.test(new URL(origin).hostname)
+      ) {
+        callback(null, true);
+        return;
+      }
+    } catch {
+      /* ignore invalid origin */
+    }
+    callback(new Error(`CORS blocked for origin: ${origin}`));
+  };
+}
+
 export function createApp() {
   const app = express();
+  app.set("trust proxy", 1);
 
   app.use(
     cors({
-      origin: config.corsOrigin.split(",").map((s) => s.trim()),
+      origin: resolveCorsOrigin(),
       credentials: true,
     })
   );

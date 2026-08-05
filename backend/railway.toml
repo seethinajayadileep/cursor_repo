@@ -1,0 +1,11 @@
+# Railway service config — set Root Directory to `backend` in the Railway UI
+[build]
+builder = "NIXPACKS"
+buildCommand = "npm install && npm run build"
+
+[deploy]
+startCommand = "npm run start"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

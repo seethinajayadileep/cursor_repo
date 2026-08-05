@@ -27,6 +27,54 @@ npm run dev
 
 Without `APIFY_API_TOKEN` / `OPENAI_API_KEY` / Redis / Postgres the app runs fully in **demo mode** with curated sample jobs and heuristic AI ranking.
 
+## Deploy: Vercel (frontend) + Railway (backend)
+
+### 1. Backend on Railway
+
+1. Create a new project at [railway.app](https://railway.app) → **Deploy from GitHub** → select this repo.
+2. Set **Root Directory** to `backend`.
+3. Railway will use `backend/railway.toml` (`npm run build` → `npm run start`).
+4. Add plugins (recommended):
+   - **PostgreSQL** → sets `DATABASE_URL`
+   - **Redis** → sets `REDIS_URL` (or `REDIS_PRIVATE_URL`; map it to `REDIS_URL` if needed)
+5. Set variables:
+
+| Variable | Value |
+|----------|--------|
+| `CORS_ORIGIN` | Your Vercel URL, e.g. `https://scout.vercel.app` (comma-separate previews if needed) |
+| `APIFY_API_TOKEN` | optional — live scrape |
+| `OPENAI_API_KEY` | optional — LLM ranking |
+| `OPENAI_MODEL` | `gpt-4o-mini` (optional) |
+| `NODE_ENV` | `production` |
+
+6. Generate a public domain for the service (e.g. `https://scout-api.up.railway.app`).
+7. Confirm health: `GET https://<railway-domain>/api/health`
+
+### 2. Frontend on Vercel
+
+1. Import the same GitHub repo in [vercel.com](https://vercel.com).
+2. Set **Root Directory** to `frontend`.
+3. Framework preset: **Next.js** (auto).
+4. Environment variable:
+
+| Variable | Value |
+|----------|--------|
+| `NEXT_PUBLIC_API_URL` | Your Railway public URL, e.g. `https://scout-api.up.railway.app` (no trailing slash) |
+
+5. Deploy. Then update Railway `CORS_ORIGIN` to the Vercel URL if you deployed API first.
+
+### 3. Wire them together
+
+```
+Browser → Vercel (Next.js)
+            │
+            └── NEXT_PUBLIC_API_URL → Railway (Express API)
+                                         ├── Postgres
+                                         └── Redis
+```
+
+Without Apify/OpenAI keys the API still works in **demo mode**.
+
 ## Docker
 
 ```bash
