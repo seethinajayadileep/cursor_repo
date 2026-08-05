@@ -51,7 +51,17 @@ export function JobCard({ job, saved, onToggleSave }: Props) {
               rel="noreferrer"
               className="inline-flex items-center justify-center rounded-lg bg-signal px-4 py-2 text-sm font-semibold text-ink-950 transition hover:bg-signal-glow"
             >
-              Apply
+              {job.isExternalApply ? "Apply" : "Apply on LinkedIn"}
+            </a>
+          )}
+          {job.isExternalApply && job.linkedinUrl && (
+            <a
+              href={job.linkedinUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-lg border border-white/15 px-4 py-2 text-center text-sm text-ink-200 transition hover:border-signal/40 hover:text-signal"
+            >
+              LinkedIn
             </a>
           )}
           <button

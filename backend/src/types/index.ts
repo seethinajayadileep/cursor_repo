@@ -98,6 +98,8 @@ export interface NormalizedJob {
   description: string;
   postedAt: string | null;
   applyUrl: string | null;
+  linkedinUrl: string | null;
+  isExternalApply: boolean;
   companyLogo: string | null;
   companySize: string | null;
   skills: string[];

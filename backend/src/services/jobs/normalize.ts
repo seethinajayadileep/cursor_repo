@@ -35,8 +35,7 @@ export function normalizeJob(raw: RawJob, source = "apify"): NormalizedJob {
     ? raw.skills.map(String).filter(Boolean)
     : extractSkillsFromText(`${title} ${description}`);
 
-  const applyUrl =
-    (raw.applyUrl || raw.url || raw.link || null)?.toString() ?? null;
+  const { applyUrl, linkedinUrl, isExternalApply } = resolveApplyLinks(raw);
 
   const postedAt =
     (raw.postedAt || raw.postedDate || raw.publishedAt || null)?.toString() ??
@@ -65,11 +64,69 @@ export function normalizeJob(raw: RawJob, source = "apify"): NormalizedJob {
     description,
     postedAt,
     applyUrl,
+    linkedinUrl,
+    isExternalApply,
     companyLogo: raw.companyLogo?.toString() ?? null,
     companySize: raw.companySize?.toString() ?? null,
     skills,
     experienceLevel: raw.experienceLevel?.toString() ?? null,
     source,
+  };
+}
+
+function isLinkedInUrl(url: string): boolean {
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    return host.includes("linkedin.com");
+  } catch {
+    return /linkedin\.com/i.test(url);
+  }
+}
+
+function asUrl(value: unknown): string | null {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed || !/^https?:\/\//i.test(trimmed)) return null;
+  return trimmed;
+}
+
+/** Prefer company/external apply links; keep LinkedIn as fallback. */
+export function resolveApplyLinks(raw: RawJob): {
+  applyUrl: string | null;
+  linkedinUrl: string | null;
+  isExternalApply: boolean;
+} {
+  const candidates = [
+    raw.applyUrl,
+    raw.externalApplyUrl,
+    raw.applicationUrl,
+    raw.companyApplyUrl,
+    raw.jobApplyUrl,
+    raw.applyLink,
+    raw.url,
+    raw.link,
+  ]
+    .map(asUrl)
+    .filter((u): u is string => Boolean(u));
+
+  const external = candidates.find((u) => !isLinkedInUrl(u)) ?? null;
+  const linkedin =
+    candidates.find((u) => isLinkedInUrl(u) && /\/jobs\//i.test(u)) ??
+    candidates.find((u) => isLinkedInUrl(u)) ??
+    null;
+
+  if (external) {
+    return {
+      applyUrl: external,
+      linkedinUrl: linkedin,
+      isExternalApply: true,
+    };
+  }
+
+  return {
+    applyUrl: linkedin,
+    linkedinUrl: linkedin,
+    isExternalApply: false,
   };
 }
 

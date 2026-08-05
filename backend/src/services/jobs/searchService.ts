@@ -18,7 +18,7 @@ import { createId, hashCriteria } from "../../utils/helpers.js";
 import { config } from "../../config/index.js";
 
 const progressStore = new Map<string, SearchProgress>();
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 
 export class JobSearchService {
   getProgress(searchId: string): SearchProgress | null {

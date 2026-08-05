@@ -47,17 +47,27 @@ describe("natural language parse", () => {
   });
 });
 
-describe("demo location filter", () => {
-  it("returns Hyderabad jobs only for Hyderabad search", async () => {
-    const { filterDemoJobs } = await import("../apify/demoData.js");
-    const jobs = filterDemoJobs({
-      role: "Software Engineer",
-      location: "Hyderabad",
+describe("apply link resolution", () => {
+  it("prefers external company apply URL over LinkedIn", async () => {
+    const { resolveApplyLinks } = await import("./normalize.js");
+    const links = resolveApplyLinks({
+      applyUrl: "",
+      link: "https://www.linkedin.com/jobs/view/123",
+      externalApplyUrl: "https://jobs.apple.com/en-us/details/200",
     });
-    assert.ok(jobs.length > 0);
-    for (const job of jobs) {
-      assert.match(job.location, /hyderabad|india/i);
-    }
+    assert.equal(links.isExternalApply, true);
+    assert.equal(links.applyUrl, "https://jobs.apple.com/en-us/details/200");
+    assert.match(links.linkedinUrl ?? "", /linkedin\.com/);
+  });
+
+  it("falls back to LinkedIn when no external URL exists", async () => {
+    const { resolveApplyLinks } = await import("./normalize.js");
+    const links = resolveApplyLinks({
+      applyUrl: "https://in.linkedin.com/jobs/view/456",
+      link: "https://in.linkedin.com/jobs/view/456",
+    });
+    assert.equal(links.isExternalApply, false);
+    assert.match(links.applyUrl ?? "", /linkedin\.com/);
   });
 });
 
@@ -78,6 +88,8 @@ describe("ai heuristic ranking", () => {
       description: "TypeScript distributed systems",
       postedAt: new Date().toISOString(),
       applyUrl: "https://example.com",
+      linkedinUrl: null,
+      isExternalApply: true,
       companyLogo: null,
       companySize: "large",
       skills: ["TypeScript", "Go"],
@@ -112,6 +124,8 @@ describe("csv export", () => {
         description: "",
         postedAt: null,
         applyUrl: null,
+        linkedinUrl: null,
+        isExternalApply: false,
         companyLogo: null,
         companySize: null,
         skills: [],

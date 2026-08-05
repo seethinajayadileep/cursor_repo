@@ -86,7 +86,10 @@ export class ApifyService {
       count: 40,
       maxItems: 40,
       rows: 40,
-      scrapeCompany: false,
+      scrapeCompany: true,
+      // Ask actors that support it to resolve the company apply link
+      scrapeJobDetails: true,
+      enrichApplyUrl: true,
       proxy: {
         useApifyProxy: true,
       },
