@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="12" fill="#0E1117"/>
+  <rect x="8" y="20" width="48" height="24" rx="4" fill="#F2F2EE" stroke="#9AA3B0" stroke-width="2"/>
+  <rect x="11" y="23" width="13" height="18" rx="2" fill="#1A3C8A"/>
+  <rect x="13" y="25.5" width="9" height="2.2" fill="#FF9933"/>
+  <rect x="13" y="27.7" width="9" height="2.2" fill="#FFFFFF"/>
+  <rect x="13" y="29.9" width="9" height="2.2" fill="#138808"/>
+  <text x="40" y="38" font-family="Arial Narrow, Arial, sans-serif" font-size="15" font-weight="bold" fill="#0C0C0C" text-anchor="middle" letter-spacing="1">RTO</text>
+</svg>
