@@ -1,0 +1,5 @@
+# One coupon / promo code per line
+# Lines starting with # are ignored
+SAVE20
+WELCOME10
+PRO50
