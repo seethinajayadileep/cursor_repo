@@ -24,16 +24,23 @@ PRO50
 
 ## Run
 
-Stripe Checkout session URLs expire quickly. Open Mobbin → start checkout → copy the live `checkout.stripe.com` URL, then:
+Edit the CONFIG block at the top of `check_coupons.py`:
 
-```bash
-python check_coupons.py \
-  --url "https://checkout.stripe.com/c/pay/cs_live_YOUR_SESSION_ID" \
-  --file coupons.txt \
-  --output results.txt
+```python
+URL = "https://checkout.stripe.com/c/pay/cs_live_YOUR_SESSION_ID"
+FILE = "coupons.txt"
+OUTPUT = "results.txt"   # or "" to skip
+HEADED = False
+SLOW_MO = 0
 ```
 
-Debug with a visible browser:
+Stripe Checkout session URLs expire quickly. Open Mobbin → start checkout → paste a fresh URL into `URL`, then:
+
+```bash
+python check_coupons.py
+```
+
+CLI flags still override the script variables if you prefer:
 
 ```bash
 python check_coupons.py --url "..." --file coupons.txt --headed --slow-mo 200
