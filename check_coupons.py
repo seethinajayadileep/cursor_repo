@@ -2,13 +2,11 @@
 """
 Automate Mobbin / Stripe Checkout promo-code checks.
 
-Reads coupon codes from a text file, enters each on the checkout page,
-and reports whether the code applied (working) or failed (not working).
+Edit the CONFIG variables below, then run:
+  python check_coupons.py
 
-Usage:
-  python check_coupons.py --url "https://checkout.stripe.com/c/pay/cs_live_..." --file coupons.txt
+Optional CLI overrides still work:
   python check_coupons.py --url "..." --file coupons.txt --headed
-  python check_coupons.py --url "..." --file coupons.txt --output results.txt
 """
 
 from __future__ import annotations
@@ -16,11 +14,20 @@ from __future__ import annotations
 import argparse
 import re
 import sys
-import time
 from pathlib import Path
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
 from playwright.sync_api import sync_playwright
+
+# =============================================================================
+# CONFIG — edit these values
+# =============================================================================
+URL = "https://checkout.stripe.com/c/pay/cs_live_PASTE_YOUR_FRESH_SESSION_HERE"
+FILE = "coupons.txt"          # text file with one promo code per line
+OUTPUT = ""                   # e.g. "results.txt" (leave empty to skip)
+HEADED = False                # True = show browser window
+SLOW_MO = 0                   # slow Playwright actions by N ms (0 = off)
+# =============================================================================
 
 
 def load_coupons(path: Path) -> list[str]:
@@ -345,39 +352,54 @@ def run(url: str, coupons: list[str], headed: bool, slow_mo: int, output: Path |
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Test promo/coupon codes on a Mobbin Stripe Checkout page."
+        description="Test promo/coupon codes on a Mobbin Stripe Checkout page. "
+        "Edit URL/FILE at the top of this script, or pass CLI flags."
     )
     parser.add_argument(
         "--url",
-        required=True,
-        help="Stripe Checkout URL (e.g. https://checkout.stripe.com/c/pay/cs_live_...)",
+        default=None,
+        help="Stripe Checkout URL (overrides URL in script)",
     )
     parser.add_argument(
         "--file",
         "-f",
-        default="coupons.txt",
-        help="Text file with one coupon per line (default: coupons.txt)",
+        default=None,
+        help="Coupons text file (overrides FILE in script)",
     )
     parser.add_argument(
         "--output",
         "-o",
         default=None,
-        help="Optional path to write TSV results",
+        help="Optional TSV results path (overrides OUTPUT in script)",
     )
     parser.add_argument(
         "--headed",
-        action="store_true",
-        help="Show the browser window (useful for debugging)",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Show/hide browser window (overrides HEADED in script)",
     )
     parser.add_argument(
         "--slow-mo",
         type=int,
-        default=0,
-        help="Slow down Playwright actions by N ms",
+        default=None,
+        help="Slow down Playwright actions by N ms (overrides SLOW_MO)",
     )
     args = parser.parse_args()
 
-    coupons_path = Path(args.file)
+    url = args.url if args.url is not None else URL
+    file_name = args.file if args.file is not None else FILE
+    output_name = args.output if args.output is not None else OUTPUT
+    headed = args.headed if args.headed is not None else HEADED
+    slow_mo = args.slow_mo if args.slow_mo is not None else SLOW_MO
+
+    if not url or "PASTE_YOUR_FRESH_SESSION_HERE" in url:
+        print(
+            "ERROR: set URL at the top of check_coupons.py (or pass --url).",
+            file=sys.stderr,
+        )
+        return 1
+
+    coupons_path = Path(file_name)
     if not coupons_path.exists():
         print(f"ERROR: coupons file not found: {coupons_path}", file=sys.stderr)
         return 1
@@ -387,8 +409,8 @@ def main() -> int:
         print(f"ERROR: no coupons found in {coupons_path}", file=sys.stderr)
         return 1
 
-    output = Path(args.output) if args.output else None
-    return run(args.url, coupons, args.headed, args.slow_mo, output)
+    output = Path(output_name) if output_name else None
+    return run(url, coupons, headed, slow_mo, output)
 
 
 if __name__ == "__main__":
