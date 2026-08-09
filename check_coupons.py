@@ -2,19 +2,27 @@
 """
 Automate Mobbin / Stripe Checkout promo-code checks.
 
+IMPORTANT: Stripe rejects promos from Playwright's built-in browser / headless
+Chrome. This script launches real Google Chrome (visible window) and controls
+it over CDP so valid codes are accepted.
+
 Edit the CONFIG variables below, then run:
   python check_coupons.py
-
-Optional CLI overrides still work:
-  python check_coupons.py --url "..." --file coupons.txt --headed
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
+import shutil
+import socket
+import subprocess
 import sys
+import tempfile
+import time
+import urllib.request
 from pathlib import Path
 
 from playwright.sync_api import TimeoutError as PlaywrightTimeout
@@ -25,8 +33,8 @@ from playwright.sync_api import sync_playwright
 # =============================================================================
 URL = "https://checkout.stripe.com/c/pay/cs_live_PASTE_YOUR_FRESH_SESSION_HERE"
 FILE = "coupons.txt"          # text file with one promo code per line
-OUTPUT = ""                   # e.g. "results.txt" (leave empty to skip)
-HEADED = False                # True = show browser window
+OUTPUT = "results.txt"        # e.g. "results.txt" (leave empty to skip)
+HEADED = True                 # must stay True — Stripe blocks headless Chrome
 SLOW_MO = 0                   # slow Playwright actions by N ms (0 = off)
 # =============================================================================
 
@@ -52,7 +60,6 @@ def load_coupons(path: Path) -> list[str]:
 
 
 def parse_amount(text: str) -> float | None:
-    """Extract a numeric amount from currency text like '₹9,600.00' or '$96.00'."""
     cleaned = text.replace(",", "").replace("\u00a0", " ")
     match = re.search(r"(\d+(?:\.\d+)?)", cleaned)
     if not match:
@@ -60,12 +67,126 @@ def parse_amount(text: str) -> float | None:
     return float(match.group(1))
 
 
+def find_chrome_binary() -> str | None:
+    env = os.environ.get("CHROME_PATH") or os.environ.get("GOOGLE_CHROME_BIN")
+    if env and Path(env).exists():
+        return env
+
+    candidates = [
+        "google-chrome",
+        "google-chrome-stable",
+        "chrome",
+        "chromium",
+        "chromium-browser",
+        r"C:\Program Files\Google\Chrome\Application\chrome.exe",
+        r"C:\Program Files (x86)\Google\Chrome\Application\chrome.exe",
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/usr/bin/google-chrome",
+        "/usr/local/bin/google-chrome",
+        "/usr/bin/chromium",
+        "/usr/bin/chromium-browser",
+    ]
+    for c in candidates:
+        if Path(c).exists():
+            return c
+        found = shutil.which(c)
+        if found:
+            return found
+    return None
+
+
+def free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return int(s.getsockname()[1])
+
+
+def wait_for_cdp(port: int, timeout_s: float = 20.0) -> str:
+    url = f"http://127.0.0.1:{port}/json/version"
+    deadline = time.time() + timeout_s
+    last_err = None
+    while time.time() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=1) as resp:
+                data = json.loads(resp.read().decode("utf-8"))
+                return data.get("webSocketDebuggerUrl") or f"http://127.0.0.1:{port}"
+        except Exception as exc:
+            last_err = exc
+            time.sleep(0.2)
+    raise RuntimeError(f"Chrome CDP not ready on port {port}: {last_err}")
+
+
+class ChromeCDP:
+    """Launch real Chrome and expose a CDP HTTP endpoint for Playwright."""
+
+    def __init__(self, headed: bool = True):
+        self.headed = headed
+        self.port = free_port()
+        self.proc: subprocess.Popen | None = None
+        self.user_data_dir = tempfile.mkdtemp(prefix="mobbin-chrome-")
+        self.cdp_url = f"http://127.0.0.1:{self.port}"
+
+    def start(self) -> str:
+        chrome = find_chrome_binary()
+        if not chrome:
+            raise RuntimeError(
+                "Google Chrome not found. Install Chrome, or set CHROME_PATH "
+                "to the chrome executable."
+            )
+        if not self.headed:
+            print(
+                "WARNING: HEADED=False often makes Stripe reject ALL promo codes. "
+                "Use HEADED=True.",
+                file=sys.stderr,
+            )
+
+        args = [
+            chrome,
+            f"--remote-debugging-port={self.port}",
+            f"--user-data-dir={self.user_data_dir}",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--disable-blink-features=AutomationControlled",
+            "--disable-features=Translate,MediaRouter",
+            "--window-size=1400,1000",
+            "about:blank",
+        ]
+        if not self.headed:
+            args.insert(1, "--headless=new")
+
+        # On Linux CI without a display, try to use existing DISPLAY.
+        env = os.environ.copy()
+        # start_new_session avoids Playwright/parent signal quirks; keep a real
+        # headed Chrome (Stripe rejects HeadlessChrome / automated Chromium).
+        self.proc = subprocess.Popen(
+            args,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            env=env,
+            start_new_session=True,
+        )
+        wait_for_cdp(self.port)
+        print(f"Launched Chrome via CDP on {self.cdp_url}")
+        return self.cdp_url
+
+    def stop(self) -> None:
+        if self.proc and self.proc.poll() is None:
+            self.proc.terminate()
+            try:
+                self.proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                self.proc.kill()
+        self.proc = None
+        try:
+            shutil.rmtree(self.user_data_dir, ignore_errors=True)
+        except Exception:
+            pass
+
+
 def open_promo_input(page) -> None:
-    """Ensure the promotion code input is visible."""
     promo = page.locator(PROMO_INPUT)
     if promo.count() and promo.first.is_visible():
         return
-
     add_code = page.locator(
         '[data-testid="product-summary-promo-code"], '
         'button:has-text("Add code"), '
@@ -84,7 +205,6 @@ def open_promo_input(page) -> None:
 
 
 def clear_existing_promo(page) -> bool:
-    """Remove a previously applied promo. Returns True if a remove was clicked."""
     removed = False
     for _ in range(3):
         btns = page.locator(REMOVE_BTN)
@@ -101,8 +221,15 @@ def clear_existing_promo(page) -> bool:
                 if "apply" in label and "remove" not in label:
                     continue
                 if any(k in label for k in ("remove", "clear", "delete", "applieddiscount")):
-                    btn.click(timeout=3000)
-                    page.wait_for_timeout(1200)
+                    try:
+                        with page.expect_response(is_payment_pages_update, timeout=12000):
+                            btn.click(timeout=3000)
+                    except Exception:
+                        try:
+                            btn.click(timeout=3000)
+                        except Exception:
+                            continue
+                    page.wait_for_timeout(1500)
                     removed = True
                     clicked = True
                     break
@@ -110,17 +237,16 @@ def clear_existing_promo(page) -> bool:
                 continue
         if not clicked:
             break
+    # After remove, Stripe collapses the field — reopen for the next code.
+    open_promo_input(page)
     return removed
 
 
 def get_total_due_today(page) -> float | None:
-    """Read Total due today only — never the always-unchanged subtotal."""
-    # Primary: dedicated total amount node
     loc = page.locator("#OrderDetails-TotalAmount")
     if loc.count():
         try:
             text = loc.first.inner_text(timeout=1500)
-            # Prefer the first money-looking line
             for line in text.splitlines():
                 if "₹" in line or "$" in line or "€" in line or re.search(r"\d", line):
                     amount = parse_amount(line)
@@ -129,8 +255,6 @@ def get_total_due_today(page) -> float | None:
             return parse_amount(text)
         except Exception:
             pass
-
-    # Fallback: product summary total (may include "per year" — still ok for deltas)
     loc = page.locator('#ProductSummary-totalAmount, [data-testid="product-summary-total-amount"]')
     if loc.count():
         try:
@@ -141,7 +265,18 @@ def get_total_due_today(page) -> float | None:
 
 
 def visible_promo_error(page) -> str | None:
-    """Return visible promo-field error text if present."""
+    # Stripe sometimes puts the error next to Apply in order details text
+    order = page.locator('[data-testid="order-details"]')
+    if order.count():
+        try:
+            text = order.first.inner_text(timeout=1000)
+            for line in text.splitlines():
+                low = line.strip().lower()
+                if "invalid" in low or "cannot be redeemed" in low or "unredeemable" in low:
+                    return line.strip()
+        except Exception:
+            pass
+
     selectors = [
         ".PromotionCodeEntry .FieldError",
         '[class*="PromotionCodeEntry"] .FieldError',
@@ -174,6 +309,7 @@ def visible_promo_error(page) -> str | None:
                         "couldn't",
                         "could not",
                         "unable",
+                        "redeem",
                     )
                 ):
                     return text
@@ -183,8 +319,7 @@ def visible_promo_error(page) -> str | None:
 
 
 def applied_discount_info(page) -> dict:
-    """Return info about an applied discount block, if any."""
-    info = page.evaluate(
+    return page.evaluate(
         """() => {
           const blocks = [...document.querySelectorAll('[class*="AppliedDiscount"]')];
           const texts = blocks
@@ -197,48 +332,37 @@ def applied_discount_info(page) -> dict:
           return { texts, orderText, hasRemove, hasOff };
         }"""
     )
-    return info
 
 
 def promo_is_applied(page, code: str) -> tuple[bool, str]:
-    """Detect a successfully applied promo via UI."""
     code_lower = code.lower()
     info = applied_discount_info(page)
-
     for text in info.get("texts") or []:
         low = text.lower()
         if code_lower in low:
             return True, f"applied discount UI shows {code}"
         if "off" in low or "-" in text:
             return True, f"applied discount UI: {text[:80]}"
-
     order = (info.get("orderText") or "").lower()
     if code_lower in order and "add promotion" not in order and "invalid" not in order:
-        # Code shown in order details outside the input
         if info.get("hasRemove") or info.get("hasOff"):
             return True, "code visible with discount in order details"
-
     if info.get("hasRemove") and info.get("hasOff"):
         return True, "discount line + remove control present"
-
-    # Input gone after apply + discount present
     promo = page.locator(PROMO_INPUT)
     input_visible = bool(promo.count() and promo.first.is_visible())
     if not input_visible and (info.get("hasRemove") or info.get("hasOff")):
         return True, "promo input replaced by applied discount"
-
     return False, ""
 
 
 def is_payment_pages_update(response) -> bool:
-    """Stripe Checkout promo apply hits POST /v1/payment_pages/cs_..."""
     try:
         if response.request.method != "POST":
             return False
         url = response.url
         if "api.stripe.com/v1/payment_pages/" not in url:
             return False
-        # ignore /init
         if url.rstrip("/").endswith("/init"):
             return False
         return True
@@ -247,19 +371,15 @@ def is_payment_pages_update(response) -> bool:
 
 
 def enter_code(page, code: str) -> None:
-    """Type a promo code so React state updates and Apply enables."""
     open_promo_input(page)
     promo = page.locator(PROMO_INPUT).first
     promo.wait_for(state="visible", timeout=15000)
     promo.click()
-    # Clear existing value
     promo.fill("")
-    page.wait_for_timeout(100)
-    # type() fires key events; more reliable than fill() for Stripe React inputs
-    promo.type(code, delay=25)
-    page.wait_for_timeout(200)
-
-    # Wait until Apply enables
+    page.wait_for_timeout(120)
+    # Human-like typing — more reliable with Stripe's React input
+    promo.press_sequentially(code, delay=50)
+    page.wait_for_timeout(250)
     try:
         page.wait_for_function(
             """() => {
@@ -278,62 +398,68 @@ def enter_code(page, code: str) -> None:
 
 
 def click_apply(page) -> None:
+    # Wait briefly for Apply to finish any exit animation from a prior remove.
+    try:
+        page.wait_for_function(
+            """() => {
+              const buttons = [...document.querySelectorAll('button')];
+              return buttons.some(b => {
+                const cls = b.className || '';
+                const text = (b.innerText || '').trim();
+                const isApply = cls.includes('PromotionCodeEntry-applyButton') || text === 'Apply';
+                return isApply && !b.disabled && !cls.includes('applyButtonIsExiting') && b.offsetParent !== null;
+              });
+            }""",
+            timeout=8000,
+        )
+    except PlaywrightTimeout:
+        pass
+
     apply_btns = page.locator(APPLY_BTN)
     for i in range(apply_btns.count()):
         btn = apply_btns.nth(i)
         try:
+            cls = btn.get_attribute("class") or ""
+            if "applyButtonIsExiting" in cls:
+                continue
             if btn.is_visible() and btn.is_enabled():
                 btn.click(timeout=5000)
                 return
         except Exception:
             continue
-    # Fallback
     page.locator(PROMO_INPUT).first.press("Enter")
 
 
 def classify_stripe_response(response) -> tuple[str, str]:
-    """
-    Returns (status, detail) where status is 'working', 'not_working', or 'unknown'.
-    """
     try:
         status = response.status
         body = response.text()
     except Exception as exc:
         return "unknown", f"response read error: {exc}"
 
-    if status == 200:
-        # Confirm JSON looks like an updated payment page (not an error object)
-        try:
-            data = json.loads(body)
-            if isinstance(data, dict) and data.get("error"):
-                msg = data["error"].get("message") or str(data["error"])
-                return "not_working", msg
-        except Exception:
-            pass
-        return "working", f"stripe payment_pages HTTP {status}"
-
-    # 4xx = rejected promo (or other update error)
-    msg = ""
     try:
         data = json.loads(body)
+    except Exception:
+        data = None
+
+    if status == 200:
+        if isinstance(data, dict) and data.get("error"):
+            msg = data["error"].get("message") or str(data["error"])
+            return "not_working", msg
+        return "working", f"stripe payment_pages HTTP {status}"
+
+    msg = ""
+    if isinstance(data, dict):
         err = data.get("error") or {}
         msg = err.get("message") or err.get("code") or ""
-        # Sometimes message is nested
-        if not msg and isinstance(err, dict):
-            msg = json.dumps(err)[:200]
-    except Exception:
-        msg = body[:200] if body else ""
-
+    if not msg:
+        msg = (body or "")[:200]
     if status >= 400:
         return "not_working", msg or f"stripe HTTP {status}"
     return "unknown", f"stripe HTTP {status}"
 
 
 def apply_coupon(page, code: str) -> tuple[bool, str]:
-    """
-    Enter a coupon and decide if it worked.
-    Returns (working, detail_message).
-    """
     clear_existing_promo(page)
     open_promo_input(page)
 
@@ -342,19 +468,16 @@ def apply_coupon(page, code: str) -> tuple[bool, str]:
 
     api_result: tuple[str, str] | None = None
     try:
-        with page.expect_response(is_payment_pages_update, timeout=15000) as resp_info:
+        with page.expect_response(is_payment_pages_update, timeout=20000) as resp_info:
             click_apply(page)
         api_result = classify_stripe_response(resp_info.value)
     except PlaywrightTimeout:
-        # No payment_pages POST seen — fall through to UI checks
         page.wait_for_timeout(2000)
     except Exception:
         page.wait_for_timeout(2000)
 
-    # Let UI settle after the network response
-    page.wait_for_timeout(800)
+    page.wait_for_timeout(900)
 
-    # 1) Prefer Stripe API outcome
     if api_result is not None:
         status, detail = api_result
         if status == "working":
@@ -362,85 +485,96 @@ def apply_coupon(page, code: str) -> tuple[bool, str]:
             after = get_total_due_today(page)
             if ok:
                 return True, ui_detail
-            if (
-                before_total is not None
-                and after is not None
-                and after < before_total - 0.001
-            ):
+            if before_total is not None and after is not None and after < before_total - 0.001:
                 return True, f"total {before_total} -> {after}"
             return True, detail
         if status == "not_working":
             err = visible_promo_error(page)
             return False, err or detail or "rejected by Stripe"
 
-    # 2) UI error
     err = visible_promo_error(page)
     if err:
         return False, err
 
-    # 3) UI applied indicators
     ok, detail = promo_is_applied(page, code)
     if ok:
         return True, detail
 
-    # 4) Total dropped
     after_total = get_total_due_today(page)
-    if (
-        before_total is not None
-        and after_total is not None
-        and after_total < before_total - 0.001
-    ):
+    if before_total is not None and after_total is not None and after_total < before_total - 0.001:
         return True, f"total {before_total} -> {after_total}"
-
     if before_total is not None and after_total is not None and after_total == before_total:
         return False, "no discount / total unchanged"
-
     return False, "could not confirm application"
 
 
 def run(url: str, coupons: list[str], headed: bool, slow_mo: int, output: Path | None) -> int:
     results: list[tuple[str, bool, str]] = []
+    chrome = ChromeCDP(headed=headed)
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(headless=not headed, slow_mo=slow_mo or 0)
-        context = browser.new_context(
-            viewport={"width": 1400, "height": 1000},
-            locale="en-IN",
+    try:
+        cdp_url = chrome.start()
+    except Exception as exc:
+        print(f"ERROR: could not launch Chrome: {exc}", file=sys.stderr)
+        print(
+            "Install Google Chrome and keep HEADED=True. "
+            "Stripe blocks Playwright/headless browsers for promo codes.",
+            file=sys.stderr,
         )
-        page = context.new_page()
-        print(f"Opening checkout: {url}")
-        page.goto(url, wait_until="domcontentloaded", timeout=60000)
+        return 2
 
-        try:
-            page.wait_for_selector(
-                f"{PROMO_INPUT}, {APPLIED}, "
-                '[data-testid="product-summary-promo-code"], '
-                '[data-testid="checkout-container"]',
-                timeout=45000,
-            )
-        except PlaywrightTimeout:
-            print("ERROR: Checkout page did not load expected elements.", file=sys.stderr)
-            browser.close()
-            return 2
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.connect_over_cdp(cdp_url)
+            context = browser.contexts[0] if browser.contexts else browser.new_context()
+            # Prefer the default tab Chrome opened; new tabs are fine too.
+            page = context.pages[0] if context.pages else context.new_page()
 
-        page.wait_for_timeout(2000)
-        # If session already has a code, clear it so totals/baseline are clean
-        clear_existing_promo(page)
-        open_promo_input(page)
-
-        for idx, code in enumerate(coupons, start=1):
-            print(f"[{idx}/{len(coupons)}] Trying: {code} ... ", end="", flush=True)
+            print(f"Opening checkout: {url}")
+            page.goto(url, wait_until="domcontentloaded", timeout=60000)
             try:
-                working, detail = apply_coupon(page, code)
-            except Exception as exc:
-                working, detail = False, f"error: {exc}"
+                ua = page.evaluate("() => navigator.userAgent")
+                print(f"Browser UA: {ua}")
+                if "HeadlessChrome" in (ua or ""):
+                    print(
+                        "WARNING: HeadlessChrome detected — Stripe will likely "
+                        "mark every promo invalid. Set HEADED=True.",
+                        file=sys.stderr,
+                    )
+            except Exception:
+                pass
 
-            status = "working" if working else "not working"
-            print(f"{status} ({detail})")
-            results.append((code, working, detail))
-            page.wait_for_timeout(400)
+            try:
+                page.wait_for_selector(
+                    f"{PROMO_INPUT}, {APPLIED}, "
+                    '[data-testid="product-summary-promo-code"], '
+                    '[data-testid="checkout-container"]',
+                    timeout=45000,
+                )
+            except PlaywrightTimeout:
+                print("ERROR: Checkout page did not load expected elements.", file=sys.stderr)
+                return 2
 
-        browser.close()
+            page.wait_for_timeout(2500)
+            clear_existing_promo(page)
+            open_promo_input(page)
+
+            for idx, code in enumerate(coupons, start=1):
+                print(f"[{idx}/{len(coupons)}] Trying: {code} ... ", end="", flush=True)
+                try:
+                    working, detail = apply_coupon(page, code)
+                except Exception as exc:
+                    working, detail = False, f"error: {exc}"
+                print(("working" if working else "not working") + f" ({detail})")
+                results.append((code, working, detail))
+                page.wait_for_timeout(500)
+
+            try:
+                page.close()
+            except Exception:
+                pass
+    finally:
+        chrome.stop()
 
     print("\n=== Summary ===")
     working_codes = [c for c, ok, _ in results if ok]
@@ -455,9 +589,10 @@ def run(url: str, coupons: list[str], headed: bool, slow_mo: int, output: Path |
         print("Not working:", ", ".join(failed_codes))
 
     if output:
-        lines = []
-        for code, ok, detail in results:
-            lines.append(f"{'working' if ok else 'not working'}\t{code}\t{detail}")
+        lines = [
+            f"{'working' if ok else 'not working'}\t{code}\t{detail}"
+            for code, ok, detail in results
+        ]
         output.write_text("\n".join(lines) + "\n", encoding="utf-8")
         print(f"\nWrote results to {output}")
 
@@ -466,19 +601,18 @@ def run(url: str, coupons: list[str], headed: bool, slow_mo: int, output: Path |
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Test promo/coupon codes on a Mobbin Stripe Checkout page. "
-        "Edit URL/FILE at the top of this script, or pass CLI flags."
+        description="Test Mobbin Stripe promo codes using real Chrome (CDP)."
     )
-    parser.add_argument("--url", default=None, help="Stripe Checkout URL (overrides URL)")
-    parser.add_argument("--file", "-f", default=None, help="Coupons file (overrides FILE)")
-    parser.add_argument("--output", "-o", default=None, help="TSV results path (overrides OUTPUT)")
+    parser.add_argument("--url", default=None, help="Stripe Checkout URL")
+    parser.add_argument("--file", "-f", default=None, help="Coupons file")
+    parser.add_argument("--output", "-o", default=None, help="TSV results path")
     parser.add_argument(
         "--headed",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="Show/hide browser window (overrides HEADED)",
+        help="Show Chrome window (default True; required for Stripe)",
     )
-    parser.add_argument("--slow-mo", type=int, default=None, help="Slow actions by N ms")
+    parser.add_argument("--slow-mo", type=int, default=None, help="Unused with CDP; kept for compat")
     args = parser.parse_args()
 
     url = args.url if args.url is not None else URL
