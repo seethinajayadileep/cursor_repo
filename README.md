@@ -58,6 +58,6 @@ not working WELCOME10  Invalid promotion code
 ## Notes
 
 - Uses Playwright against the real Stripe Checkout UI (`#promotionCode` + Apply).
-- A code is **working** if the total drops, a discount/promo chip appears, or the code shows as applied.
-- A code is **not working** if Stripe shows an error or the total does not change.
+- Detection waits for Stripe’s `payment_pages` API response (HTTP 200 = working, 4xx = not working), then confirms the Applied Discount UI / total change.
+- Types codes with key events so the Apply button enables reliably; removes an already-applied code before the next attempt.
 - Do not commit live payment cards or secrets. Session URLs are temporary.
