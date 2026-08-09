@@ -23,7 +23,10 @@ Organized unique coupon codes by product/service.
 
 ## Files
 
-- `by-service/*.txt` — one unique code per line
+- `by-service/*.txt` — one unique code per line (duplicates removed)
+- `raw/*.txt` — cleaned unique source lists (same codes)
 - `catalog.json` — machine-readable full catalog
 - `catalog.csv` — flat service,code table
 - `CATEGORIES.md` — full markdown listing
+
+All lists are deduplicated within each service and across services.

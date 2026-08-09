@@ -91,8 +91,24 @@ def arize_subtypes(codes: list[str]) -> dict[str, list[str]]:
     }
 
 
+def assert_no_duplicates(catalog: dict[str, list[str]]) -> None:
+    """Fail the build if any within-service or cross-service duplicates exist."""
+    owners: dict[str, str] = {}
+    for service, codes in catalog.items():
+        if len(codes) != len(set(codes)):
+            raise SystemExit(f"Duplicate codes found within {service}")
+        for code in codes:
+            key = code.upper()
+            if key in owners:
+                raise SystemExit(
+                    f"Cross-service duplicate {code}: {owners[key]} and {service}"
+                )
+            owners[key] = service
+
+
 def main() -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
     catalog: dict[str, list[str]] = {}
 
     for service in SERVICES:
@@ -103,9 +119,15 @@ def main() -> None:
                 c.replace("PGXARIZE-", "PGxARIZE-", 1) if c.startswith("PGXARIZE-") else c
                 for c in codes
             ]
+        # Keep only unique codes, first occurrence wins
+        codes = list(OrderedDict.fromkeys(codes))
         catalog[service] = codes
-        out_path = OUT_DIR / f"{service}.txt"
-        out_path.write_text("\n".join(codes) + ("\n" if codes else ""), encoding="utf-8")
+        out_text = "\n".join(codes) + ("\n" if codes else "")
+        (OUT_DIR / f"{service}.txt").write_text(out_text, encoding="utf-8")
+        # Keep raw sources cleaned to one unique code per line too
+        (RAW_DIR / f"{service}.txt").write_text(out_text, encoding="utf-8")
+
+    assert_no_duplicates(catalog)
 
     # Combined markdown
     md_lines = [
@@ -232,10 +254,13 @@ def main() -> None:
             "",
             "## Files",
             "",
-            "- `by-service/*.txt` — one unique code per line",
+            "- `by-service/*.txt` — one unique code per line (duplicates removed)",
+            "- `raw/*.txt` — cleaned unique source lists (same codes)",
             "- `catalog.json` — machine-readable full catalog",
             "- `catalog.csv` — flat service,code table",
             "- `CATEGORIES.md` — full markdown listing",
+            "",
+            "All lists are deduplicated within each service and across services.",
             "",
         ]
     )
