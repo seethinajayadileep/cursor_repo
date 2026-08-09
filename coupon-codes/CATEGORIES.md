@@ -10,12 +10,12 @@ Unique codes categorized from the pasted inventory.
 | Arize | 903 |
 | Relay.app | 899 |
 | Magic Patterns | 1026 |
-| Reforge Build | 958 |
+| Reforge Build | 970 |
 | Descript | 715 |
 | Bolt.new | 111 |
 | DeepSky | 1 |
 
-**Total unique codes:** 5642
+**Total unique codes:** 5654
 
 ## Link-based freebies
 
@@ -3908,7 +3908,7 @@ Unique codes categorized from the pasted inventory.
 - `FHS7AHK2`
 - `WU0NWVLC`
 
-## Reforge Build (958)
+## Reforge Build (970)
 
 - `XU27ES0U`
 - `CMUU6BNY`
@@ -4868,6 +4868,18 @@ Unique codes categorized from the pasted inventory.
 - `AT4ICV72`
 - `PLG85RNB`
 - `SCLMGY4R`
+- `UHLASGBD`
+- `VBAOTWSG`
+- `EWH7VWI1`
+- `NIRZQUIS`
+- `647RW622`
+- `ULLWX6UA`
+- `G2KAV1IN`
+- `OYVSDDYZ`
+- `ZHLLIPE5`
+- `RAOY0B5Z`
+- `JBNB7EQP`
+- `TJI0LJ4K`
 
 ## Descript (715)
 
