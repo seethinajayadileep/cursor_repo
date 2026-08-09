@@ -10,10 +10,10 @@ Organized unique coupon codes by product/service.
 - **Magic Patterns**: 1026 (see `by-service/magic_pattern.txt`)
 - **Reforge Build**: 958 (see `by-service/reforge_build.txt`)
 - **Descript**: 715 (see `by-service/descript.txt`)
-- **Bolt.new**: 96 (see `by-service/bolt_new.txt`)
+- **Bolt.new**: 111 (see `by-service/bolt_new.txt`)
 - **DeepSky**: 1 (see `by-service/deepsky.txt`)
 
-- **Total**: 5615
+- **Total**: 5630
 
 ## Link freebies (no per-user code list)
 

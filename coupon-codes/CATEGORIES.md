@@ -12,10 +12,10 @@ Unique codes categorized from the pasted inventory.
 | Magic Patterns | 1026 |
 | Reforge Build | 958 |
 | Descript | 715 |
-| Bolt.new | 96 |
+| Bolt.new | 111 |
 | DeepSky | 1 |
 
-**Total unique codes:** 5615
+**Total unique codes:** 5630
 
 ## Link-based freebies
 
@@ -5575,7 +5575,7 @@ Unique codes categorized from the pasted inventory.
 - `AWUL84RE`
 - `T7STDW2U`
 
-## Bolt.new (96)
+## Bolt.new (111)
 
 - `1ETLEKHU`
 - `TWI9WMVH`
@@ -5673,6 +5673,21 @@ Unique codes categorized from the pasted inventory.
 - `T3S8VE5Q`
 - `1JV4YB5T`
 - `660GTZSW`
+- `1C4FYDG2`
+- `8BCTXOFK`
+- `B1BE0AXZ`
+- `GCL8MDCC`
+- `F4QO0O8A`
+- `A15TJ3T2`
+- `6TOX5JKO`
+- `OWG602OO`
+- `OVQGRFMT`
+- `EE7RRFW3`
+- `40ERQSI8`
+- `ATOUXS5K`
+- `NJ1S0JQ1`
+- `3OFOA9AS`
+- `0ZE5Y38G`
 
 ## DeepSky (1)
 
