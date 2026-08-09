@@ -12,6 +12,7 @@ Optional CLI overrides still work:
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from pathlib import Path
@@ -28,6 +29,16 @@ OUTPUT = ""                   # e.g. "results.txt" (leave empty to skip)
 HEADED = False                # True = show browser window
 SLOW_MO = 0                   # slow Playwright actions by N ms (0 = off)
 # =============================================================================
+
+PROMO_INPUT = "#promotionCode, input[name='promotionCode']"
+APPLY_BTN = 'button[class*="PromotionCodeEntry-applyButton"], button:has-text("Apply")'
+REMOVE_BTN = (
+    'button[class*="AppliedDiscount-removeButton"], '
+    '[class*="AppliedDiscount"] button, '
+    'button[aria-label*="Remove" i], '
+    'button[aria-label*="Clear" i]'
+)
+APPLIED = '[class*="AppliedDiscount"]'
 
 
 def load_coupons(path: Path) -> list[str]:
@@ -50,90 +61,94 @@ def parse_amount(text: str) -> float | None:
 
 
 def open_promo_input(page) -> None:
-    """Ensure the promotion code input is visible and focused."""
-    promo = page.locator("#promotionCode, input[name='promotionCode']")
+    """Ensure the promotion code input is visible."""
+    promo = page.locator(PROMO_INPUT)
     if promo.count() and promo.first.is_visible():
         return
 
-    # Mobile / collapsed UI: click "Add code"
     add_code = page.locator(
         '[data-testid="product-summary-promo-code"], '
         'button:has-text("Add code"), '
-        'button:has-text("Add promotion code")'
+        'button:has-text("Add promotion code"), '
+        "text=Add promotion code"
     )
-    if add_code.count():
+    for i in range(add_code.count()):
         try:
-            add_code.first.click(timeout=5000)
-            page.wait_for_timeout(500)
-        except PlaywrightTimeout:
-            pass
-
-    # Fallback: click the "Add promotion code" label/input area
-    label = page.locator("text=Add promotion code")
-    if label.count():
-        try:
-            label.first.click(timeout=3000)
-        except PlaywrightTimeout:
-            pass
+            el = add_code.nth(i)
+            if el.is_visible():
+                el.click(timeout=4000)
+                page.wait_for_timeout(600)
+                break
+        except Exception:
+            continue
 
 
-def clear_existing_promo(page) -> None:
-    """Remove a previously applied promo code if a remove/clear control exists."""
-    remove_selectors = [
-        'button[aria-label*="Remove" i]',
-        'button[aria-label*="Clear" i]',
-        'button:has-text("Remove")',
-        '[data-testid*="promotion"] button',
-        '.PromotionCodeEntry button[type="button"]:has(svg)',
-    ]
-    for sel in remove_selectors:
-        btns = page.locator(sel)
-        count = btns.count()
-        for i in range(count):
+def clear_existing_promo(page) -> bool:
+    """Remove a previously applied promo. Returns True if a remove was clicked."""
+    removed = False
+    for _ in range(3):
+        btns = page.locator(REMOVE_BTN)
+        clicked = False
+        for i in range(btns.count()):
             btn = btns.nth(i)
             try:
-                if btn.is_visible():
-                    label = (btn.get_attribute("aria-label") or btn.inner_text() or "").lower()
-                    # Avoid clicking Apply / Legal / etc.
-                    if any(k in label for k in ("remove", "clear", "delete", "×", "x")):
-                        btn.click(timeout=2000)
-                        page.wait_for_timeout(800)
-                        return
+                if not btn.is_visible():
+                    continue
+                cls = (btn.get_attribute("class") or "").lower()
+                aria = (btn.get_attribute("aria-label") or "").lower()
+                text = (btn.inner_text() or "").lower()
+                label = f"{cls} {aria} {text}"
+                if "apply" in label and "remove" not in label:
+                    continue
+                if any(k in label for k in ("remove", "clear", "delete", "applieddiscount")):
+                    btn.click(timeout=3000)
+                    page.wait_for_timeout(1200)
+                    removed = True
+                    clicked = True
+                    break
             except Exception:
                 continue
+        if not clicked:
+            break
+    return removed
 
 
-def get_total(page) -> float | None:
-    selectors = [
-        "#OrderDetails-TotalAmount",
-        '[id="OrderDetails-TotalAmount"]',
-        "#ProductSummary-totalAmount",
-        '[data-testid="product-summary-total-amount"]',
-        '[data-testid="order-details-footer-subtotal-amount"]',
-    ]
-    for sel in selectors:
-        loc = page.locator(sel)
-        if loc.count():
-            try:
-                text = loc.first.inner_text(timeout=2000)
-                amount = parse_amount(text)
-                if amount is not None:
-                    return amount
-            except Exception:
-                continue
+def get_total_due_today(page) -> float | None:
+    """Read Total due today only — never the always-unchanged subtotal."""
+    # Primary: dedicated total amount node
+    loc = page.locator("#OrderDetails-TotalAmount")
+    if loc.count():
+        try:
+            text = loc.first.inner_text(timeout=1500)
+            # Prefer the first money-looking line
+            for line in text.splitlines():
+                if "₹" in line or "$" in line or "€" in line or re.search(r"\d", line):
+                    amount = parse_amount(line)
+                    if amount is not None:
+                        return amount
+            return parse_amount(text)
+        except Exception:
+            pass
+
+    # Fallback: product summary total (may include "per year" — still ok for deltas)
+    loc = page.locator('#ProductSummary-totalAmount, [data-testid="product-summary-total-amount"]')
+    if loc.count():
+        try:
+            return parse_amount(loc.first.inner_text(timeout=1500))
+        except Exception:
+            pass
     return None
 
 
-def visible_error(page) -> str | None:
-    """Return promo-related error text if present."""
-    error_selectors = [
-        ".FieldError",
-        ".FieldError-container .Text",
-        '[role="alert"]',
+def visible_promo_error(page) -> str | None:
+    """Return visible promo-field error text if present."""
+    selectors = [
         ".PromotionCodeEntry .FieldError",
-        "span.FieldError",
+        '[class*="PromotionCodeEntry"] .FieldError',
+        ".FieldError",
+        '[role="alert"]',
     ]
-    for sel in error_selectors:
+    for sel in selectors:
         locs = page.locator(sel)
         for i in range(locs.count()):
             el = locs.nth(i)
@@ -144,7 +159,6 @@ def visible_error(page) -> str | None:
                 if not text:
                     continue
                 lower = text.lower()
-                # Ignore empty/zero-opacity placeholders that still have structure
                 if any(
                     k in lower
                     for k in (
@@ -163,93 +177,214 @@ def visible_error(page) -> str | None:
                     )
                 ):
                     return text
-                # Any non-empty FieldError near promo is likely a failure
-                if "FieldError" in sel and len(text) > 2:
-                    return text
             except Exception:
                 continue
     return None
 
 
-def promo_applied_indicator(page, code: str) -> bool:
-    """Heuristic: applied promo chip / discount line appears."""
+def applied_discount_info(page) -> dict:
+    """Return info about an applied discount block, if any."""
+    info = page.evaluate(
+        """() => {
+          const blocks = [...document.querySelectorAll('[class*="AppliedDiscount"]')];
+          const texts = blocks
+            .map(el => (el.innerText || '').replace(/\\s+/g, ' ').trim())
+            .filter(Boolean);
+          const order = document.querySelector('[data-testid="order-details"]');
+          const orderText = order ? (order.innerText || '').replace(/\\s+/g, ' ').trim() : '';
+          const hasRemove = !!document.querySelector('button[class*="AppliedDiscount-removeButton"]');
+          const hasOff = /off for/i.test(orderText) || /-\\s*₹/.test(orderText) || /-\\s*\\$/.test(orderText);
+          return { texts, orderText, hasRemove, hasOff };
+        }"""
+    )
+    return info
+
+
+def promo_is_applied(page, code: str) -> tuple[bool, str]:
+    """Detect a successfully applied promo via UI."""
     code_lower = code.lower()
-    candidates = [
-        page.locator(f'text=/{re.escape(code)}/i'),
-        page.locator('[data-testid*="promotion"]'),
-        page.locator(".PromotionCodeAndDiscountLines"),
-        page.locator("text=/discount/i"),
-        page.locator("text=/off$/i"),
-    ]
-    for loc in candidates:
+    info = applied_discount_info(page)
+
+    for text in info.get("texts") or []:
+        low = text.lower()
+        if code_lower in low:
+            return True, f"applied discount UI shows {code}"
+        if "off" in low or "-" in text:
+            return True, f"applied discount UI: {text[:80]}"
+
+    order = (info.get("orderText") or "").lower()
+    if code_lower in order and "add promotion" not in order and "invalid" not in order:
+        # Code shown in order details outside the input
+        if info.get("hasRemove") or info.get("hasOff"):
+            return True, "code visible with discount in order details"
+
+    if info.get("hasRemove") and info.get("hasOff"):
+        return True, "discount line + remove control present"
+
+    # Input gone after apply + discount present
+    promo = page.locator(PROMO_INPUT)
+    input_visible = bool(promo.count() and promo.first.is_visible())
+    if not input_visible and (info.get("hasRemove") or info.get("hasOff")):
+        return True, "promo input replaced by applied discount"
+
+    return False, ""
+
+
+def is_payment_pages_update(response) -> bool:
+    """Stripe Checkout promo apply hits POST /v1/payment_pages/cs_..."""
+    try:
+        if response.request.method != "POST":
+            return False
+        url = response.url
+        if "api.stripe.com/v1/payment_pages/" not in url:
+            return False
+        # ignore /init
+        if url.rstrip("/").endswith("/init"):
+            return False
+        return True
+    except Exception:
+        return False
+
+
+def enter_code(page, code: str) -> None:
+    """Type a promo code so React state updates and Apply enables."""
+    open_promo_input(page)
+    promo = page.locator(PROMO_INPUT).first
+    promo.wait_for(state="visible", timeout=15000)
+    promo.click()
+    # Clear existing value
+    promo.fill("")
+    page.wait_for_timeout(100)
+    # type() fires key events; more reliable than fill() for Stripe React inputs
+    promo.type(code, delay=25)
+    page.wait_for_timeout(200)
+
+    # Wait until Apply enables
+    try:
+        page.wait_for_function(
+            """() => {
+              const buttons = [...document.querySelectorAll('button')];
+              return buttons.some(b => {
+                const cls = b.className || '';
+                const text = (b.innerText || '').trim();
+                const isApply = cls.includes('PromotionCodeEntry-applyButton') || text === 'Apply';
+                return isApply && !b.disabled && b.offsetParent !== null;
+              });
+            }""",
+            timeout=8000,
+        )
+    except PlaywrightTimeout:
+        pass
+
+
+def click_apply(page) -> None:
+    apply_btns = page.locator(APPLY_BTN)
+    for i in range(apply_btns.count()):
+        btn = apply_btns.nth(i)
         try:
-            if loc.count() == 0:
-                continue
-            for i in range(min(loc.count(), 5)):
-                el = loc.nth(i)
-                if not el.is_visible():
-                    continue
-                text = (el.inner_text() or "").strip().lower()
-                if not text:
-                    continue
-                if code_lower in text:
-                    return True
-                if "discount" in text or "% off" in text or "₹" in text and "-" in text:
-                    # Discount line after applying is a good signal
-                    if "add promotion" not in text:
-                        return True
+            if btn.is_visible() and btn.is_enabled():
+                btn.click(timeout=5000)
+                return
         except Exception:
             continue
-    return False
+    # Fallback
+    page.locator(PROMO_INPUT).first.press("Enter")
 
 
-def apply_coupon(page, code: str, wait_ms: int = 3500) -> tuple[bool, str]:
+def classify_stripe_response(response) -> tuple[str, str]:
+    """
+    Returns (status, detail) where status is 'working', 'not_working', or 'unknown'.
+    """
+    try:
+        status = response.status
+        body = response.text()
+    except Exception as exc:
+        return "unknown", f"response read error: {exc}"
+
+    if status == 200:
+        # Confirm JSON looks like an updated payment page (not an error object)
+        try:
+            data = json.loads(body)
+            if isinstance(data, dict) and data.get("error"):
+                msg = data["error"].get("message") or str(data["error"])
+                return "not_working", msg
+        except Exception:
+            pass
+        return "working", f"stripe payment_pages HTTP {status}"
+
+    # 4xx = rejected promo (or other update error)
+    msg = ""
+    try:
+        data = json.loads(body)
+        err = data.get("error") or {}
+        msg = err.get("message") or err.get("code") or ""
+        # Sometimes message is nested
+        if not msg and isinstance(err, dict):
+            msg = json.dumps(err)[:200]
+    except Exception:
+        msg = body[:200] if body else ""
+
+    if status >= 400:
+        return "not_working", msg or f"stripe HTTP {status}"
+    return "unknown", f"stripe HTTP {status}"
+
+
+def apply_coupon(page, code: str) -> tuple[bool, str]:
     """
     Enter a coupon and decide if it worked.
     Returns (working, detail_message).
     """
-    open_promo_input(page)
     clear_existing_promo(page)
     open_promo_input(page)
 
-    promo = page.locator("#promotionCode, input[name='promotionCode']").first
-    promo.wait_for(state="visible", timeout=15000)
+    before_total = get_total_due_today(page)
+    enter_code(page, code)
 
-    before_total = get_total(page)
+    api_result: tuple[str, str] | None = None
+    try:
+        with page.expect_response(is_payment_pages_update, timeout=15000) as resp_info:
+            click_apply(page)
+        api_result = classify_stripe_response(resp_info.value)
+    except PlaywrightTimeout:
+        # No payment_pages POST seen — fall through to UI checks
+        page.wait_for_timeout(2000)
+    except Exception:
+        page.wait_for_timeout(2000)
 
-    promo.click()
-    promo.fill("")
-    promo.fill(code)
+    # Let UI settle after the network response
+    page.wait_for_timeout(800)
 
-    # Apply button becomes enabled after typing
-    apply_btn = page.locator(
-        'button:has-text("Apply"):not([disabled]), '
-        '.PromotionCodeEntry button:has-text("Apply")'
-    )
-    # Prefer enabled Apply near the promo field
-    apply_candidates = page.locator('button:has-text("Apply")')
-    clicked = False
-    for i in range(apply_candidates.count()):
-        btn = apply_candidates.nth(i)
-        try:
-            if btn.is_visible() and btn.is_enabled():
-                btn.click(timeout=5000)
-                clicked = True
-                break
-        except Exception:
-            continue
+    # 1) Prefer Stripe API outcome
+    if api_result is not None:
+        status, detail = api_result
+        if status == "working":
+            ok, ui_detail = promo_is_applied(page, code)
+            after = get_total_due_today(page)
+            if ok:
+                return True, ui_detail
+            if (
+                before_total is not None
+                and after is not None
+                and after < before_total - 0.001
+            ):
+                return True, f"total {before_total} -> {after}"
+            return True, detail
+        if status == "not_working":
+            err = visible_promo_error(page)
+            return False, err or detail or "rejected by Stripe"
 
-    if not clicked:
-        # Press Enter as fallback
-        promo.press("Enter")
-
-    page.wait_for_timeout(wait_ms)
-
-    err = visible_error(page)
+    # 2) UI error
+    err = visible_promo_error(page)
     if err:
         return False, err
 
-    after_total = get_total(page)
+    # 3) UI applied indicators
+    ok, detail = promo_is_applied(page, code)
+    if ok:
+        return True, detail
+
+    # 4) Total dropped
+    after_total = get_total_due_today(page)
     if (
         before_total is not None
         and after_total is not None
@@ -257,27 +392,7 @@ def apply_coupon(page, code: str, wait_ms: int = 3500) -> tuple[bool, str]:
     ):
         return True, f"total {before_total} -> {after_total}"
 
-    if promo_applied_indicator(page, code):
-        return True, "promo applied (UI indicator)"
-
-    # Input cleared / replaced by applied badge is often success
-    try:
-        value = promo.input_value()
-        if value.strip() == "" and promo_applied_indicator(page, code):
-            return True, "promo applied"
-    except Exception:
-        pass
-
-    # If Apply stayed disabled or nothing changed, treat as not working
     if before_total is not None and after_total is not None and after_total == before_total:
-        # Double-check for success chip with the code text in order details footer
-        footer = page.locator(".OrderDetails-footer, .YGErOEoF__Subtotal, .FadeWrapper")
-        try:
-            footer_text = footer.inner_text(timeout=2000).lower()
-            if code.lower() in footer_text and "add promotion" not in footer_text:
-                return True, "code visible in order details"
-        except Exception:
-            pass
         return False, "no discount / total unchanged"
 
     return False, "could not confirm application"
@@ -289,17 +404,16 @@ def run(url: str, coupons: list[str], headed: bool, slow_mo: int, output: Path |
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=not headed, slow_mo=slow_mo or 0)
         context = browser.new_context(
-            viewport={"width": 1280, "height": 900},
-            locale="en-US",
+            viewport={"width": 1400, "height": 1000},
+            locale="en-IN",
         )
         page = context.new_page()
         print(f"Opening checkout: {url}")
         page.goto(url, wait_until="domcontentloaded", timeout=60000)
 
-        # Wait for Stripe checkout shell
         try:
             page.wait_for_selector(
-                "#promotionCode, input[name='promotionCode'], "
+                f"{PROMO_INPUT}, {APPLIED}, "
                 '[data-testid="product-summary-promo-code"], '
                 '[data-testid="checkout-container"]',
                 timeout=45000,
@@ -309,8 +423,10 @@ def run(url: str, coupons: list[str], headed: bool, slow_mo: int, output: Path |
             browser.close()
             return 2
 
-        # Extra settle time for Stripe JS
         page.wait_for_timeout(2000)
+        # If session already has a code, clear it so totals/baseline are clean
+        clear_existing_promo(page)
+        open_promo_input(page)
 
         for idx, code in enumerate(coupons, start=1):
             print(f"[{idx}/{len(coupons)}] Trying: {code} ... ", end="", flush=True)
@@ -322,9 +438,7 @@ def run(url: str, coupons: list[str], headed: bool, slow_mo: int, output: Path |
             status = "working" if working else "not working"
             print(f"{status} ({detail})")
             results.append((code, working, detail))
-
-            # Brief pause between attempts; refresh if page looks stuck
-            page.wait_for_timeout(600)
+            page.wait_for_timeout(400)
 
         browser.close()
 
@@ -355,35 +469,16 @@ def main() -> int:
         description="Test promo/coupon codes on a Mobbin Stripe Checkout page. "
         "Edit URL/FILE at the top of this script, or pass CLI flags."
     )
-    parser.add_argument(
-        "--url",
-        default=None,
-        help="Stripe Checkout URL (overrides URL in script)",
-    )
-    parser.add_argument(
-        "--file",
-        "-f",
-        default=None,
-        help="Coupons text file (overrides FILE in script)",
-    )
-    parser.add_argument(
-        "--output",
-        "-o",
-        default=None,
-        help="Optional TSV results path (overrides OUTPUT in script)",
-    )
+    parser.add_argument("--url", default=None, help="Stripe Checkout URL (overrides URL)")
+    parser.add_argument("--file", "-f", default=None, help="Coupons file (overrides FILE)")
+    parser.add_argument("--output", "-o", default=None, help="TSV results path (overrides OUTPUT)")
     parser.add_argument(
         "--headed",
         action=argparse.BooleanOptionalAction,
         default=None,
-        help="Show/hide browser window (overrides HEADED in script)",
+        help="Show/hide browser window (overrides HEADED)",
     )
-    parser.add_argument(
-        "--slow-mo",
-        type=int,
-        default=None,
-        help="Slow down Playwright actions by N ms (overrides SLOW_MO)",
-    )
+    parser.add_argument("--slow-mo", type=int, default=None, help="Slow actions by N ms")
     args = parser.parse_args()
 
     url = args.url if args.url is not None else URL
@@ -393,10 +488,7 @@ def main() -> int:
     slow_mo = args.slow_mo if args.slow_mo is not None else SLOW_MO
 
     if not url or "PASTE_YOUR_FRESH_SESSION_HERE" in url:
-        print(
-            "ERROR: set URL at the top of check_coupons.py (or pass --url).",
-            file=sys.stderr,
-        )
+        print("ERROR: set URL at the top of check_coupons.py (or pass --url).", file=sys.stderr)
         return 1
 
     coupons_path = Path(file_name)
