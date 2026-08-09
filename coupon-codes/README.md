@@ -7,13 +7,13 @@ Organized unique coupon codes by product/service.
 - **Mobbin**: 1029 (see `by-service/mobbin.txt`)
 - **Arize**: 903 (see `by-service/arize.txt`)
 - **Relay.app**: 596 (see `by-service/relay_app.txt`)
-- **Magic Patterns**: 721 (see `by-service/magic_pattern.txt`)
+- **Magic Patterns**: 1026 (see `by-service/magic_pattern.txt`)
 - **Reforge Build**: 668 (see `by-service/reforge_build.txt`)
 - **Descript**: 553 (see `by-service/descript.txt`)
 - **Bolt.new**: 96 (see `by-service/bolt_new.txt`)
 - **DeepSky**: 1 (see `by-service/deepsky.txt`)
 
-- **Total**: 4567
+- **Total**: 4872
 
 ## Link freebies (no per-user code list)
 
