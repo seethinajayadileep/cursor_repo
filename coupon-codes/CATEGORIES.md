@@ -8,14 +8,14 @@ Unique codes categorized from the pasted inventory.
 |---|---:|
 | Mobbin | 1029 |
 | Arize | 903 |
-| Relay.app | 887 |
+| Relay.app | 899 |
 | Magic Patterns | 1026 |
 | Reforge Build | 958 |
 | Descript | 715 |
 | Bolt.new | 111 |
 | DeepSky | 1 |
 
-**Total unique codes:** 5630
+**Total unique codes:** 5642
 
 ## Link-based freebies
 
@@ -1977,7 +1977,7 @@ Unique codes categorized from the pasted inventory.
 - `PGxARIZE-LTJVPAGP`
 - `PGxARIZE-IUCAWL5E`
 
-## Relay.app (887)
+## Relay.app (899)
 
 - `AAKASH4984529533`
 - `AAKASH4617129378`
@@ -2866,6 +2866,18 @@ Unique codes categorized from the pasted inventory.
 - `AAKASH4122744990`
 - `AAKASH4377660859`
 - `AAKASH4888624632`
+- `AAKASH4623216407`
+- `AAKASH4794157870`
+- `AAKASH4764739661`
+- `AAKASH4939181122`
+- `AAKASH4974211240`
+- `AAKASH4305576800`
+- `AAKASH4512469913`
+- `AAKASH4195956355`
+- `AAKASH4535335501`
+- `AAKASH4715953469`
+- `AAKASH4871601523`
+- `AAKASH4755705192`
 
 ## Magic Patterns (1026)
 
