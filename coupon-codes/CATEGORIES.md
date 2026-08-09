@@ -7,7 +7,7 @@ Unique codes categorized from the pasted inventory.
 | Service | Unique codes |
 |---|---:|
 | Mobbin | 1029 |
-| Arize | 903 |
+| Arize | 915 |
 | Relay.app | 899 |
 | Magic Patterns | 1026 |
 | Reforge Build | 970 |
@@ -15,7 +15,7 @@ Unique codes categorized from the pasted inventory.
 | Bolt.new | 111 |
 | DeepSky | 1 |
 
-**Total unique codes:** 5654
+**Total unique codes:** 5666
 
 ## Link-based freebies
 
@@ -36,7 +36,7 @@ Unique codes categorized from the pasted inventory.
 
 ## Arize subtypes
 
-- PGxARIZE-*: 209
+- PGxARIZE-*: 221
 - AAKASH1000-*: 694
 
 ## Mobbin (1029)
@@ -1071,7 +1071,7 @@ Unique codes categorized from the pasted inventory.
 - `X6TKVVUE`
 - `XSXOK7RV`
 
-## Arize (903)
+## Arize (915)
 
 - `PGxARIZE-FGFVUYXS`
 - `PGxARIZE-QM2QRG4M`
@@ -1976,6 +1976,18 @@ Unique codes categorized from the pasted inventory.
 - `PGxARIZE-R1LZP7GE`
 - `PGxARIZE-LTJVPAGP`
 - `PGxARIZE-IUCAWL5E`
+- `PGxARIZE-SV89IWGR`
+- `PGxARIZE-HZEXF2NO`
+- `PGxARIZE-71OR50XD`
+- `PGxARIZE-VDIUST9U`
+- `PGxARIZE-D7HHWW4Q`
+- `PGxARIZE-RJZBB0GV`
+- `PGxARIZE-EL383A2C`
+- `PGxARIZE-I06TBINO`
+- `PGxARIZE-1OK9X1JS`
+- `PGxARIZE-IPNKRC00`
+- `PGxARIZE-PS9L0AFS`
+- `PGxARIZE-WKTM8WYU`
 
 ## Relay.app (899)
 
