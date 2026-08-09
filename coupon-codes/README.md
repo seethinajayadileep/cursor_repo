@@ -4,7 +4,7 @@ Organized unique coupon codes by product/service.
 
 ## Counts
 
-- **Mobbin**: 721 (see `by-service/mobbin.txt`)
+- **Mobbin**: 1029 (see `by-service/mobbin.txt`)
 - **Arize**: 612 (see `by-service/arize.txt`)
 - **Relay.app**: 596 (see `by-service/relay_app.txt`)
 - **Magic Patterns**: 721 (see `by-service/magic_pattern.txt`)
@@ -13,7 +13,7 @@ Organized unique coupon codes by product/service.
 - **Bolt.new**: 96 (see `by-service/bolt_new.txt`)
 - **DeepSky**: 1 (see `by-service/deepsky.txt`)
 
-- **Total**: 3968
+- **Total**: 4276
 
 ## Link freebies (no per-user code list)
 
