@@ -1,0 +1,635 @@
+{
+  "source": "data/red_herring_prospectus.docx",
+  "output": "output/redacted_prospectus.docx",
+  "gold_unique_entities": 33,
+  "detected_unique_entities": 33,
+  "occurrence_replacements": {
+    "company": 5,
+    "address": 10,
+    "phone": 9,
+    "email": 9,
+    "name": 18,
+    "ip_address": 4,
+    "date_of_birth": 8,
+    "ssn": 2,
+    "credit_card": 2
+  },
+  "overall": {
+    "tp": 33,
+    "fp": 0,
+    "fn": 0,
+    "tn": 20,
+    "precision": 1.0,
+    "recall": 1.0,
+    "f1": 1.0,
+    "accuracy": 1.0
+  },
+  "true_positives": [
+    [
+      "address",
+      "12 Palm Grove, Juhu, Mumbai 400049, India"
+    ],
+    [
+      "address",
+      "18 MG Road, Koramangala, Bengaluru 560034, Karnataka, India"
+    ],
+    [
+      "address",
+      "221 Baker Street, Bengaluru 560001, India"
+    ],
+    [
+      "address",
+      "42, 5th Floor, Sunrise Towers, Linking Road, Bandra West, Mumbai 400050, Maharashtra, India"
+    ],
+    [
+      "address",
+      "9 Residency Road, Shivajinagar, Pune 411005, India"
+    ],
+    [
+      "address",
+      "Flat 7B, Lake View Apartments, Salt Lake Sector V, Kolkata 700091, India"
+    ],
+    [
+      "company",
+      "Dey Consulting LLP"
+    ],
+    [
+      "company",
+      "Kapoor Digital Inc."
+    ],
+    [
+      "company",
+      "Nova Tech Analytics Private Limited"
+    ],
+    [
+      "credit_card",
+      "4111 1111 1111 1111"
+    ],
+    [
+      "credit_card",
+      "5500-0000-0000-0004"
+    ],
+    [
+      "date_of_birth",
+      "02/07/1988"
+    ],
+    [
+      "date_of_birth",
+      "05 January 1985"
+    ],
+    [
+      "date_of_birth",
+      "14 March 1992"
+    ],
+    [
+      "date_of_birth",
+      "1980-11-21"
+    ],
+    [
+      "email",
+      "arjun.kapoor@kapoordigital.example"
+    ],
+    [
+      "email",
+      "meera.sharma@novatech.example"
+    ],
+    [
+      "email",
+      "rashhi.patil@gmail.com"
+    ],
+    [
+      "email",
+      "rohan.dey@gmail.com"
+    ],
+    [
+      "ip_address",
+      "192.0.2.10"
+    ],
+    [
+      "ip_address",
+      "198.51.100.23"
+    ],
+    [
+      "ip_address",
+      "198.51.100.77"
+    ],
+    [
+      "ip_address",
+      "203.0.113.45"
+    ],
+    [
+      "name",
+      "Arjun Kapoor"
+    ],
+    [
+      "name",
+      "Meera Sharma"
+    ],
+    [
+      "name",
+      "Rashi Patil"
+    ],
+    [
+      "name",
+      "Rohan Dey"
+    ],
+    [
+      "phone",
+      "(415) 555-2671"
+    ],
+    [
+      "phone",
+      "+91 9123456780"
+    ],
+    [
+      "phone",
+      "+91 9876543210"
+    ],
+    [
+      "phone",
+      "+91 9988776655"
+    ],
+    [
+      "ssn",
+      "123-45-6789"
+    ],
+    [
+      "ssn",
+      "456-12-7890"
+    ]
+  ],
+  "false_positives": [],
+  "false_negatives": [],
+  "leftover_gold_in_output": [],
+  "non_pii_preserved": [
+    "U72900MH2018PTC123456",
+    "15 August 2018",
+    "August 13, 2026",
+    "Rs. 2,500 million",
+    "Rs. 5",
+    "www.novatechanalytics.example",
+    "TKT-441902",
+    "TKT-441903",
+    "TKT-441904",
+    "TKT-441905",
+    "ORD-77821",
+    "ORD-77822",
+    "ORD-77823",
+    "ORD-77824",
+    "APP-908812",
+    "Section 32",
+    "Companies Act, 2013",
+    "RED HERRING PROSPECTUS",
+    "Book Built Issue",
+    "SEBI"
+  ],
+  "non_pii_lost": [],
+  "occurrence_recall": 1.0,
+  "per_type": {
+    "address": {
+      "tp": 6,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "accuracy": 1.0,
+      "false_positives": [],
+      "false_negatives": []
+    },
+    "company": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "accuracy": 1.0,
+      "false_positives": [],
+      "false_negatives": []
+    },
+    "credit_card": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "accuracy": 1.0,
+      "false_positives": [],
+      "false_negatives": []
+    },
+    "date_of_birth": {
+      "tp": 4,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "accuracy": 1.0,
+      "false_positives": [],
+      "false_negatives": []
+    },
+    "email": {
+      "tp": 4,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "accuracy": 1.0,
+      "false_positives": [],
+      "false_negatives": []
+    },
+    "ip_address": {
+      "tp": 4,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "accuracy": 1.0,
+      "false_positives": [],
+      "false_negatives": []
+    },
+    "name": {
+      "tp": 4,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "accuracy": 1.0,
+      "false_positives": [],
+      "false_negatives": []
+    },
+    "phone": {
+      "tp": 4,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "accuracy": 1.0,
+      "false_positives": [],
+      "false_negatives": []
+    },
+    "ssn": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 0,
+      "tn": 0,
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1": 1.0,
+      "accuracy": 1.0,
+      "false_positives": [],
+      "false_negatives": []
+    }
+  },
+  "replacements": [
+    {
+      "type": "company",
+      "original": "Nova Tech Analytics Private Limited",
+      "replacement": "Rodriguez LLC"
+    },
+    {
+      "type": "address",
+      "original": "42, 5th Floor, Sunrise Towers, Linking Road, Bandra West, Mumbai 400050, Maharashtra, India",
+      "replacement": "819 Johnson Course, East William, AK 74064"
+    },
+    {
+      "type": "address",
+      "original": "18 MG Road, Koramangala, Bengaluru 560034, Karnataka, India",
+      "replacement": "161 Calderon River Suite 931, Lake Jeremyport, CO 31013"
+    },
+    {
+      "type": "phone",
+      "original": "+91 9876543210",
+      "replacement": "+91 1234567645"
+    },
+    {
+      "type": "email",
+      "original": "rashhi.patil@gmail.com",
+      "replacement": "john.doe@example.com"
+    },
+    {
+      "type": "name",
+      "original": "Rashi Patil",
+      "replacement": "John Doe"
+    },
+    {
+      "type": "name",
+      "original": "Rashi Patil",
+      "replacement": "John Doe"
+    },
+    {
+      "type": "name",
+      "original": "Rohan Dey",
+      "replacement": "Peter Parker"
+    },
+    {
+      "type": "name",
+      "original": "Rohan Dey",
+      "replacement": "Peter Parker"
+    },
+    {
+      "type": "company",
+      "original": "Dey Consulting LLP",
+      "replacement": "Hawkins LLC"
+    },
+    {
+      "type": "name",
+      "original": "Arjun Kapoor",
+      "replacement": "Linda Morales"
+    },
+    {
+      "type": "company",
+      "original": "Kapoor Digital Inc.",
+      "replacement": "Perez LLC"
+    },
+    {
+      "type": "name",
+      "original": "Rashi Patil",
+      "replacement": "John Doe"
+    },
+    {
+      "type": "email",
+      "original": "rashhi.patil@gmail.com",
+      "replacement": "john.doe@example.com"
+    },
+    {
+      "type": "ip_address",
+      "original": "203.0.113.45",
+      "replacement": "203.0.113.36"
+    },
+    {
+      "type": "phone",
+      "original": "+91 9876543210",
+      "replacement": "+91 1234567645"
+    },
+    {
+      "type": "address",
+      "original": "12 Palm Grove, Juhu, Mumbai 400049, India",
+      "replacement": "76724 John Points Suite 969, Coxberg, NY 65187"
+    },
+    {
+      "type": "name",
+      "original": "Rashi Patil",
+      "replacement": "John Doe"
+    },
+    {
+      "type": "date_of_birth",
+      "original": "14 March 1992",
+      "replacement": "22 December 1986"
+    },
+    {
+      "type": "ssn",
+      "original": "123-45-6789",
+      "replacement": "882-02-1877"
+    },
+    {
+      "type": "credit_card",
+      "original": "4111 1111 1111 1111",
+      "replacement": "4012 2691 6697 8485"
+    },
+    {
+      "type": "name",
+      "original": "Rohan Dey",
+      "replacement": "Peter Parker"
+    },
+    {
+      "type": "email",
+      "original": "rohan.dey@gmail.com",
+      "replacement": "peter.parker@example.com"
+    },
+    {
+      "type": "ip_address",
+      "original": "198.51.100.23",
+      "replacement": "203.0.113.157"
+    },
+    {
+      "type": "phone",
+      "original": "+91 9123456780",
+      "replacement": "+91 1451462704"
+    },
+    {
+      "type": "address",
+      "original": "Flat 7B, Lake View Apartments, Salt Lake Sector V, Kolkata 700091, India",
+      "replacement": "Unit 2814 Box 8932, DPO AA 21675"
+    },
+    {
+      "type": "name",
+      "original": "Rohan Dey",
+      "replacement": "Peter Parker"
+    },
+    {
+      "type": "date_of_birth",
+      "original": "02/07/1988",
+      "replacement": "04/11/1990"
+    },
+    {
+      "type": "ssn",
+      "original": "456-12-7890",
+      "replacement": "836-09-8728"
+    },
+    {
+      "type": "credit_card",
+      "original": "5500-0000-0000-0004",
+      "replacement": "4957 0154 3039 1170"
+    },
+    {
+      "type": "name",
+      "original": "Meera Sharma",
+      "replacement": "Frederick Rose"
+    },
+    {
+      "type": "email",
+      "original": "meera.sharma@novatech.example",
+      "replacement": "donnaarroyo@example.com"
+    },
+    {
+      "type": "ip_address",
+      "original": "192.0.2.10",
+      "replacement": "203.0.113.175"
+    },
+    {
+      "type": "phone",
+      "original": "+91 9988776655",
+      "replacement": "+91 1638346578"
+    },
+    {
+      "type": "address",
+      "original": "221 Baker Street, Bengaluru 560001, India",
+      "replacement": "15098 Brianna Avenue, Lake Crystalbury, CA 04618"
+    },
+    {
+      "type": "name",
+      "original": "Meera Sharma",
+      "replacement": "Frederick Rose"
+    },
+    {
+      "type": "date_of_birth",
+      "original": "1980-11-21",
+      "replacement": "1995-02-27"
+    },
+    {
+      "type": "name",
+      "original": "Arjun Kapoor",
+      "replacement": "Linda Morales"
+    },
+    {
+      "type": "email",
+      "original": "arjun.kapoor@kapoordigital.example",
+      "replacement": "palmerjoshua@example.com"
+    },
+    {
+      "type": "ip_address",
+      "original": "198.51.100.77",
+      "replacement": "203.0.113.144"
+    },
+    {
+      "type": "phone",
+      "original": "(415) 555-2671",
+      "replacement": "(415) 555-3829"
+    },
+    {
+      "type": "address",
+      "original": "9 Residency Road, Shivajinagar, Pune 411005, India",
+      "replacement": "6311 Gomez Loop, Shieldston, TX 86150"
+    },
+    {
+      "type": "name",
+      "original": "Arjun Kapoor",
+      "replacement": "Linda Morales"
+    },
+    {
+      "type": "date_of_birth",
+      "original": "05 January 1985",
+      "replacement": "19 November 2000"
+    },
+    {
+      "type": "company",
+      "original": "Nova Tech Analytics Private Limited",
+      "replacement": "Rodriguez LLC"
+    },
+    {
+      "type": "name",
+      "original": "Rashi Patil",
+      "replacement": "John Doe"
+    },
+    {
+      "type": "name",
+      "original": "Rashi Patil",
+      "replacement": "John Doe"
+    },
+    {
+      "type": "date_of_birth",
+      "original": "14 March 1992",
+      "replacement": "22 December 1986"
+    },
+    {
+      "type": "email",
+      "original": "rashhi.patil@gmail.com",
+      "replacement": "john.doe@example.com"
+    },
+    {
+      "type": "phone",
+      "original": "+91 9876543210",
+      "replacement": "+91 1234567645"
+    },
+    {
+      "type": "address",
+      "original": "12 Palm Grove, Juhu, Mumbai 400049, India",
+      "replacement": "76724 John Points Suite 969, Coxberg, NY 65187"
+    },
+    {
+      "type": "name",
+      "original": "Rohan Dey",
+      "replacement": "Peter Parker"
+    },
+    {
+      "type": "date_of_birth",
+      "original": "02/07/1988",
+      "replacement": "04/11/1990"
+    },
+    {
+      "type": "email",
+      "original": "rohan.dey@gmail.com",
+      "replacement": "peter.parker@example.com"
+    },
+    {
+      "type": "phone",
+      "original": "+91 9123456780",
+      "replacement": "+91 1451462704"
+    },
+    {
+      "type": "address",
+      "original": "Flat 7B, Lake View Apartments, Salt Lake Sector V, Kolkata 700091, India",
+      "replacement": "Unit 2814 Box 8932, DPO AA 21675"
+    },
+    {
+      "type": "name",
+      "original": "Meera Sharma",
+      "replacement": "Frederick Rose"
+    },
+    {
+      "type": "date_of_birth",
+      "original": "1980-11-21",
+      "replacement": "1995-02-27"
+    },
+    {
+      "type": "email",
+      "original": "meera.sharma@novatech.example",
+      "replacement": "donnaarroyo@example.com"
+    },
+    {
+      "type": "phone",
+      "original": "+91 9988776655",
+      "replacement": "+91 1638346578"
+    },
+    {
+      "type": "address",
+      "original": "221 Baker Street, Bengaluru 560001, India",
+      "replacement": "15098 Brianna Avenue, Lake Crystalbury, CA 04618"
+    },
+    {
+      "type": "name",
+      "original": "Arjun Kapoor",
+      "replacement": "Linda Morales"
+    },
+    {
+      "type": "date_of_birth",
+      "original": "05 January 1985",
+      "replacement": "19 November 2000"
+    },
+    {
+      "type": "email",
+      "original": "arjun.kapoor@kapoordigital.example",
+      "replacement": "palmerjoshua@example.com"
+    },
+    {
+      "type": "phone",
+      "original": "(415) 555-2671",
+      "replacement": "(415) 555-3829"
+    },
+    {
+      "type": "address",
+      "original": "9 Residency Road, Shivajinagar, Pune 411005, India",
+      "replacement": "6311 Gomez Loop, Shieldston, TX 86150"
+    },
+    {
+      "type": "company",
+      "original": "Nova Tech Analytics Private Limited",
+      "replacement": "Rodriguez LLC"
+    }
+  ]
+}

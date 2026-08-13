@@ -1,0 +1,134 @@
+[
+  {
+    "type": "company",
+    "value": "Nova Tech Analytics Private Limited"
+  },
+  {
+    "type": "address",
+    "value": "42, 5th Floor, Sunrise Towers, Linking Road, Bandra West, Mumbai 400050, Maharashtra, India"
+  },
+  {
+    "type": "address",
+    "value": "18 MG Road, Koramangala, Bengaluru 560034, Karnataka, India"
+  },
+  {
+    "type": "phone",
+    "value": "+91 9876543210"
+  },
+  {
+    "type": "email",
+    "value": "rashhi.patil@gmail.com"
+  },
+  {
+    "type": "name",
+    "value": "Rashi Patil"
+  },
+  {
+    "type": "address",
+    "value": "12 Palm Grove, Juhu, Mumbai 400049, India"
+  },
+  {
+    "type": "date_of_birth",
+    "value": "14 March 1992"
+  },
+  {
+    "type": "ssn",
+    "value": "123-45-6789"
+  },
+  {
+    "type": "credit_card",
+    "value": "4111 1111 1111 1111"
+  },
+  {
+    "type": "ip_address",
+    "value": "203.0.113.45"
+  },
+  {
+    "type": "name",
+    "value": "Rohan Dey"
+  },
+  {
+    "type": "email",
+    "value": "rohan.dey@gmail.com"
+  },
+  {
+    "type": "phone",
+    "value": "+91 9123456780"
+  },
+  {
+    "type": "address",
+    "value": "Flat 7B, Lake View Apartments, Salt Lake Sector V, Kolkata 700091, India"
+  },
+  {
+    "type": "date_of_birth",
+    "value": "02/07/1988"
+  },
+  {
+    "type": "ssn",
+    "value": "456-12-7890"
+  },
+  {
+    "type": "credit_card",
+    "value": "5500-0000-0000-0004"
+  },
+  {
+    "type": "ip_address",
+    "value": "198.51.100.23"
+  },
+  {
+    "type": "company",
+    "value": "Dey Consulting LLP"
+  },
+  {
+    "type": "name",
+    "value": "Meera Sharma"
+  },
+  {
+    "type": "email",
+    "value": "meera.sharma@novatech.example"
+  },
+  {
+    "type": "phone",
+    "value": "+91 9988776655"
+  },
+  {
+    "type": "address",
+    "value": "221 Baker Street, Bengaluru 560001, India"
+  },
+  {
+    "type": "date_of_birth",
+    "value": "1980-11-21"
+  },
+  {
+    "type": "ip_address",
+    "value": "192.0.2.10"
+  },
+  {
+    "type": "name",
+    "value": "Arjun Kapoor"
+  },
+  {
+    "type": "email",
+    "value": "arjun.kapoor@kapoordigital.example"
+  },
+  {
+    "type": "phone",
+    "value": "(415) 555-2671"
+  },
+  {
+    "type": "address",
+    "value": "9 Residency Road, Shivajinagar, Pune 411005, India"
+  },
+  {
+    "type": "date_of_birth",
+    "value": "05 January 1985"
+  },
+  {
+    "type": "ip_address",
+    "value": "198.51.100.77"
+  },
+  {
+    "type": "company",
+    "value": "Kapoor Digital Inc."
+  }
+]
