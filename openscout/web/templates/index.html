@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenScout</title>
+  <link rel="stylesheet" href="/static/app.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <p class="eyebrow">Open-source testing agent</p>
+      <h1>OpenScout</h1>
+    </div>
+    <p class="tag">Journeys in English. Exploration without scripts. Playwright tests on the way out.</p>
+  </header>
+
+  <main>
+    <section class="panel">
+      <label>App under test
+        <input id="url" value="http://127.0.0.1:8765" />
+      </label>
+      <div class="modes">
+        <label><input type="radio" name="mode" value="journey" checked /> Journey</label>
+        <label><input type="radio" name="mode" value="explore" /> Explore</label>
+      </div>
+      <label>Max explore steps
+        <input id="max-steps" type="number" min="4" max="80" value="18" />
+      </label>
+      <label>Journey
+        <textarea id="journey" rows="14" spellcheck="false"></textarea>
+      </label>
+      <div class="actions">
+        <button id="run" type="button">Run agent</button>
+        <button id="sample" class="ghost" type="button">Load sample journey</button>
+      </div>
+      <p id="status" class="status">Point OpenScout at Harbor Kiln (started with the dashboard) or any URL you own.</p>
+    </section>
+
+    <section class="panel results">
+      <div class="stats" id="stats" hidden></div>
+      <div id="findings"></div>
+      <div id="steps"></div>
+      <pre id="generated" hidden></pre>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

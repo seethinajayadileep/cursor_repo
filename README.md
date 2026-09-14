@@ -1,47 +1,111 @@
-# PII Redaction Tool
+# OpenScout
 
-Python tool that reads the attached KSH International Red Herring Prospectus (or any PDF / ticket-log text file), finds personally identifiable information, replaces each value with a **stable fake stand-in**, and writes a redacted `.docx`.
+Open-source **testing agent** for web apps. It runs journeys written in English (or Gherkin), explores a live UI in a real Chromium browser, reports console / network / accessibility bugs, and writes a Playwright test when a journey passes.
 
-## Approach
+No LLM key is required. If you set `OPENSCOUT_LLM_API_KEY` (OpenAI-compatible), explore mode can ask the model which control to try next.
 
-Hybrid **regex + gazetteer**, not a neural NER model.
+## Why this exists
 
-| PII type | How it is found |
-|---|---|
-| Email, phone, SSN, credit card, IP, DOB | Regular expressions (Luhn check on cards; DOB only next to “DOB” / “born”) |
-| Person names | Gazetteer of people in this prospectus, plus `Contact Person:` lines |
-| Company / trust names | Gazetteer plus `Limited` / `LLP` / `Family Trust` patterns, with stopwords so headings like “Book Built Offer” are not swallowed |
-| Addresses | Gazetteer of known offices plus PIN / street patterns |
+Selector-based suites rot when the DOM moves. Hosted AI QA tools fix that by locking your tests and history behind a vendor. OpenScout keeps the agent, the runs, and the generated tests on your machine.
 
-The same real string always maps to the same fake value (`Faker` seeded from a hash of the original). CIN, PAN, DIN, rupee amounts, share counts, page numbers, and statute names are **not** treated as PII.
+It is intentionally small: a planner, a Playwright session, detectors, and a report. You can read the whole agent in `openscout/`.
 
-## Tradeoffs
-
-- High precision on structured types; names/companies need the gazetteer for this legal PDF because generic Title-Case matching false-positives on “Fresh Issue” and “Equity Shares”.
-- A new person who is not in `data/gazetteer.json` and not on a `Contact Person:` line can be missed (false negative).
-- Address regexes can run long or short vs the gold span; evaluation allows containment matches of 10+ characters.
-- SSN / card / DOB / IP do not appear in the RHP; they are scored on a synthetic ticket-log snippet.
-
-## Run
+## Install
 
 ```bash
-pip install -r requirements.txt
-python main.py samples/Red_Herring_Prospectus.pdf -o output/KSH_RHP_redacted.docx --evaluate
+python -m pip install -r openscout/requirements.txt
+python -m playwright install chromium
 ```
 
-UI (optional wrapper around the same engine):
+Python 3.11+ recommended.
+
+## 60-second demo
+
+The bundled **Harbor Kiln** shop looks like a ceramics storefront and is seeded with bugs (404 careers page, coupon API 500, console crash on Broken Mug, missing image alt, unnamed icon button, Express checkout JS exception).
 
 ```bash
-uvicorn app:app --host 0.0.0.0 --port 8000
+# terminal 1 — demo shop
+python -m openscout demo --port 8765
+
+# terminal 2 — run a passing journey
+python -m openscout run journeys/guest_checkout.feature --url http://127.0.0.1:8765
+
+# crawl until it hits the landmines
+python -m openscout explore --url http://127.0.0.1:8765 --max-steps 22
 ```
 
-Open `http://127.0.0.1:8000`, upload the PDF, download the `.docx` and evaluation report.
+A dashboard (starts the demo shop on port 8765 for you):
+
+```bash
+python -m openscout serve
+```
+
+Open `http://127.0.0.1:8000`. Paste a URL, run a journey or an explore, download the HTML report under `runs/`.
+
+## Journeys
+
+`journeys/guest_checkout.feature`:
+
+```gherkin
+Feature: Guest checkout
+  Scenario: Buy the red mug
+    Given I open the home page
+    When I click "Shop"
+    And I click "Red Mug"
+    And I click "Add to cart"
+    And I fill "Full name" with "Ada Lovelace"
+    And I fill "Email" with "ada@example.com"
+    And I click "Place order"
+    Then I should see "Order confirmed"
+```
+
+Supported steps: `open` / `go to`, `click`, `fill` / `type … into`, `select`, `check` / `uncheck`, `should see`, `should not see`, `url should contain`, `title should be`, `wait`, `screenshot`, `no console errors`.
+
+On a passing run, OpenScout writes `generated_test.py` next to the report. Re-run generation with:
+
+```bash
+python -m openscout generate journeys/guest_checkout.feature --url http://127.0.0.1:8765 -o tests/test_guest_checkout.py
+```
+
+## Explore mode
+
+Frontier crawl over visible buttons, links, and fields. It skips `mailto:`, logout, and other origins. Detectors record:
+
+| Kind | What it flags |
+| --- | --- |
+| javascript | `pageerror` exceptions |
+| console | `console.error` |
+| network | HTTP 4xx / 5xx |
+| a11y | images without `alt`, controls with no accessible name |
+| content | nearly empty pages |
+
+## LLM (optional)
+
+```bash
+export OPENSCOUT_LLM_API_KEY=...
+export OPENSCOUT_LLM_MODEL=gpt-4o-mini          # default
+export OPENSCOUT_LLM_BASE_URL=https://api.openai.com/v1
+```
+
+Any OpenAI-compatible server works (Ollama, LM Studio, OpenRouter). Without a key, a heuristic ranks controls (checkout, coupon, careers, forms first).
 
 ## Layout
 
-- `redact/` — extract, detect, replace, write, evaluate
-- `data/gazetteer.json` — names, companies, addresses for this document
-- `data/gold_labels.json` — hand labels for pages 1, 5, 6, 39 plus a synthetic ticket
-- `evaluation_report.md` — precision, recall, accuracy
+```
+openscout/          agent, CLI, dashboard, Harbor Kiln demo
+journeys/           sample English tests
+tests/              planner unit tests + Playwright runs against the demo shop
+runs/               reports, screenshots, generated tests (gitignored)
+```
 
-To add a PII type: write a detector in `detectors.py`, a fake generator in `replacements.py`, and gold examples in `gold_labels.json`.
+```bash
+pytest -q
+```
+
+## PII redaction tool
+
+This repository also contains a prospectus / ticket-log redaction engine (`redact/`, `python main.py`). It is separate from OpenScout.
+
+## License
+
+MIT. See `LICENSE`.
