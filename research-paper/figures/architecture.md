@@ -1,4 +1,4 @@
-# Fig. 1. Proposed architecture of the WebSentinel security assessment system.
+# Fig. 1. WebSentinel system architecture (solid = implemented, dashed = planned).
 
 The diagram below is source for later conversion into an IEEE two-column figure. Solid boxes denote modules in the *proposed* capstone architecture. The current prototype implements only the subset marked `(P)`.
 
