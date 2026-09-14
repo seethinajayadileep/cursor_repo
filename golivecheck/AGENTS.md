@@ -1,6 +1,6 @@
 # AGENTS.md — implementing GoLiveCheck
 
-You are working **inside this project**. Follow `IDEA.md` first. This file is how to build and change it.
+You are working **inside this project**. Follow `IDEA.md` first, then [ROADMAP.md](./ROADMAP.md). This file is how to build and change it.
 
 ---
 

@@ -2,6 +2,8 @@
 
 Do not start with a dashboard, brand site, or “all of Midscene + Strix.”
 
+The full product path (v0 → real app → npm) is [ROADMAP.md](./ROADMAP.md). This file is **Phase 1 only**.
+
 Implementers: complete **one row at a time**. Do not skip to MCP before plugins work.
 
 ---

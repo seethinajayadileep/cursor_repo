@@ -22,10 +22,11 @@ Then it writes **one report**: pass / fail and what to fix.
 | File | Read when |
 |---|---|
 | [IDEA.md](./IDEA.md) | First. What we are building, who it is for, walls. |
+| [ROADMAP.md](./ROADMAP.md) | Full build path: spec → v0 → real app → npm. |
 | [AGENTS.md](./AGENTS.md) | You will **implement or change** this repo. |
 | [SKILL.md](./SKILL.md) | You will **run** GoLiveCheck for a user (CLI or MCP). |
 | [PRODUCT.md](./PRODUCT.md) | Features, uniqueness, what we will not build. |
-| [PLAN.md](./PLAN.md) | Build order for v0. |
+| [PLAN.md](./PLAN.md) | Day-1 coding order (Phase 1 only). |
 
 Do not invent extra product scope. If IDEA.md and the user disagree, **ask** — do not expand into pentest, mobile, or SaaS.
 
