@@ -1,7 +1,7 @@
 [project]
 name = "cursor-pocket"
-version = "0.1.0"
-description = "Offline LAN remote: send Cursor CLI prompts from an Android phone."
+version = "0.2.0"
+description = "Phone remote for Cursor CLI: LAN or internet (--online)."
 readme = "CURSOR_POCKET.md"
 requires-python = ">=3.10"
 license = { file = "cursor_pocket/LICENSE" }

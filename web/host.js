@@ -4,6 +4,7 @@ async function main() {
   const urlEl = document.getElementById("phone-url");
   const nameEl = document.getElementById("laptop-name");
   const meta = document.getElementById("meta");
+  const modeLine = document.getElementById("mode-line");
   try {
     const response = await fetch("/api/host");
     const data = await response.json();
@@ -14,11 +15,17 @@ async function main() {
     }
     pin.textContent = data.pin;
     nameEl.textContent = data.laptop || "";
-    const phone = (data.urls || []).find((url) => !url.includes("127.0.0.1")) || (data.urls || [])[0];
+    const lan = (data.urls || []).find((url) => !url.includes("127.0.0.1")) || (data.urls || [])[0];
+    const phone = data.online_url || lan;
     urlEl.textContent = phone || "";
     const demo = data.demo ? "demo mode" : "live Cursor CLI";
     const folders = (data.workspaces || []).map((item) => item.name).join(", ");
     meta.textContent = `${demo} · ${folders}`;
+    if (modeLine) {
+      modeLine.textContent = data.online_url
+        ? "Internet URL (phone can be on another network). PIN stays on this laptop page."
+        : "LAN URL. For another network, restart with --online.";
+    }
     if (phone && window.QRCode) {
       const mount = document.getElementById("qr");
       mount.innerHTML = "";

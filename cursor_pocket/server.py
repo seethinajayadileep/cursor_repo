@@ -41,6 +41,7 @@ class PocketState:
         self.host = host
         self.port = port
         self.laptop_name = laptop_name
+        self.online_url: str | None = None
 
 
 class PocketHandler(BaseHTTPRequestHandler):
@@ -59,6 +60,11 @@ class PocketHandler(BaseHTTPRequestHandler):
             writer(f"{self.address_string()} {msg}")
 
     def _is_loopback(self) -> bool:
+        # Cloudflare / ngrok proxy through 127.0.0.1 — treat forwarded requests as remote
+        # so the pairing PIN never leaks on a public URL.
+        for header in ("X-Forwarded-For", "CF-Connecting-IP", "X-Real-IP", "Forwarded"):
+            if self.headers.get(header):
+                return False
         addr = self.client_address[0]
         return addr in {"127.0.0.1", "::1", "::ffff:127.0.0.1"}
 
@@ -166,6 +172,7 @@ class PocketHandler(BaseHTTPRequestHandler):
             "laptop": self.state.laptop_name,
             "agent": self.state.runner.available(),
             "demo": self.state.runner.demo,
+            "online": bool(self.state.online_url),
         }
 
     def _host_info(self) -> None:
@@ -182,6 +189,7 @@ class PocketHandler(BaseHTTPRequestHandler):
                 "demo": self.state.runner.demo,
                 "agent_path": self.state.runner.agent_bin,
                 "version": __version__,
+                "online_url": self.state.online_url,
             },
         )
 

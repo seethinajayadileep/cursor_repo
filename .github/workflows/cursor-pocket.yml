@@ -10,6 +10,7 @@ on:
       - "tests/test_parse.py"
       - "tests/test_api.py"
       - "tests/test_net.py"
+      - "tests/test_tunnel.py"
       - "pyproject.toml"
       - ".github/workflows/cursor-pocket.yml"
   pull_request:

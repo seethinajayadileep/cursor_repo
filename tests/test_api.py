@@ -57,10 +57,34 @@ class ApiTests(unittest.TestCase):
         self.assertIn("Cursor Pocket", html)
         self.assertIn("Pair with laptop", html)
 
+    def test_host_includes_online_url(self) -> None:
+        self.state.online_url = "https://demo.trycloudflare.com"
+        status, body = self._json("GET", "/api/host")
+        self.assertEqual(status, 200)
+        self.assertEqual(body["online_url"], "https://demo.trycloudflare.com")
+        status, health = self._json("GET", "/api/health")
+        self.assertTrue(health["online"])
+
     def test_host_pin_on_localhost(self) -> None:
         status, body = self._json("GET", "/api/host")
         self.assertEqual(status, 200)
         self.assertEqual(body["pin"], "123456")
+        self.assertIsNone(body.get("online_url"))
+
+    def test_host_pin_hidden_when_forwarded(self) -> None:
+        req = urllib.request.Request(
+            self.base + "/api/host",
+            headers={"X-Forwarded-For": "203.0.113.8"},
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                status = resp.status
+                body = json.loads(resp.read().decode())
+        except urllib.error.HTTPError as exc:
+            status = exc.code
+            body = json.loads(exc.read().decode())
+        self.assertEqual(status, 403)
+        self.assertNotIn("pin", body)
 
     def test_pair_rejects_wrong_pin(self) -> None:
         status, body = self._json("POST", "/api/pair", {"pin": "000000"})

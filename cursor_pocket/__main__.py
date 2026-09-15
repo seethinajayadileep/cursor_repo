@@ -15,6 +15,7 @@ from .net import public_base_urls
 from .runner import Runner, find_agent
 from .server import PocketHTTPServer, PocketState
 from .tls import wrap_https
+from .tunnel import start_tunnel
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -46,7 +47,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     httpd = PocketHTTPServer((args.host, args.port), state)
     scheme = "http"
-    if args.https:
+    if args.https and args.online:
+        print("Ignoring --https: --online already gives the phone a real HTTPS URL.", file=sys.stderr)
+    elif args.https:
         wrap_https(httpd)
         scheme = "https"
     state.port = httpd.server_address[1]
@@ -54,12 +57,27 @@ def main(argv: list[str] | None = None) -> int:
     phone_urls = [u.replace("http://", f"{scheme}://", 1) for u in urls]
     host_url = f"{scheme}://127.0.0.1:{state.port}/host"
 
+    tunnel = None
+    if args.online:
+        print("Opening an internet tunnel so the phone can connect from another network…")
+        tunnel = start_tunnel(state.port)
+        state.online_url = tunnel.url
+
     print()
     print(f"{__app_name__} v{__version__}")
-    print("Phone remote for Cursor CLI. Traffic stays on this machine's LAN.")
+    if state.online_url:
+        print("Phone remote for Cursor CLI. Laptop and phone both use the internet.")
+    else:
+        print("Phone remote for Cursor CLI. Traffic stays on this machine's LAN.")
+        print("Need the phone on another network? Rerun with --online.")
     print("Keep this window open while you use the phone.")
     print()
     print(f"  Laptop pairing page: {host_url}")
+    if state.online_url:
+        print()
+        print(f"  Phone (any network with internet):  {state.online_url}")
+        print("  Scan the QR on the laptop pairing page, or paste that URL in Chrome.")
+        print("  Anyone who has the URL still needs the PIN.")
     print("  Phone (same Wi-Fi, laptop hotspot, or USB):")
     for url in phone_urls:
         if "127.0.0.1" in url:
@@ -73,6 +91,8 @@ def main(argv: list[str] | None = None) -> int:
         print("  Mode: demo (no Cursor CLI calls)")
     else:
         print(f"  Agent: {runner.agent_bin}")
+    if tunnel:
+        print(f"  Tunnel: {tunnel.kind}")
     print("  Workspaces:")
     for item in workspaces:
         print(f"    - {item['name']}: {item['path']}")
@@ -91,6 +111,9 @@ def main(argv: list[str] | None = None) -> int:
     except KeyboardInterrupt:
         print("\nStopped.")
         httpd.shutdown()
+    finally:
+        if tunnel:
+            tunnel.stop()
     return 0
 
 
@@ -131,6 +154,11 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
         "--https",
         action="store_true",
         help="Self-signed HTTPS so Android can install the app and show notifications",
+    )
+    parser.add_argument(
+        "--online",
+        action="store_true",
+        help="Give the phone a public HTTPS URL (cloudflared or ngrok). Both devices need internet.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser.parse_args(argv)

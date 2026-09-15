@@ -11,7 +11,7 @@
   <main class="host-wrap">
     <p class="eyebrow">Laptop pairing</p>
     <h1>Cursor Pocket</h1>
-    <p class="lede">Scan this from the Android phone on the same network, then enter the PIN. This page only reveals the PIN when opened on the laptop.</p>
+    <p class="lede">Scan from the Android phone, then enter the PIN. Same Wi-Fi or, with <code>--online</code>, any network where both devices have internet. This page only reveals the PIN on the laptop itself.</p>
     <div class="host-grid">
       <section class="card">
         <div id="qr" class="qr"></div>
@@ -23,8 +23,9 @@
         <p id="host-pin" class="pin-display">······</p>
         <p id="laptop-name" class="hint"></p>
         <p id="meta" class="hint"></p>
+        <p id="mode-line" class="hint"></p>
         <ol class="help-list">
-          <li>Phone and laptop on the same Wi-Fi, or join the laptop hotspot.</li>
+          <li>Same Wi-Fi, or both devices on the internet with <code>--online</code>.</li>
           <li>Open the URL or scan the QR.</li>
           <li>Type the PIN once. Prompts run through Cursor CLI on this machine.</li>
           <li>No Wi-Fi: <code>adb reverse tcp:8787 tcp:8787</code> then <code>http://127.0.0.1:8787</code>.</li>
