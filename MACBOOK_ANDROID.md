@@ -14,59 +14,31 @@ MacBook (Cursor + your project)          Android phone
 
 ### 1. Keep using Cursor like you do now
 
-Open your project in Cursor. That folder is the one Pocket will send prompts into.
+Open your project in **Cursor desktop**. Leave that window open. Pocket clicks **Send** in this app; it does not use a separate hidden agent unless you pass `--cli`.
 
-Example: Cursor has `/Users/you/Projects/my-app` open.
+Example folder: `/Users/you/Projects/my-app`
 
-### 2. Install Cursor CLI once
+### 2. Accessibility (required)
 
-Pocket talks to Cursor through the CLI (`agent`), not by clicking inside the IDE window.
+On the Mac: **System Settings → Privacy & Security → Accessibility**. Turn on **Terminal** (or **iTerm** / **Python**, whichever runs Pocket). Without this, the phone cannot click Send.
 
-In **Cursor → Terminal** (or Mac Terminal):
-
-```bash
-curl https://cursor.com/install -fsS | bash
-```
-
-Close and reopen the terminal, then:
-
-```bash
-agent login
-```
-
-Sign in with the same Cursor account you already use.
-
-Check:
-
-```bash
-agent --version
-```
-
-### 3. Get Cursor Pocket on the Mac
-
-If this repo is already on the Mac:
-
-```bash
-cd /path/to/cursor_repo
-```
-
-That folder must contain `cursor_pocket/` and `web/`.
-
-### 4. Python
-
-macOS already has `python3`. Check:
+### 3. Python
 
 ```bash
 python3 --version
 ```
 
-You need 3.10 or newer. If it is older: [python.org/downloads](https://www.python.org/downloads/) or `brew install python`.
+Need 3.10 or newer.
+
+### 4. Get Cursor Pocket on the Mac
+
+Folder must contain `cursor_pocket/` and `web/`.
 
 ---
 
 ## Part 2 — Start Pocket on the Mac (every time you want the phone)
 
-Leave Cursor open on your project. Open a terminal **and do not close it**.
+Leave **Cursor desktop** open on your project. The Mac must stay **awake and unlocked**. Open a terminal **and do not close it**.
 
 **Same Wi-Fi as the phone** (home router, or turn on Mac hotspot and join it from Android):
 
@@ -116,17 +88,14 @@ Sideload a native APK from Android Studio instead: see [`android/README.md`](and
 
 ## Part 4 — Daily use
 
-1. Mac: open the project in Cursor.
-2. Mac: start Pocket in a terminal (`--workspace` = that project). Leave it running.
-3. Phone: open Pocket, type what you want Cursor to do, tap **Send to laptop**.
-4. **Keep the phone app open** until you see **Finished**.
-5. On the Mac, the files in Cursor will have changed. Review the diff there like you always do.
+1. Mac: open the project in **Cursor desktop**. Keep the Mac awake and unlocked.
+2. Mac: start Pocket. Leave it running.
+3. Phone: open Pocket, type the prompt, tap **Send to laptop**.
+4. Cursor on the Mac gets the text and Send is clicked. The phone shows **Cursor’s reply** and **what files it fixed**.
+5. You get a notification when it is **Finished** or **Failed**.
+6. Back at the Mac, review the diff in Cursor.
 
-Modes on the phone:
-
-- **Agent** — edit the project (normal)
-- **Ask** — read only
-- **Plan** — plan first
+Desktop mode pastes into the Agent composer (Cmd+I). Use `--cli` if you want Ask/Plan through Cursor CLI instead.
 
 ---
 
@@ -153,4 +122,6 @@ On the phone use PIN `123456`, send any text, wait for **Finished**. Nothing in 
 - `--online`: Mac must have `cloudflared` or `ngrok`. Phone needs internet. Anyone with the URL still needs the PIN.
 - Mac firewall blocked Python: System Settings → Network → Firewall → Options → allow Python.
 - Wrong project path: `--workspace` must be the folder Cursor has open.
-- `No Cursor CLI (agent) found`: do Part 1 step 2 again, then open a **new** terminal.
+- `No Cursor desktop`: install Cursor, or pass `--demo` / `--cli`.
+- Send is not clicked: enable Accessibility for Terminal/Python.
+- Mac locked or asleep: unlock it; automation cannot click Send on the lock screen.

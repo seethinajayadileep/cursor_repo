@@ -10,6 +10,7 @@ from pathlib import Path
 
 from . import __app_name__, __version__
 from .auth import Auth
+from .desktop import desktop_available
 from .jobs import JobStore
 from .net import public_base_urls
 from .runner import Runner, find_agent
@@ -24,18 +25,32 @@ def main(argv: list[str] | None = None) -> int:
         sys.stderr.reconfigure(line_buffering=True)
     args = _parse(argv)
     workspaces = _workspaces(args.workspace)
-    agent = None if args.demo else find_agent()
-    if not args.demo and not agent:
+    target = "cli" if args.cli else "desktop"
+    agent = None if args.demo or target == "desktop" else find_agent()
+    if not args.demo and target == "cli" and not agent:
         print(
             "No Cursor CLI (`agent`) found on PATH.\n"
             "Install it from https://cursor.com/docs/cli/overview\n"
-            "or pass --demo to try the phone UI without running Cursor.\n",
+            "or omit --cli to drive the Cursor desktop app instead.\n",
+            file=sys.stderr,
+        )
+        return 2
+    if not args.demo and target == "desktop" and not desktop_available():
+        print(
+            "Cursor desktop was not found. Install Cursor on this Mac, open your project,\n"
+            "or pass --cli to use Cursor CLI, or --demo to try the phone UI.\n",
             file=sys.stderr,
         )
         return 2
 
     auth = Auth.generate(args.pin)
-    runner = Runner(demo=args.demo, force=not args.no_force, trust=not args.no_trust, agent_bin=agent)
+    runner = Runner(
+        demo=args.demo,
+        force=not args.no_force,
+        trust=not args.no_trust,
+        agent_bin=agent or find_agent(),
+        target=target,
+    )
     state = PocketState(
         auth=auth,
         store=JobStore(),
@@ -66,11 +81,11 @@ def main(argv: list[str] | None = None) -> int:
     print()
     print(f"{__app_name__} v{__version__}")
     if state.online_url:
-        print("Phone remote for Cursor CLI. Laptop and phone both use the internet.")
+        print("Phone remote for Cursor desktop. Laptop and phone both use the internet.")
     else:
-        print("Phone remote for Cursor CLI. Traffic stays on this machine's LAN.")
+        print("Phone remote for Cursor desktop. Keep Cursor open on this Mac.")
         print("Need the phone on another network? Rerun with --online.")
-    print("Keep this window open while you use the phone.")
+    print("Keep this window open, keep the Mac awake and unlocked, and leave Cursor running.")
     print()
     print(f"  Laptop pairing page: {host_url}")
     if state.online_url:
@@ -88,9 +103,12 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  PIN  {auth.pin[0:3]} {auth.pin[3:6]}")
     print()
     if runner.demo:
-        print("  Mode: demo (no Cursor CLI calls)")
+        print("  Mode: demo (no Cursor desktop clicks)")
+    elif runner.target == "desktop":
+        print("  Target: Cursor desktop (paste prompt + Send)")
+        print("  Grant Accessibility to Terminal/Python in macOS Settings.")
     else:
-        print(f"  Agent: {runner.agent_bin}")
+        print(f"  Agent CLI: {runner.agent_bin}")
     if tunnel:
         print(f"  Tunnel: {tunnel.kind}")
     print("  Workspaces:")
@@ -135,7 +153,7 @@ def _workspaces(values: list[str]) -> list[dict[str, str]]:
 def _parse(argv: list[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="python3 -m cursor_pocket",
-        description="Open a local phone UI that sends prompts to Cursor CLI on this laptop.",
+        description="Phone remote that pastes prompts into Cursor desktop on this Mac.",
     )
     parser.add_argument("--host", default="0.0.0.0", help="Bind address (default 0.0.0.0 for LAN phones)")
     parser.add_argument("--port", type=int, default=8787, help="Port (default 8787)")
@@ -148,7 +166,12 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument("--name", default="", help="Laptop label shown on the phone")
     parser.add_argument("--pin", default=None, help="Override the 6-digit pairing PIN")
     parser.add_argument("--demo", action="store_true", help="Fake a Cursor run so you can try the phone UI")
-    parser.add_argument("--no-force", action="store_true", help="Do not pass --force to agent")
+    parser.add_argument(
+        "--cli",
+        action="store_true",
+        help="Use Cursor CLI (`agent`) instead of clicking Send in the desktop app",
+    )
+    parser.add_argument("--no-force", action="store_true", help="Do not pass --force to agent (CLI mode only)")
     parser.add_argument("--no-trust", action="store_true", help="Do not pass --trust to agent")
     parser.add_argument(
         "--https",

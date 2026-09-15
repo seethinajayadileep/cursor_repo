@@ -173,6 +173,7 @@ class PocketHandler(BaseHTTPRequestHandler):
             "agent": self.state.runner.available(),
             "demo": self.state.runner.demo,
             "online": bool(self.state.online_url),
+            "target": self.state.runner.target,
         }
 
     def _host_info(self) -> None:
@@ -190,6 +191,7 @@ class PocketHandler(BaseHTTPRequestHandler):
                 "agent_path": self.state.runner.agent_bin,
                 "version": __version__,
                 "online_url": self.state.online_url,
+                "target": self.state.runner.target,
             },
         )
 
@@ -199,6 +201,7 @@ class PocketHandler(BaseHTTPRequestHandler):
             "agent_path": self.state.runner.agent_bin,
             "demo": self.state.runner.demo,
             "agent_available": self.state.runner.available(),
+            "target": self.state.runner.target,
             "workspaces": self.state.workspaces,
             "jobs": [job.snapshot() for job in self.state.store.list()[:30]],
         }

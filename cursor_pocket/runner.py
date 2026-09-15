@@ -5,17 +5,21 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
-import sys
 import threading
 import time
-from collections.abc import Callable
-from pathlib import Path
 from typing import Any
 
+from .changes import describe_changes, snapshot
+from .desktop import (
+    copy_prompt,
+    desktop_available,
+    open_workspace,
+    read_cursor_text,
+    request_stop,
+    send_prompt,
+)
 from .jobs import Job, JobStore
 from .parse import parse_stream_line
-
-LogFn = Callable[[str, dict[str, Any]], None]
 
 AGENT_CANDIDATES = (
     "agent",
@@ -44,15 +48,25 @@ class Runner:
         force: bool = True,
         trust: bool = True,
         agent_bin: str | None = None,
+        target: str = "desktop",
+        idle_seconds: float = 18.0,
+        max_seconds: float = 45 * 60,
     ) -> None:
         self.demo = demo
         self.force = force
         self.trust = trust
         self.agent_bin = agent_bin or find_agent()
+        self.target = target
+        self.idle_seconds = idle_seconds
+        self.max_seconds = max_seconds
         self._serial = threading.Lock()
 
     def available(self) -> bool:
-        return self.demo or bool(self.agent_bin)
+        if self.demo:
+            return True
+        if self.target == "desktop":
+            return desktop_available()
+        return bool(self.agent_bin)
 
     def start(self, store: JobStore, job: Job) -> None:
         thread = threading.Thread(target=self._queued_run, args=(store, job), daemon=True, name=f"job-{job.id}")
@@ -78,8 +92,10 @@ class Runner:
         )
         store.append(job.id, {"kind": "status", "text": "Running on the laptop"})
         try:
-            if self.demo or not self.agent_bin:
+            if self.demo:
                 self._run_demo(store, job, cancel)
+            elif self.target == "desktop":
+                self._run_desktop(store, job, cancel)
             else:
                 self._run_agent(store, job, cancel)
         except Exception as exc:  # noqa: BLE001 — surface any runner crash to the phone
@@ -101,7 +117,14 @@ class Runner:
             {"kind": "tool", "text": "read done", "tool": "read", "subtype": "done"},
             {
                 "kind": "assistant",
-                "text": f"Prompt received:\n\n{job.prompt.strip()}\n\nThis is demo mode, so no files were changed. Point Cursor Pocket at `agent` on the laptop to run for real.",
+                "text": (
+                    f"Cursor desktop would answer here.\n\nPrompt:\n{job.prompt.strip()}\n\n"
+                    "Demo only — no files were edited."
+                ),
+            },
+            {
+                "kind": "changes",
+                "text": "What was fixed:\n  • (demo) no real files changed",
             },
         ]
         for step in steps:
@@ -122,6 +145,88 @@ class Runner:
             },
         )
         self._finish(store, job, "done", result=result)
+
+    def _run_desktop(self, store: JobStore, job: Job, cancel: threading.Event | None) -> None:
+        if not desktop_available():
+            raise RuntimeError("Open Cursor desktop on this Mac and grant Accessibility to Terminal/Python.")
+        before = snapshot(job.workspace)
+        store.append(job.id, {"kind": "system", "text": f"Opening Cursor desktop · {job.workspace_name}"})
+        open_workspace(job.workspace)
+        time.sleep(1.2)
+        copy_prompt(job.prompt)
+        send_prompt()
+        store.append(job.id, {"kind": "status", "text": "Sent to Cursor desktop — waiting for the reply and file fixes"})
+        store.mutate(job.id, lambda j: setattr(j, "session_id", f"desktop-{job.id}"))
+        time.sleep(2.0)
+        baseline_ax = read_cursor_text()
+
+        started = time.time()
+        last_change = started
+        last_ax = baseline_ax
+        last_git = before
+        saw_activity = False
+        while True:
+            if cancel and cancel.is_set():
+                request_stop()
+                self._finish(store, job, "canceled", error="Canceled from the phone")
+                return
+            now = time.time()
+            if now - started > self.max_seconds:
+                summary = describe_changes(job.workspace, before)
+                ax = read_cursor_text()
+                result = _desktop_result(_new_text(baseline_ax, ax), summary)
+                store.append(job.id, {"kind": "changes", "text": str(summary["text"])})
+                self._finish(store, job, "done", result=result)
+                return
+
+            ax = read_cursor_text()
+            if ax and ax != last_ax:
+                last_ax = ax
+                last_change = now
+                grew = _new_text(baseline_ax, ax)
+                if grew.strip():
+                    saw_activity = True
+                    store.append(job.id, {"kind": "assistant", "text": grew[-4000:], "delta": False})
+
+            git_now = snapshot(job.workspace)
+            if git_now != last_git:
+                last_git = git_now
+                last_change = now
+                saw_activity = True
+                summary = describe_changes(job.workspace, before)
+                store.append(job.id, {"kind": "changes", "text": str(summary["text"])})
+
+            quiet = now - last_change
+            if saw_activity and quiet >= self.idle_seconds:
+                summary = describe_changes(job.workspace, before)
+                grew = _new_text(baseline_ax, last_ax or read_cursor_text())
+                if summary["text"]:
+                    store.append(job.id, {"kind": "changes", "text": str(summary["text"])})
+                result = _desktop_result(grew, summary)
+                store.append(
+                    job.id,
+                    {
+                        "kind": "result",
+                        "text": result,
+                        "error": False,
+                        "session_id": f"desktop-{job.id}",
+                    },
+                )
+                self._finish(store, job, "done", result=result)
+                return
+            if not saw_activity and now - started > 180:
+                summary = describe_changes(job.workspace, before)
+                grew = _new_text(baseline_ax, read_cursor_text())
+                note = (
+                    "Cursor may still be running, but the chat panel could not be read. "
+                    "Enable Accessibility for Terminal/Python. File changes are below."
+                )
+                store.append(job.id, {"kind": "assistant", "text": grew or note})
+                store.append(job.id, {"kind": "changes", "text": str(summary["text"])})
+                result = _desktop_result(grew or note, summary)
+                self._finish(store, job, "done", result=result)
+                return
+            time.sleep(2.0)
 
     def _run_agent(self, store: JobStore, job: Job, cancel: threading.Event | None) -> None:
         cmd = [
@@ -227,6 +332,25 @@ class Runner:
         store.mutate(job.id, apply)
         text = "Finished" if status == "done" else ("Canceled" if status == "canceled" else error or "Failed")
         store.append(job.id, {"kind": "status", "text": text, "status": status})
+
+
+def _desktop_result(ax_text: str, summary: dict) -> str:
+    parts = []
+    reply = (ax_text or "").strip()
+    if reply:
+        parts.append("Cursor desktop response:\n" + reply[-4000:])
+    fixed = str(summary.get("text") or "").strip()
+    if fixed:
+        parts.append(fixed)
+    return "\n\n".join(parts) or "Cursor ran the prompt in the desktop app."
+
+
+def _new_text(before: str, after: str) -> str:
+    if not after:
+        return ""
+    if before and after.startswith(before):
+        return after[len(before) :]
+    return after
 
 
 def _kill_process(proc: subprocess.Popen[str]) -> None:

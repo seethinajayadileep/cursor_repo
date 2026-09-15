@@ -11,6 +11,7 @@ on:
       - "tests/test_api.py"
       - "tests/test_net.py"
       - "tests/test_tunnel.py"
+      - "tests/test_changes.py"
       - "pyproject.toml"
       - ".github/workflows/cursor-pocket.yml"
   pull_request:

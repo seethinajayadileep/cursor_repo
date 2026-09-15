@@ -246,10 +246,14 @@ function openJob(jobId, opts = {}) {
 }
 
 function pushEvent(event) {
-  if (event.kind === "assistant" && event.delta) {
+  if (event.kind === "assistant") {
     const last = state.events[state.events.length - 1];
     if (last && last.kind === "assistant") {
-      last.text = event.text.startsWith(last.text) ? event.text : last.text + event.text;
+      if (event.delta) {
+        last.text = event.text.startsWith(last.text) ? event.text : last.text + event.text;
+      } else {
+        last.text = event.text;
+      }
       renderLog();
       return;
     }
@@ -308,9 +312,10 @@ function renderLog() {
     if (event.kind === "tool") div.classList.add("tool");
     if (event.kind === "error" || event.error) div.classList.add("error-line");
     if (event.kind === "result") div.classList.add("result");
+    if (event.kind === "changes") div.classList.add("result");
     const kind = document.createElement("div");
     kind.className = "kind";
-    kind.textContent = event.kind || "log";
+    kind.textContent = event.kind === "changes" ? "what was fixed" : event.kind || "log";
     const text = document.createElement("div");
     text.textContent = event.text || "";
     div.append(kind, text);
@@ -332,6 +337,9 @@ function announce(job) {
   document.title = ok ? "Done · Cursor Pocket" : "Cursor Pocket";
   if (navigator.vibrate) navigator.vibrate(ok ? [40, 30, 80] : [120, 60, 120]);
   playChime(ok);
+  if (window.PocketNative && typeof window.PocketNative.notifyDone === "function") {
+    window.PocketNative.notifyDone(ok ? "Cursor finished" : "Cursor run ended", (job.prompt || "").slice(0, 140));
+  }
   if ("Notification" in window && Notification.permission === "granted") {
     new Notification(ok ? "Cursor finished" : "Cursor run ended", {
       body: (job.prompt || "").slice(0, 140),

@@ -18,7 +18,7 @@
       <header class="hero">
         <p class="eyebrow">Phone remote</p>
         <h1>Cursor Pocket</h1>
-        <p class="lede">Type a prompt on this phone. Cursor CLI runs it on the laptop. You get the live log and a ping when it finishes. Same Wi-Fi, or over the internet with <code>--online</code>.</p>
+        <p class="lede">Type a prompt here. It is pasted into <strong>Cursor on the Mac</strong> and Send is clicked. This app shows Cursor’s reply and what files it fixed, then notifies you when it is done.</p>
       </header>
       <form id="pair-form" class="card">
         <label for="pin">Laptop PIN</label>
@@ -30,11 +30,10 @@
       <details class="help">
         <summary>How to connect</summary>
         <ol>
-          <li>On the laptop: <code>python3 -m cursor_pocket --workspace ~/your-project</code></li>
-          <li>Same Wi-Fi: open the LAN URL from the terminal.</li>
-          <li>Different networks (both online): laptop uses <code>--online</code>, phone opens the HTTPS URL.</li>
+          <li>On the Mac: open your project in <strong>Cursor</strong>, then run <code>python3 -m cursor_pocket --workspace ~/your-project</code></li>
+          <li>Allow Accessibility for Terminal in macOS Settings (so Pocket can click Send).</li>
+          <li>Same Wi-Fi: open the LAN URL. Away from home: use <code>--online</code>.</li>
           <li>Type the 6-digit PIN once.</li>
-          <li>USB: <code>adb reverse tcp:8787 tcp:8787</code>, then <code>http://127.0.0.1:8787</code>.</li>
         </ol>
       </details>
     </section>
