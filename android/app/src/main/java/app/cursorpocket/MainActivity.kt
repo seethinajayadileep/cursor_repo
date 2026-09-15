@@ -17,6 +17,8 @@ import android.view.MenuItem
 import android.view.View
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
+import android.webkit.WebResourceError
+import android.webkit.WebResourceRequest
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -93,9 +95,18 @@ class MainActivity : AppCompatActivity() {
         if (!prefill.isNullOrBlank()) field.setText(prefill)
     }
 
+    override fun onResume() {
+        super.onResume()
+        if (this::web.isInitialized) {
+            // USB reverse / LAN HTTP still work when Android reports "no internet".
+            web.setNetworkAvailable(true)
+        }
+    }
+
     private fun load(url: String) {
         setup.visibility = View.GONE
         web.visibility = View.VISIBLE
+        web.setNetworkAvailable(true)
         web.loadUrl(url)
     }
 
@@ -103,9 +114,33 @@ class MainActivity : AppCompatActivity() {
     private fun configureWebView() {
         web.settings.javaScriptEnabled = true
         web.settings.domStorageEnabled = true
-        web.settings.cacheMode = WebSettings.LOAD_DEFAULT
+        web.settings.cacheMode = WebSettings.LOAD_NO_CACHE
         web.settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
-        web.webViewClient = WebViewClient()
+        web.setNetworkAvailable(true)
+        web.webViewClient =
+            object : WebViewClient() {
+                override fun onReceivedError(
+                    view: WebView,
+                    request: WebResourceRequest,
+                    error: WebResourceError,
+                ) {
+                    if (!request.isForMainFrame) return
+                    val description = error.description ?: "unknown error"
+                    val target = request.url?.toString() ?: ""
+                    view.loadData(
+                        """
+                        <html><body style="background:#000;color:#f5f5f7;font-family:-apple-system,sans-serif;padding:28px">
+                        <h2>Cannot reach the Mac</h2>
+                        <p>$description</p>
+                        <p style="color:#8e8e93">$target</p>
+                        <p>Same Wi-Fi, or USB: <code>adb reverse tcp:8787 tcp:8787</code></p>
+                        </body></html>
+                        """.trimIndent(),
+                        "text/html",
+                        "utf-8",
+                    )
+                }
+            }
         web.webChromeClient = WebChromeClient()
         web.addJavascriptInterface(PocketBridge(this), "PocketNative")
     }
