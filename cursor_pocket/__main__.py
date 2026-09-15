@@ -107,7 +107,8 @@ def main(argv: list[str] | None = None) -> int:
         print("  Open that on the phone (or the Install Android app button) and sideload it.")
     print()
     if runner.demo:
-        print("  Mode: demo (no Cursor desktop clicks)")
+        print("  Mode: DEMO — Cursor will NOT run. This only tests the phone UI.")
+        print("  To actually click Send in Cursor, stop this (Ctrl+C) and rerun without --demo.")
     elif runner.target == "desktop":
         print("  Target: Cursor desktop (paste prompt + Send)")
         print("  Grant Accessibility to Terminal/Python in macOS Settings.")

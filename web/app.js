@@ -152,7 +152,11 @@ async function boot() {
     badge.classList.toggle("demo", Boolean(status.demo));
     fillWorkspaces();
     setPaired(true);
-    showBanner("");
+    if (status.demo) {
+      showBanner("Demo mode: Cursor will not run. On the Mac, Ctrl+C and start Pocket without --demo.");
+    } else {
+      showBanner("");
+    }
     await refreshJobs();
     const running = state.jobs.find((job) => job.status === "running" || job.status === "queued");
     if (running) openJob(running.id);

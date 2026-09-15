@@ -137,12 +137,14 @@ On the Mac terminal: **Ctrl+C**. The phone cannot send prompts until you start P
 
 ## First test (no real Cursor edits)
 
+`--demo` only checks that the phone can pair. **Cursor stays idle.** The phone will show **Finished** with fake text. That is expected.
+
 ```bash
-cd /path/to/cursor_repo
+cd /path/to/Cursor-Pocket
 python3 -m cursor_pocket --demo --pin 123456
 ```
 
-On the phone use PIN `123456`, send any text, wait for **Finished**. Nothing in your project is changed.
+On the phone use PIN `123456`, send any text, wait for **Finished**. Then **Ctrl+C** and start the real command from Part 2 (**no** `--demo`) if you want Cursor to actually run.
 
 ---
 
