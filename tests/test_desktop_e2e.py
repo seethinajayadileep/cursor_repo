@@ -76,6 +76,7 @@ class FakeCursorDesktop:
                 (self.workspace / "a.txt").write_text("hello from pocket\n", encoding="utf-8")
             else:
                 (self.workspace / "b.txt").write_text("follow-up fix\n", encoding="utf-8")
+            return self._baseline + "I'll update a.txt"
         return (
             self._baseline
             + "I'll update a.txt so the tests pass.\n"
@@ -93,7 +94,7 @@ class DesktopE2ETests(unittest.TestCase):
         self.runner = Runner(
             demo=False,
             target="desktop",
-            idle_seconds=0.0,
+            idle_seconds=0.06,
             poll_seconds=0.02,
             open_delay=0.0,
             after_send_delay=0.0,
@@ -236,8 +237,9 @@ class DesktopE2ETests(unittest.TestCase):
         self.assertEqual(kinds[-1], "status")
         self.assertEqual(job["events"][-1]["text"], "Finished")
 
-        assistant = next(event["text"] for event in job["events"] if event.get("kind") == "assistant")
+        assistant = "".join(event["text"] for event in job["events"] if event.get("kind") == "assistant")
         self.assertIn("I'll update a.txt", assistant)
+        self.assertGreaterEqual(sum(1 for event in job["events"] if event.get("kind") == "assistant"), 2)
         changes = next(event["text"] for event in job["events"] if event.get("kind") == "changes")
         self.assertIn("a.txt", changes)
 
@@ -382,6 +384,16 @@ class DesktopGuardsTests(unittest.TestCase):
         self.assertIn("Cursor desktop response", text)
         self.assertIn("hello from Cursor", text)
         self.assertIn("a.txt", text)
+
+    def test_live_chunks_and_thinking_markers(self) -> None:
+        from cursor_pocket.runner import _live_chunks, _looks_like_thinking
+
+        parts = _live_chunks("Cursor desktop would answer here with a longer streamed reply.", size=24)
+        self.assertGreater(len(parts), 1)
+        self.assertEqual("".join(parts), "Cursor desktop would answer here with a longer streamed reply.")
+        self.assertTrue(_looks_like_thinking("Thought 5s"))
+        self.assertTrue(_looks_like_thinking("Planning next moves"))
+        self.assertFalse(_looks_like_thinking("I'll update a.txt so the tests pass."))
 
 
 if __name__ == "__main__":

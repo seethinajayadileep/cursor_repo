@@ -1,19 +1,19 @@
 :root {
-  --bg: #141414;
-  --bg-2: #1c1c1c;
-  --card: #222222;
-  --line: #2f2f2f;
-  --text: #ececec;
-  --muted: #8d8d8d;
-  --accent: #d0d0d0;
-  --accent-ink: #111111;
-  --danger: #ff8a7a;
-  --ok: #8fd9a4;
-  --user: #2a2a2a;
-  --think: #9a9a9a;
-  --shadow: 0 18px 50px rgba(0, 0, 0, 0.38);
-  --radius: 16px;
-  font-family: "Inter", "SF Pro Text", "Segoe UI", "Helvetica Neue", system-ui, sans-serif;
+  --bg: #000000;
+  --bg-2: #1c1c1e;
+  --card: #1c1c1e;
+  --line: #2c2c2e;
+  --text: #f5f5f7;
+  --muted: #8e8e93;
+  --accent: #e8e8ed;
+  --accent-ink: #000000;
+  --danger: #ff6b6b;
+  --ok: #30d158;
+  --user: #2c2c2e;
+  --think: #98989d;
+  --shadow: 0 18px 50px rgba(0, 0, 0, 0.45);
+  --radius: 18px;
+  font-family: -apple-system, "SF Pro Text", "SF Pro Display", "Inter", "Segoe UI", system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -132,15 +132,33 @@ button.ghost {
 .topbar {
   display: flex;
   justify-content: space-between;
-  gap: 12px;
-  align-items: flex-start;
-  padding: calc(12px + env(safe-area-inset-top)) 16px 10px;
+  gap: 10px;
+  align-items: center;
+  padding: calc(10px + env(safe-area-inset-top)) 12px 10px;
   border-bottom: 1px solid var(--line);
-  background: rgba(20, 20, 20, 0.92);
-  backdrop-filter: blur(16px);
+  background: rgba(0, 0, 0, 0.86);
+  backdrop-filter: blur(20px);
 }
 
-.topbar h1 { margin: 0; font-size: 1.05rem; }
+.topbar h1 { margin: 0; font-size: 1.02rem; font-weight: 650; }
+.nav-title { flex: 1; min-width: 0; text-align: center; }
+.nav-title .eyebrow { margin: 2px 0 0; letter-spacing: 0.04em; text-transform: none; font-size: 0.7rem; }
+.icon-btn, .plus-btn {
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  margin: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--bg-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+.icon-btn svg { width: 18px; height: 18px; display: block; }
 .topbar-actions { display: flex; gap: 8px; align-items: center; }
 
 .badge {
@@ -303,6 +321,16 @@ button.ghost {
   color: var(--text);
   padding: 2px 2px;
 }
+.msg.assistant.streaming::after {
+  content: "▍";
+  display: inline;
+  margin-left: 1px;
+  color: var(--muted);
+  animation: caret 1s step-end infinite;
+}
+@keyframes caret {
+  50% { opacity: 0; }
+}
 
 .msg.thinking {
   color: var(--think);
@@ -396,19 +424,27 @@ button.ghost {
 }
 
 .composer-dock {
-  padding: 8px 12px calc(12px + env(safe-area-inset-bottom));
-  background: linear-gradient(180deg, rgba(20, 20, 20, 0), var(--bg) 28%);
+  padding: 6px 10px calc(10px + env(safe-area-inset-bottom));
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0), var(--bg) 24%);
+}
+
+.tools-tray {
+  margin: 0 2px 8px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-2);
 }
 
 .composer-box {
   display: flex;
   align-items: flex-end;
   gap: 8px;
-  margin-top: 8px;
-  background: var(--card);
+  margin-top: 0;
+  background: var(--bg-2);
   border: 1px solid var(--line);
-  border-radius: 22px;
-  padding: 8px 8px 8px 14px;
+  border-radius: 24px;
+  padding: 6px 6px 6px 6px;
 }
 
 #prompt {
@@ -458,7 +494,32 @@ button.ghost {
 .status-pill.error, .status-pill.canceled { color: var(--danger); }
 .status-pill.running, .status-pill.queued { color: #cfcfcf; }
 
-.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.sheet {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: flex-end;
+  z-index: 20;
+  padding: 12px 12px calc(12px + env(safe-area-inset-bottom));
+}
+.sheet-card {
+  width: min(720px, 100%);
+  margin: 0 auto;
+  max-height: 78vh;
+  overflow: auto;
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  padding: 14px;
+}
+.sheet-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.sheet-head h2 { margin: 0; font-size: 1.1rem; }
 
 .host-body { display: flex; justify-content: center; padding-top: 48px; background: var(--bg); }
 .host-grid { display: grid; gap: 16px; grid-template-columns: 1fr; }

@@ -52,11 +52,11 @@ class Runner:
         trust: bool = True,
         agent_bin: str | None = None,
         target: str = "desktop",
-        idle_seconds: float = 18.0,
+        idle_seconds: float = 12.0,
         max_seconds: float = 45 * 60,
-        poll_seconds: float = 2.0,
+        poll_seconds: float = 0.4,
         open_delay: float = 1.2,
-        after_send_delay: float = 2.0,
+        after_send_delay: float = 1.0,
         no_activity_seconds: float = 180.0,
     ) -> None:
         self.demo = demo
@@ -127,7 +127,7 @@ class Runner:
                 "kind": "thinking",
                 "text": "Planning next moves — reading the workspace and shaping a reply.",
             },
-            {"kind": "assistant", "text": "Got it. I'll work through this on the laptop.\n"},
+            {"kind": "assistant", "text": "Got it. I'll work through this on the laptop.\n", "delta": True},
             {"kind": "tool", "text": f"read started · {job.workspace}", "tool": "read", "subtype": "started"},
             {"kind": "tool", "text": "read done", "tool": "read", "subtype": "done"},
             {
@@ -135,25 +135,32 @@ class Runner:
                 "text": "I'll build the reply from the prompt and the files that would change.",
                 "duration_ms": 5000,
             },
-            {
-                "kind": "assistant",
-                "text": (
-                    f"{'Cursor Cloud Agent' if job.mode == 'cloud' else 'Cursor desktop'} would answer here.\n\nPrompt:\n{job.prompt.strip()}\n\n"
-                    "Demo only — no files were edited."
-                ),
-            },
-            {
-                "kind": "changes",
-                "text": "What was fixed:\n  • (demo) no real files changed",
-            },
         ]
         for step in steps:
             if cancel and cancel.is_set():
                 self._finish(store, job, "canceled", error="Canceled from the phone")
                 return
-            time.sleep(0.45)
+            time.sleep(0.28)
             store.append(job.id, step)
-        result = steps[-1]["text"]
+        reply = (
+            f"{'Cursor Cloud Agent' if job.mode == 'cloud' else 'Cursor desktop'} would answer here.\n\n"
+            f"Prompt:\n{job.prompt.strip()}\n\n"
+            "Demo only — no files were edited."
+        )
+        for piece in _live_chunks(reply):
+            if cancel and cancel.is_set():
+                self._finish(store, job, "canceled", error="Canceled from the phone")
+                return
+            time.sleep(0.16)
+            store.append(job.id, {"kind": "assistant", "text": piece, "delta": True})
+        store.append(
+            job.id,
+            {
+                "kind": "changes",
+                "text": "What was fixed:\n  • (demo) no real files changed",
+            },
+        )
+        result = reply
         store.append(
             job.id,
             {
@@ -215,6 +222,7 @@ class Runner:
         last_change = started
         last_ax = baseline_ax
         last_git = before
+        last_git_check = started
         saw_activity = False
         while True:
             if cancel and cancel.is_set():
@@ -243,20 +251,26 @@ class Runner:
                 )
             ax = read_cursor_text()
             if ax and ax != last_ax:
+                chunk = _new_text(last_ax, ax)
                 last_ax = ax
                 last_change = now
-                grew = _new_text(baseline_ax, ax)
-                if grew.strip():
+                if chunk.strip():
                     saw_activity = True
-                    store.append(job.id, {"kind": "assistant", "text": grew[-4000:], "delta": False})
+                    kind = "thinking" if _looks_like_thinking(chunk) else "assistant"
+                    store.append(
+                        job.id,
+                        {"kind": kind, "text": chunk[-4000:], "delta": True},
+                    )
 
-            git_now = snapshot(job.workspace)
-            if git_now != last_git:
-                last_git = git_now
-                last_change = now
-                saw_activity = True
-                summary = describe_changes(job.workspace, before)
-                store.append(job.id, {"kind": "changes", "text": str(summary["text"])})
+            if now - last_git_check >= 1.2:
+                last_git_check = now
+                git_now = snapshot(job.workspace)
+                if git_now != last_git:
+                    last_git = git_now
+                    last_change = now
+                    saw_activity = True
+                    summary = describe_changes(job.workspace, before)
+                    store.append(job.id, {"kind": "changes", "text": str(summary["text"])})
 
             quiet = now - last_change
             if saw_activity and quiet >= self.idle_seconds:
@@ -405,6 +419,36 @@ class Runner:
                 notify_job(finished)
             except Exception:  # noqa: BLE001 — never fail a job because the banner could not show
                 pass
+
+
+def _live_chunks(text: str, size: int = 72) -> list[str]:
+    raw = text or ""
+    if len(raw) <= size:
+        return [raw] if raw else []
+    parts: list[str] = []
+    remaining = raw
+    while remaining:
+        if len(remaining) <= size:
+            parts.append(remaining)
+            break
+        cut = remaining.rfind(" ", 0, size + 1)
+        if cut <= 0:
+            cut = remaining.find(" ", size)
+            if cut <= 0:
+                cut = len(remaining)
+        parts.append(remaining[:cut])
+        remaining = remaining[cut:].lstrip(" ")
+        if remaining:
+            parts[-1] += " "
+    return parts
+
+
+def _looks_like_thinking(text: str) -> bool:
+    low = " ".join((text or "").strip().lower().split())
+    if not low or len(low) > 240:
+        return False
+    markers = ("planning next moves", "thought ", "thought briefly", "thinking", "listening")
+    return any(low == marker or low.startswith(marker) for marker in markers)
 
 
 def _desktop_result(ax_text: str, summary: dict) -> str:

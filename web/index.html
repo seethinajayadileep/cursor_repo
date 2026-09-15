@@ -3,8 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="theme-color" content="#141414" />
+  <meta name="theme-color" content="#000000" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
   <meta name="mobile-web-app-capable" content="yes" />
   <title>Cursor Pocket</title>
   <link rel="manifest" href="/manifest.webmanifest" />
@@ -16,9 +17,9 @@
   <div id="app">
     <section id="pair-screen" class="screen">
       <header class="hero">
-        <p class="eyebrow">Phone remote</p>
+        <p class="eyebrow">Remote for Cursor</p>
         <h1>Cursor Pocket</h1>
-        <p class="lede">Type a prompt here. <strong>Agent</strong> uses the IDE (Cmd+I). <strong>Cloud</strong> opens Cursor’s Agents Window (the Cloud Agents screen you build in), clicks Cloud, and Send. This app shows thinking, the reply, and what files changed, then notifies you when it is done.</p>
+        <p class="lede">Same chat as the iOS Cursor app: type here, it sends to Cursor on your Mac, and the reply streams back live. <strong>Agent</strong> is Cmd+I. <strong>Cloud</strong> is the Agents Window.</p>
       </header>
       <form id="pair-form" class="card">
         <label for="pin">Laptop PIN</label>
@@ -42,9 +43,12 @@
 
     <section id="main-screen" class="screen chat-app" hidden>
       <header class="topbar">
-        <div>
+        <button type="button" id="chats-btn" class="icon-btn" aria-label="Chats">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 7h14M5 12h14M5 17h10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+        <div class="nav-title">
+          <h1 id="chat-heading">Agent</h1>
           <p class="eyebrow" id="laptop-label">Laptop</p>
-          <h1 id="chat-heading">Cursor Pocket</h1>
         </div>
         <div class="topbar-actions">
           <span id="mode-badge" class="badge">live</span>
@@ -57,9 +61,9 @@
       <div class="chat-body">
         <div id="thread" class="thread">
           <div id="welcome" class="welcome">
-            <p class="welcome-kicker">Cursor on your laptop</p>
-            <h2>Send a prompt. Watch it think.</h2>
-            <p>Replies, thinking, and file fixes show up here the same way they do in the Agents Window.</p>
+            <p class="welcome-kicker">Remote control</p>
+            <h2>Message Cursor on your Mac</h2>
+            <p>Each send goes to the desktop chat you have open. Thinking and the reply stream here live, then you can iterate in the same thread.</p>
           </div>
 
           <section id="active" class="job" hidden>
@@ -67,7 +71,7 @@
               <h2 id="active-title">Listening</h2>
               <div class="job-actions">
                 <button type="button" id="new-run-btn" class="ghost" hidden>New chat</button>
-                <button type="button" id="cancel-btn" class="ghost">Cancel</button>
+                <button type="button" id="cancel-btn" class="ghost">Stop</button>
               </div>
             </div>
             <p id="active-prompt" class="sr"></p>
@@ -78,43 +82,52 @@
               <button type="submit">Send follow-up</button>
             </form>
           </section>
-
-          <section id="history-wrap">
-            <h2 class="section-title">Earlier runs</h2>
-            <ul id="history" class="history"></ul>
-          </section>
         </div>
 
         <form id="composer" class="composer-dock">
-          <div class="composer-tools">
-            <label class="sr" for="workspace">Workspace</label>
-            <select id="workspace"></select>
-            <div class="pills" role="radiogroup" aria-label="Mode">
-              <label><input type="radio" name="mode" value="agent" checked /> Agent</label>
-              <label><input type="radio" name="mode" value="cloud" /> Cloud</label>
-              <label><input type="radio" name="mode" value="ask" /> Ask</label>
-              <label><input type="radio" name="mode" value="plan" /> Plan</label>
+          <div id="tools-tray" class="tools-tray" hidden>
+            <div class="composer-tools">
+              <label class="sr" for="workspace">Workspace</label>
+              <select id="workspace"></select>
+              <div class="pills" role="radiogroup" aria-label="Mode">
+                <label><input type="radio" name="mode" value="agent" checked /> Agent</label>
+                <label><input type="radio" name="mode" value="cloud" /> Cloud</label>
+                <label><input type="radio" name="mode" value="ask" /> Ask</label>
+                <label><input type="radio" name="mode" value="plan" /> Plan</label>
+              </div>
             </div>
-          </div>
-          <div id="chat-row" class="chat-row" hidden>
-            <label for="chat">Chat window</label>
-            <select id="chat">
-              <option value="current">This chat (already open)</option>
-              <option value="new">New chat</option>
-            </select>
-            <button type="button" id="refresh-chats" class="ghost">Refresh list</button>
+            <div id="chat-row" class="chat-row" hidden>
+              <label for="chat">Chat window</label>
+              <select id="chat">
+                <option value="current">This chat (already open)</option>
+                <option value="new">New chat</option>
+              </select>
+              <button type="button" id="refresh-chats" class="ghost">Refresh list</button>
+            </div>
+            <p id="notify-row" class="hint">
+              <button type="button" id="notify-btn" class="ghost">Enable notifications</button>
+              <span id="notify-status"></span>
+            </p>
           </div>
           <div class="composer-box">
-            <textarea id="prompt" rows="1" placeholder="Message Cursor on your laptop…" required></textarea>
+            <button type="button" id="tools-btn" class="plus-btn" aria-label="Chat settings" aria-expanded="false">+</button>
+            <textarea id="prompt" rows="1" placeholder="Message Cursor…" required></textarea>
             <button type="submit" id="send-btn" class="send-fab" aria-label="Send to laptop">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
           </div>
-          <p id="notify-row" class="hint">
-            <button type="button" id="notify-btn" class="ghost">Enable notifications</button>
-            <span id="notify-status"></span>
-          </p>
         </form>
+      </div>
+
+      <div id="chats-sheet" class="sheet" hidden>
+        <div class="sheet-card">
+          <div class="sheet-head">
+            <h2>Chats</h2>
+            <button type="button" id="chats-close" class="ghost">Done</button>
+          </div>
+          <h3 class="section-title">Earlier runs</h3>
+          <ul id="history" class="history"></ul>
+        </div>
       </div>
     </section>
   </div>

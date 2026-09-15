@@ -14,6 +14,7 @@ const state = {
   announced: new Set(),
   healthTimer: 0,
   canFollow: false,
+  thread: [],
 };
 
 const $ = (id) => document.getElementById(id);
@@ -105,6 +106,8 @@ composer.addEventListener("submit", async (event) => {
   if (!prompt) return;
   $("send-btn").disabled = true;
   try {
+    const keep = Boolean(state.activeId && (canFollowUp() || isListening()));
+    beginTurn(prompt, keep);
     if (canFollowUp()) {
       const data = await api(`/api/jobs/${state.activeId}/follow-up`, {
         method: "POST",
@@ -113,7 +116,7 @@ composer.addEventListener("submit", async (event) => {
       $("prompt").value = "";
       growPrompt();
       maybeNotifyPermission();
-      openJob(data.job.id);
+      openJob(data.job.id, { keep: true });
       await refreshJobs();
       return;
     }
@@ -131,9 +134,13 @@ composer.addEventListener("submit", async (event) => {
     $("prompt").value = "";
     growPrompt();
     maybeNotifyPermission();
-    openJob(data.job.id);
+    openJob(data.job.id, { keep: true });
     await refreshJobs();
   } catch (err) {
+    if (state.thread.length && state.thread[state.thread.length - 1].kind === "user") {
+      state.thread.pop();
+      renderLog();
+    }
     showBanner(err.message);
   } finally {
     $("send-btn").disabled = false;
@@ -151,7 +158,14 @@ $("cancel-btn").addEventListener("click", async () => {
 
 $("new-run-btn").addEventListener("click", () => {
   setFollow(false);
-  $("chat-heading").textContent = "Cursor Pocket";
+  state.thread = [];
+  state.events = [];
+  state.activeId = "";
+  activeEl.hidden = true;
+  if (welcomeEl) welcomeEl.hidden = false;
+  $("chat-heading").textContent = "Agent";
+  $("prompt").placeholder = "Message Cursor…";
+  renderLog();
 });
 
 followForm.addEventListener("submit", async (event) => {
@@ -172,6 +186,25 @@ followForm.addEventListener("submit", async (event) => {
 });
 
 $("prompt").addEventListener("input", growPrompt);
+$("prompt").addEventListener("keydown", (event) => {
+  if (event.key === "Enter" && !event.shiftKey) {
+    event.preventDefault();
+    composer.requestSubmit();
+  }
+});
+
+function beginTurn(prompt, keep) {
+  if (!keep) state.thread = [];
+  else state.thread = [...state.thread, ...state.events];
+  state.events = [];
+  state.thread.push({ kind: "user", text: prompt });
+  $("active-prompt").textContent = prompt;
+  activeEl.hidden = false;
+  if (welcomeEl) welcomeEl.hidden = true;
+  $("chat-heading").textContent = headingFor({ prompt });
+  state.activeStatus = "queued";
+  renderLog();
+}
 
 function growPrompt() {
   const box = $("prompt");
@@ -187,7 +220,7 @@ function setFollow(on) {
   state.canFollow = Boolean(on);
   followForm.hidden = true;
   $("new-run-btn").hidden = !state.canFollow;
-  $("prompt").placeholder = state.canFollow ? "Follow up…" : "Message Cursor on your laptop…";
+  $("prompt").placeholder = state.canFollow ? "Message Cursor…" : "Message Cursor…";
 }
 
 async function boot() {
@@ -311,24 +344,32 @@ function renderHistory() {
     const li = document.createElement("li");
     li.className = "history-item";
     li.innerHTML = `<div><strong>${escapeHtml(job.workspace_name)}</strong><p>${escapeHtml(job.prompt)}</p></div><span class="status-pill ${job.status}">${job.status}</span>`;
-    li.addEventListener("click", () => openJob(job.id));
+    li.addEventListener("click", () => {
+      const sheet = $("chats-sheet");
+      if (sheet) sheet.hidden = true;
+      openJob(job.id);
+    });
     historyEl.appendChild(li);
   }
 }
 
 function openJob(jobId, opts = {}) {
+  const keep = Boolean(opts.keep);
   state.activeId = jobId;
-  state.events = [];
+  if (!keep) {
+    state.thread = [];
+    state.events = [];
+  }
   activeEl.hidden = false;
   if (welcomeEl) welcomeEl.hidden = true;
-  setFollow(false);
+  followForm.hidden = true;
   closeStream();
   const job = state.jobs.find((item) => item.id === jobId);
-  $("active-prompt").textContent = job ? job.prompt : "";
+  $("active-prompt").textContent = job ? job.prompt : $("active-prompt").textContent;
   $("active-title").textContent = job ? titleFor(job) : "Run";
-  $("chat-heading").textContent = headingFor(job);
+  $("chat-heading").textContent = headingFor(job || { prompt: $("active-prompt").textContent });
   state.activeStatus = job ? job.status : "queued";
-  logEl.innerHTML = "";
+  if (!keep) logEl.innerHTML = "";
   const token = encodeURIComponent(state.token);
   const source = new EventSource(`/api/jobs/${jobId}/events?token=${token}`);
   state.source = source;
@@ -362,7 +403,7 @@ function openJob(jobId, opts = {}) {
 
 function headingFor(job) {
   const prompt = String(job && job.prompt ? job.prompt : "").trim();
-  if (!prompt) return "Cursor Pocket";
+  if (!prompt) return "Agent";
   const line = prompt.split("\n")[0].trim();
   return line.length > 42 ? `${line.slice(0, 42)}…` : line;
 }
@@ -412,6 +453,7 @@ function updateActive(job) {
   $("active-prompt").textContent = job.prompt || "";
   $("chat-heading").textContent = headingFor(job);
   $("cancel-btn").hidden = ["done", "error", "canceled"].includes(job.status);
+  $("send-btn").disabled = ["running", "queued"].includes(job.status);
   setFollow(job.status === "done" && Boolean(job.session_id));
   if (["running", "queued"].includes(job.status)) keepAwake();
   else releaseAwake();
@@ -419,6 +461,7 @@ function updateActive(job) {
 
 function onTerminal(job, opts = {}) {
   $("cancel-btn").hidden = true;
+  $("send-btn").disabled = false;
   setFollow(job.status === "done");
   releaseAwake();
   refreshJobs().catch(() => {});
@@ -479,14 +522,8 @@ function groupEvents(events) {
 
 function renderLog() {
   logEl.innerHTML = "";
-  const prompt = ($("active-prompt").textContent || "").trim();
-  if (prompt) {
-    const user = document.createElement("div");
-    user.className = "msg user";
-    user.textContent = prompt;
-    logEl.appendChild(user);
-  }
-  const items = groupEvents(state.events);
+  const combined = displayEvents();
+  const items = groupEvents(combined);
   for (let i = 0; i < items.length; i += 1) {
     const node = renderItem(items[i], i === items.length - 1);
     if (node) logEl.appendChild(node);
@@ -497,7 +534,7 @@ function renderLog() {
     const dot = document.createElement("span");
     dot.className = "live-dot";
     const label = document.createElement("span");
-    label.textContent = "Listening";
+    label.textContent = "Live from desktop";
     live.append(dot, label);
     logEl.appendChild(live);
   }
@@ -505,7 +542,21 @@ function renderLog() {
   if (thread) thread.scrollTop = thread.scrollHeight;
 }
 
+function displayEvents() {
+  const combined = [...state.thread, ...state.events];
+  const hasUser = combined.some((event) => event && event.kind === "user");
+  const prompt = ($("active-prompt").textContent || "").trim();
+  if (!hasUser && prompt) combined.unshift({ kind: "user", text: prompt });
+  return combined;
+}
+
 function renderItem(event, last) {
+  if (event.kind === "user") {
+    const user = document.createElement("div");
+    user.className = "msg user";
+    user.textContent = event.text || "";
+    return user;
+  }
   if (event.kind === "tools") {
     const div = document.createElement("div");
     div.className = "msg activity";
@@ -537,7 +588,10 @@ function renderItem(event, last) {
   }
   const div = document.createElement("div");
   div.className = "msg";
-  if (event.kind === "assistant") div.classList.add("assistant");
+  if (event.kind === "assistant") {
+    div.classList.add("assistant");
+    if (last && isListening()) div.classList.add("streaming");
+  }
   else if (event.kind === "changes") div.classList.add("changes");
   else if (event.kind === "error" || event.error) div.classList.add("error-line");
   else if (event.kind === "system") div.classList.add("system");
@@ -690,8 +744,40 @@ function registerPwa() {
 
 registerPwa();
 showApkDownload();
+wireChrome();
 if (state.token) boot();
 else setPaired(false);
+
+function wireChrome() {
+  const toolsBtn = $("tools-btn");
+  const tray = $("tools-tray");
+  if (toolsBtn && tray) {
+    toolsBtn.addEventListener("click", () => {
+      tray.hidden = !tray.hidden;
+      toolsBtn.setAttribute("aria-expanded", String(!tray.hidden));
+      if (!tray.hidden) syncChatRow();
+    });
+  }
+  const sheet = $("chats-sheet");
+  const openChats = $("chats-btn");
+  const closeChats = $("chats-close");
+  if (openChats && sheet) {
+    openChats.addEventListener("click", () => {
+      sheet.hidden = false;
+      refreshJobs().catch(() => {});
+    });
+  }
+  if (closeChats && sheet) {
+    closeChats.addEventListener("click", () => {
+      sheet.hidden = true;
+    });
+  }
+  if (sheet) {
+    sheet.addEventListener("click", (event) => {
+      if (event.target === sheet) sheet.hidden = true;
+    });
+  }
+}
 
 function showApkDownload() {
   fetch("/api/health")
