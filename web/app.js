@@ -398,12 +398,11 @@ function refreshNotifyUi() {
     status.textContent = "Notifications on. You’ll get a banner when Cursor or Cloud Agent finishes.";
     return;
   }
+  btn.hidden = false;
   if (Notification.permission === "denied") {
-    btn.hidden = true;
-    status.textContent = "Notifications blocked. Allow them in site settings, or install the Android APK.";
+    status.textContent = "Notifications blocked. Click Enable, or the lock icon → Site settings → Notifications → Allow. The Android APK always alerts.";
     return;
   }
-  btn.hidden = false;
   status.textContent = "Turn on notifications so you hear when Cloud / Cursor finishes.";
 }
 
