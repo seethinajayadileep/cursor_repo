@@ -18,9 +18,30 @@ Open your project in **Cursor desktop**. Leave that window open. Pocket clicks *
 
 Example folder: `/Users/you/Projects/my-app`
 
-### 2. Accessibility (required)
+### 2. Accessibility permission (required)
 
-On the Mac: **System Settings → Privacy & Security → Accessibility**. Turn on **Terminal** (or **iTerm** / **Python**, whichever runs Pocket). Without this, the phone cannot click Send.
+macOS has **two** different Accessibility screens. Pocket needs the **permission** list, not Zoom / VoiceOver.
+
+**Do not** open the sidebar item **System Settings → Accessibility** (that is display and hearing features). There is no Terminal toggle there.
+
+**Do this instead:**
+
+1. Apple menu → **System Settings** (older Macs: **System Preferences**).
+2. In the search box at the top, type **Accessibility**.
+3. Choose **Privacy & Security → Accessibility** (or **Security & Privacy → Privacy → Accessibility** on older macOS).  
+   You should see a list of apps that can **control this Mac**, with on/off switches — not VoiceOver / Zoom.
+4. Click the **+** button. Add **Terminal** (`Applications → Utilities → Terminal`). If you use iTerm, add **iTerm**. If a dialog later asks for **Python**, turn that on too.
+5. Turn the switch **on**. You may need to enter your Mac password.
+
+Fastest way — paste this in Terminal; it jumps to the right pane:
+
+```bash
+open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+```
+
+If that opens Privacy & Security but not the list, scroll the right-hand page until you see **Accessibility** under permissions (same group as Camera, Microphone, Automation).
+
+Without this permission, the phone can still pair, but Cursor **Send will not be clicked**.
 
 ### 3. Python
 
@@ -132,5 +153,5 @@ On the phone use PIN `123456`, send any text, wait for **Finished**. Nothing in 
 - Mac firewall blocked Python: System Settings → Network → Firewall → Options → allow Python.
 - Wrong project path: `--workspace` must be the folder Cursor has open.
 - `No Cursor desktop`: install Cursor, or pass `--demo` / `--cli`.
-- Send is not clicked: enable Accessibility for Terminal/Python.
+- Send is not clicked: enable **Privacy & Security → Accessibility** for Terminal/Python (not the VoiceOver/Zoom Accessibility page). Paste `open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"` in Terminal.
 - Mac locked or asleep: unlock it; automation cannot click Send on the lock screen.
