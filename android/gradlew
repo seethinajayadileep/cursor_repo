@@ -12,7 +12,40 @@ fi
 CLASSPATH="$JAR"
 if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
   JAVACMD="$JAVA_HOME/bin/java"
-else
+elif command -v java >/dev/null 2>&1; then
   JAVACMD="java"
+else
+  echo "Java is not installed. Install Temurin 17: brew install --cask temurin@17" >&2
+  exit 1
+fi
+# Gradle 8.9 / Kotlin 2.0 print only "25" and die on JDK 25+. Prefer 21 or 17.
+if [ "$(uname -s)" = Darwin ] && [ -x /usr/libexec/java_home ]; then
+  major=$("$JAVACMD" -version 2>&1 | awk -F[\".] '/version/ {print $2; exit}')
+  case "$major" in
+    1) major=$("$JAVACMD" -version 2>&1 | awk -F[\".] '/version/ {print $3; exit}') ;;
+  esac
+  if [ -n "${major:-}" ] && [ "$major" -ge 22 ] 2>/dev/null; then
+    switched=
+    for v in 21 17; do
+      home=$(/usr/libexec/java_home -v "$v" 2>/dev/null || true)
+      if [ -n "$home" ] && [ -x "$home/bin/java" ]; then
+        echo "Using Java $v at $home (Java $major cannot build this Android project)."
+        JAVA_HOME="$home"
+        export JAVA_HOME
+        JAVACMD="$JAVA_HOME/bin/java"
+        switched=1
+        break
+      fi
+    done
+    if [ -z "$switched" ]; then
+      echo "This project needs JDK 17 or 21. Your default Java is $major." >&2
+      echo "Gradle then fails with: What went wrong: $major" >&2
+      echo "Install JDK 17, then rerun:" >&2
+      echo "  brew install --cask temurin@17" >&2
+      echo "  export JAVA_HOME=\$(/usr/libexec/java_home -v 17)" >&2
+      echo "  ./gradlew assembleDebug" >&2
+      exit 1
+    fi
+  fi
 fi
 exec "$JAVACMD" ${GRADLE_OPTS:-} -Xmx64m -Xms64m -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain "$@"

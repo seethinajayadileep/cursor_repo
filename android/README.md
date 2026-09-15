@@ -14,7 +14,14 @@ You can also download `cursor-pocket.apk` from the GitHub Action named **android
 
 ## Build on the Mac / Linux
 
-Need JDK 17+ and the Android SDK (Android Studio installs both). If `./gradlew` says `GradleWrapperMain`, the wrapper JAR was missing — `gradlew` now downloads it, or run:
+Need **JDK 17 or 21** (not Java 25). On a 2026 Mac, `java` is often 25; Gradle then fails with only `25`. Install 17:
+
+```bash
+brew install --cask temurin@17
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)
+```
+
+If `./gradlew` said `GradleWrapperMain`, the wrapper JAR was missing — `gradlew` now downloads it, or run:
 
 ```bash
 cd android
@@ -26,7 +33,7 @@ Then:
 
 ```bash
 cd android
-echo "sdk.dir=$ANDROID_HOME" > local.properties   # or ANDROID_SDK_ROOT
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 chmod +x gradlew
 ./gradlew assembleDebug
 mkdir -p dist

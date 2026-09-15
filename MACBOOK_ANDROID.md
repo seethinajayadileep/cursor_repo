@@ -107,12 +107,14 @@ Google Play has no Cursor app. Pocket **is** the Android app. Use the APK (home-
 3. Tap **Install Android app (APK)** and open the downloaded file. Allow install from this source if Android asks.
 4. Open the **Cursor Pocket** icon. Paste the laptop URL, then the PIN.
 
-If the button is missing, build once (see [`android/README.md`](android/README.md)). If Gradle says `GradleWrapperMain`, download the wrapper JAR first:
+If the button is missing, build once (see [`android/README.md`](android/README.md)). Use **JDK 17 or 21**, not Java 25 (Gradle then fails with only `25`):
 
 ```bash
+brew install --cask temurin@17
 cd /Users/jaya/Desktop/Cursor-Pocket/android
 curl -fsSL -o gradle/wrapper/gradle-wrapper.jar \
   https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar
+export JAVA_HOME=$(/usr/libexec/java_home -v 17)
 chmod +x gradlew
 ./gradlew assembleDebug
 mkdir -p dist
