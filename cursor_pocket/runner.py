@@ -166,7 +166,7 @@ class Runner:
                 job.id,
                 {
                     "kind": "system",
-                    "text": f"Using the Cursor window in front · Cloud · {job.workspace_name}",
+                    "text": f"Opening Cursor Agents Window · Cloud · {job.workspace_name}",
                 },
             )
             focus_cursor()
@@ -180,7 +180,7 @@ class Runner:
             return
         copy_prompt(job.prompt)
         send_prompt(kind="cloud" if cloud else "agent", new_chat=not bool(job.follow_up_of))
-        where = "Cloud in the open Cursor window" if cloud else "Cursor desktop"
+        where = "Cloud Agents Window" if cloud else "Cursor desktop"
         sid = f"{'cloud' if cloud else 'desktop'}-{job.id}"
         store.append(job.id, {"kind": "status", "text": f"Sent to {where} — waiting for the reply and file fixes"})
         store.mutate(job.id, lambda j: setattr(j, "session_id", sid))

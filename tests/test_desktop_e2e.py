@@ -338,16 +338,17 @@ class DesktopGuardsTests(unittest.TestCase):
         with self.assertRaises(DesktopError):
             send_prompt()
 
-    def test_cloud_script_stays_in_editor_not_agents_window(self) -> None:
+    def test_cloud_script_opens_agents_window_not_ide(self) -> None:
         script = cloud_script(new_chat=True)
+        self.assertIn("New Agents Window", script)
+        self.assertIn("Open Agents Window", script)
+        self.assertIn("New Chat", script)
         self.assertIn("Cloud", script)
-        self.assertIn("Agents Window", script)
-        self.assertIn('keystroke "i" using {command down}', script)
+        self.assertNotIn('keystroke "i" using {command down}', script)
         self.assertNotIn('keystroke "l" using {command down}', script)
-        self.assertNotIn('menu item "New Agent"', script)
-        self.assertNotIn('menu item "Agents" of menu "View"', script)
         follow = cloud_script(new_chat=False)
-        self.assertNotIn('keystroke "i" using {command down}', follow)
+        self.assertNotIn("New Chat", follow)
+        self.assertIn("Open Agents Window", follow)
         self.assertIn('keystroke "v"', follow)
 
     def test_desktop_result_joins_reply_and_files(self) -> None:

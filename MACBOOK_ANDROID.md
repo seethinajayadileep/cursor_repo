@@ -18,8 +18,8 @@ Open your project in **Cursor desktop**. Leave that window open. Pocket clicks *
 
 **Which Cursor screen?** Both the file editor and the Agents chat are the same app (`Cursor.app`).
 
-- Phone **Agent**: local IDE box (**Cmd+I**).
-- Phone **Cloud**: stays in the **Cursor window you are already coding in**, clicks the **Cloud** picker on that composer, pastes, and Send. It does **not** open **Agents Window** (that is a different local Agent UI).
+- Phone **Agent**: classic IDE box (**Cmd+I**).
+- Phone **Cloud**: **File → New Agents Window** (Cursor 3 Cloud Agents). New Chat, Cloud picker, prompt at the bottom — the screen where you type and build. Not the IDE file editor.
 
 Keep Cursor in front, Mac awake and unlocked. The Mac still needs internet for Cloud Agents.
 
@@ -134,7 +134,7 @@ With `--online` the URL is HTTPS, so Chrome can install it as a real standalone 
 5. You get a notification when it is **Finished** or **Failed**: phone banner (Enable notifications, or the Android APK for lock-screen alerts) and a Mac notification from Pocket.
 6. Back at the Mac, review the diff in Cursor.
 
-**Agent** pastes into the local composer (Cmd+I). **Cloud** uses the Cloud picker in the same Cursor window you are coding in (leave that window in front). Use `--cli` if you want Ask/Plan through Cursor CLI instead.
+**Agent** pastes into the IDE composer (Cmd+I). **Cloud** opens **Agents Window** (File → New Agents Window) and uses the **Cloud** picker — the Cloud Agents UI, not the IDE. Use `--cli` if you want Ask/Plan through Cursor CLI instead.
 
 ---
 
@@ -168,5 +168,5 @@ If you already started with `--demo` on a Mac that has Cursor (0.3.3+), Pocket s
 - `No Cursor desktop`: install Cursor, or pass `--demo` / `--cli`.
 - Send is not clicked: enable **Privacy & Security → Accessibility** for Terminal/Python (not the VoiceOver/Zoom Accessibility page). Paste `open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"` in Terminal.
 - Phone or Mac says **demo** / `Mode: DEMO`: `git pull` (need 0.3.3+), Ctrl+C, start again. `--demo` is ignored when Cursor is installed. `--fake` still shows demo and will not click Cursor. Re-open the phone URL.
-- Send opens **Agents Window** / local Agent instead of the editor you are coding in: `git pull` (need 0.3.4+), Ctrl+C, restart Pocket. Leave the Cursor window you are coding in in front, pick **Cloud** on the phone.
-- Send goes to the wrong chat: on the phone pick **Cloud** for the Cloud picker in that editor window, or **Agent** for Cmd+I. Leave Cursor in front.
+- Send opens the **IDE** (file tree / Cmd+I / IDE Agents tab) instead of Cloud Agents: `git pull` (need 0.3.5+), Ctrl+C, restart Pocket. Phone **Cloud** should open **File → New Agents Window** (New Chat + Cloud). Leave that Agents Window in front.
+- Send goes to the wrong chat: on the phone pick **Cloud** for Cloud Agents, or **Agent** for the IDE Cmd+I box.

@@ -93,62 +93,64 @@ def focus_cursor() -> None:
 
 
 def cloud_script(*, new_chat: bool = True) -> str:
-    """Paste into Cloud on the Cursor editor window that is already open.
+    """Open Cursor 3 Agents Window and send to the Cloud composer.
 
-    Do not open Agents Window (View → Agents, Cmd+L, New Agent). That is the
-    local IDE Agent. Cloud is the Cloud picker on the same composer you code in.
+    That is the Cloud Agents UI (New Chat, Cloud picker, prompt at the bottom) —
+    not the classic IDE and not Cmd+I / the IDE's Agents Window side panel.
     """
-    if new_chat:
-        prepare = r"""
-    -- Dismiss command palette / leftover Agents Window focus
-    key code 53
-    delay 0.2
+    open_agents = r"""
+    -- Cursor 3 Agents Window (Cloud Agents). Not Cmd+I, not the IDE side panel.
     try
-      repeat with w in windows
-        set winName to ""
-        try
-          set winName to (name of w as text)
-        end try
-        if winName does not contain "Agents Window" then
-          try
-            perform action "AXRaise" of w
-          end try
-          exit repeat
-        end if
-      end repeat
+      click menu item "New Agents Window" of menu "File" of menu bar 1
+    end try
+    delay 0.35
+    try
+      click menu item "New Agent Window" of menu "File" of menu bar 1
+    end try
+    delay 0.25
+    try
+      click menu item "Open Agents Window" of menu "File" of menu bar 1
+    end try
+    delay 0.35
+    keystroke "p" using {command down, shift down}
+    delay 0.55
+    keystroke "a" using {command down}
+    delay 0.08
+    keystroke "Open Agents Window"
+    delay 0.4
+    key code 36
+    delay 0.9
+    my clickNamed("New Chat")
+    delay 0.45
+    my clickNamed("Cloud")
+    delay 0.4
+"""
+    if not new_chat:
+        open_agents = r"""
+    try
+      click menu item "Open Agents Window" of menu "File" of menu bar 1
     end try
     delay 0.3
-    -- Composer in this editor window
-    keystroke "i" using {command down}
+    try
+      click menu item "New Agents Window" of menu "File" of menu bar 1
+    end try
+    delay 0.35
+    keystroke "p" using {command down, shift down}
+    delay 0.5
+    keystroke "a" using {command down}
+    delay 0.08
+    keystroke "Open Agents Window"
+    delay 0.35
+    key code 36
     delay 0.7
     my clickNamed("Cloud")
-    delay 0.35
-"""
-    else:
-        prepare = r"""
-    key code 53
-    delay 0.15
-    my clickNamed("Cloud")
-    delay 0.25
+    delay 0.3
 """
     return rf"""
 on clickNamed(wanted)
   tell application "System Events"
     tell process "Cursor"
-      set winList to {{}}
-      try
-        repeat with w in windows
-          set n to ""
-          try
-            set n to (name of w as text)
-          end try
-          if n does not contain "Agents Window" then
-            set end of winList to w
-          end if
-        end repeat
-      end try
-      if (count of winList) is 0 then set winList to windows
-      repeat with w in winList
+      repeat with w in windows
         set spots to {{w}}
         try
           set spots to spots & (every group of w)
@@ -158,6 +160,9 @@ on clickNamed(wanted)
         end try
         try
           set spots to spots & (every splitter group of w)
+        end try
+        try
+          set spots to spots & (every scroll area of w)
         end try
         repeat with spot in spots
           try
@@ -176,6 +181,10 @@ on clickNamed(wanted)
             click (first UI element of spot whose name is wanted)
             return true
           end try
+          try
+            click (first UI element of spot whose name contains wanted)
+            return true
+          end try
         end repeat
       end repeat
     end tell
@@ -190,14 +199,14 @@ tell application "System Events"
   tell process "Cursor"
     set frontmost to true
     delay 0.3
-{prepare}
+{open_agents}
     try
       set areas to text areas of window 1
       if (count of areas) > 0 then
         click last item of areas
       end if
     end try
-    delay 0.2
+    delay 0.25
     try
       set areas to text areas of every group of window 1
       if (count of areas) > 0 then
