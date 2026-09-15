@@ -1,0 +1,17 @@
+[project]
+name = "cursor-pocket"
+version = "0.1.0"
+description = "Offline LAN remote: send Cursor CLI prompts from an Android phone."
+readme = "CURSOR_POCKET.md"
+requires-python = ">=3.10"
+license = { file = "cursor_pocket/LICENSE" }
+
+[project.scripts]
+cursor-pocket = "cursor_pocket.__main__:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["cursor_pocket*"]

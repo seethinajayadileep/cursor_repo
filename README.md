@@ -1,5 +1,9 @@
 # PII Redaction Tool
 
+This repository also includes **Cursor Pocket**, an offline LAN remote so you can send Cursor CLI prompts from an Android phone. See [CURSOR_POCKET.md](CURSOR_POCKET.md).
+
+---
+
 Python tool that reads the attached KSH International Red Herring Prospectus (or any PDF / ticket-log text file), finds personally identifiable information, replaces each value with a **stable fake stand-in**, and writes a redacted `.docx`.
 
 ## Approach

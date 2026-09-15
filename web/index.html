@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#111111" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <title>Cursor Pocket</title>
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <link rel="icon" href="/icons/icon-192.png" type="image/png" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <section id="pair-screen" class="screen">
+      <header class="hero">
+        <p class="eyebrow">Offline phone remote</p>
+        <h1>Cursor Pocket</h1>
+        <p class="lede">Type a prompt on this phone. Cursor CLI runs it on the laptop. You get the live log and a ping when it finishes. Nothing leaves your Wi-Fi.</p>
+      </header>
+      <form id="pair-form" class="card">
+        <label for="pin">Laptop PIN</label>
+        <input id="pin" name="pin" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="000000" required />
+        <p id="pair-error" class="error" hidden></p>
+        <button type="submit" id="pair-btn">Pair with laptop</button>
+        <p class="hint">Same Wi-Fi, laptop hotspot, or USB with <code>adb reverse</code>. PIN is printed in the laptop terminal and on <code>/host</code>.</p>
+      </form>
+      <details class="help">
+        <summary>How to connect</summary>
+        <ol>
+          <li>On the laptop: <code>python3 -m cursor_pocket --workspace ~/your-project</code></li>
+          <li>Join this phone to the same Wi-Fi (or the laptop’s hotspot).</li>
+          <li>Open the LAN URL shown in the terminal, type the 6-digit PIN.</li>
+          <li>No Wi-Fi: plug in USB, run <code>adb reverse tcp:8787 tcp:8787</code>, open <code>http://127.0.0.1:8787</code>.</li>
+        </ol>
+      </details>
+    </section>
+
+    <section id="main-screen" class="screen" hidden>
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="laptop-label">Laptop</p>
+          <h1>Cursor Pocket</h1>
+        </div>
+        <div class="topbar-actions">
+          <span id="mode-badge" class="badge">live</span>
+          <button type="button" id="unpair-btn" class="ghost">Unpair</button>
+        </div>
+      </header>
+
+      <p id="banner" class="banner" hidden></p>
+
+      <form id="composer" class="card composer">
+        <label for="prompt">Prompt</label>
+        <textarea id="prompt" rows="5" placeholder="What should Cursor do on the laptop?" required></textarea>
+        <div class="row">
+          <label class="sr" for="workspace">Workspace</label>
+          <select id="workspace"></select>
+          <div class="pills" role="radiogroup" aria-label="Mode">
+            <label><input type="radio" name="mode" value="agent" checked /> Agent</label>
+            <label><input type="radio" name="mode" value="ask" /> Ask</label>
+            <label><input type="radio" name="mode" value="plan" /> Plan</label>
+          </div>
+        </div>
+        <button type="submit" id="send-btn">Send to laptop</button>
+      </form>
+
+      <section id="active" class="job" hidden>
+        <div class="job-head">
+          <h2 id="active-title">Running</h2>
+          <button type="button" id="cancel-btn" class="ghost">Cancel</button>
+        </div>
+        <p id="active-prompt" class="prompt-copy"></p>
+        <div id="log" class="log"></div>
+        <form id="follow-form" hidden>
+          <label for="follow-up">Follow up</label>
+          <textarea id="follow-up" rows="3" placeholder="Continue this session…"></textarea>
+          <button type="submit">Send follow-up</button>
+        </form>
+      </section>
+
+      <section>
+        <h2 class="section-title">Earlier runs</h2>
+        <ul id="history" class="history"></ul>
+      </section>
+    </section>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>

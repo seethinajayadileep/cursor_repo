@@ -1,0 +1,4 @@
+"""Cursor Pocket: send laptop Cursor prompts from your phone over LAN."""
+
+__version__ = "0.1.0"
+__app_name__ = "Cursor Pocket"
