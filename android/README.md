@@ -16,6 +16,16 @@ You can also download `cursor-pocket.apk` from the GitHub Action named **android
 
 Need JDK 17+ and the Android SDK.
 
+Need JDK 17+ and the Android SDK (Android Studio installs both). If `./gradlew` says `GradleWrapperMain`, the wrapper JAR was missing — `gradlew` now downloads it, or run:
+
+```bash
+cd android
+curl -fsSL -o gradle/wrapper/gradle-wrapper.jar \
+  https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar
+```
+
+Then:
+
 ```bash
 cd android
 echo "sdk.dir=$ANDROID_HOME" > local.properties   # or ANDROID_SDK_ROOT

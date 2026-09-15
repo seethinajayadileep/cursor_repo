@@ -2,7 +2,14 @@
 # Gradle start up script for POSIX generated for Cursor Pocket.
 set -eu
 APP_HOME=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-CLASSPATH="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+JAR="$APP_HOME/gradle/wrapper/gradle-wrapper.jar"
+# Public clone was missing this JAR; fetch the official Gradle 8.9 wrapper if needed.
+if [ ! -s "$JAR" ]; then
+  echo "Downloading gradle-wrapper.jar..."
+  mkdir -p "$APP_HOME/gradle/wrapper"
+  curl -fsSL -o "$JAR" "https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar"
+fi
+CLASSPATH="$JAR"
 if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
   JAVACMD="$JAVA_HOME/bin/java"
 else

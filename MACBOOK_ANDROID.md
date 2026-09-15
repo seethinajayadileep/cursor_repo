@@ -107,7 +107,17 @@ Google Play has no Cursor app. Pocket **is** the Android app. Use the APK (home-
 3. Tap **Install Android app (APK)** and open the downloaded file. Allow install from this source if Android asks.
 4. Open the **Cursor Pocket** icon. Paste the laptop URL, then the PIN.
 
-If the button is missing, build once: `cd android && ./gradlew assembleDebug` (see [`android/README.md`](android/README.md)).
+If the button is missing, build once (see [`android/README.md`](android/README.md)). If Gradle says `GradleWrapperMain`, download the wrapper JAR first:
+
+```bash
+cd /Users/jaya/Desktop/Cursor-Pocket/android
+curl -fsSL -o gradle/wrapper/gradle-wrapper.jar \
+  https://raw.githubusercontent.com/gradle/gradle/v8.9.0/gradle/wrapper/gradle-wrapper.jar
+chmod +x gradlew
+./gradlew assembleDebug
+mkdir -p dist
+cp app/build/outputs/apk/debug/app-debug.apk dist/cursor-pocket.apk
+```
 
 ### Option B — Chrome home screen shortcut
 
