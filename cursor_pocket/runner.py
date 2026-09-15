@@ -19,6 +19,7 @@ from .desktop import (
     send_prompt,
 )
 from .jobs import Job, JobStore
+from .notify import notify_job
 from .parse import parse_stream_line
 
 AGENT_CANDIDATES = (
@@ -353,6 +354,12 @@ class Runner:
             j.events.append(payload)
 
         store.mutate(job.id, apply)
+        finished = store.get(job.id)
+        if finished:
+            try:
+                notify_job(finished)
+            except Exception:  # noqa: BLE001 — never fail a job because the banner could not show
+                pass
 
 
 def _desktop_result(ax_text: str, summary: dict) -> str:

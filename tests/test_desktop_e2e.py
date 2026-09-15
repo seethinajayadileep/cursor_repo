@@ -313,6 +313,8 @@ class DesktopE2ETests(unittest.TestCase):
         self.assertEqual(job["status"], "done")
         self.assertTrue(job["session_id"].startswith("cloud-"))
         self.assertEqual(self.fake.sends[0]["kwargs"]["kind"], "cloud")
+        from cursor_pocket.notify import LAST as notice
+        self.assertEqual(notice[0], "Cloud Agent finished")
         self.assertTrue(self.fake.sends[0]["kwargs"]["new_chat"])
         status, follow = self._json(
             "POST",

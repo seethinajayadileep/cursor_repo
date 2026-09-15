@@ -159,6 +159,7 @@ async function boot() {
     badge.classList.toggle("demo", Boolean(status.demo));
     fillWorkspaces();
     setPaired(true);
+    refreshNotifyUi();
     if (status.demo) {
       showBanner("Demo mode: Cursor will not run. On the Mac, Ctrl+C and start Pocket without --demo.");
     } else {
@@ -274,10 +275,12 @@ function pushEvent(event) {
   if (event.kind === "status" && event.status) {
     $("active-title").textContent = titleFor({ status: event.status, prompt: $("active-prompt").textContent });
     if (["done", "error", "canceled"].includes(event.status)) {
+      const known = state.jobs.find((item) => item.id === state.activeId) || {};
       const job = {
+        ...known,
         id: state.activeId,
         status: event.status,
-        prompt: $("active-prompt").textContent,
+        prompt: $("active-prompt").textContent || known.prompt,
         error: event.text,
       };
       onTerminal(job);
@@ -344,22 +347,75 @@ function closeStream() {
 }
 
 function announce(job) {
-  const ok = job.status === "done";
-  showBanner(ok ? "Cursor finished on the laptop." : job.error || "Run ended.", ok);
-  document.title = ok ? "Done · Cursor Pocket" : "Cursor Pocket";
-  if (navigator.vibrate) navigator.vibrate(ok ? [40, 30, 80] : [120, 60, 120]);
-  playChime(ok);
-  if (window.PocketNative && typeof window.PocketNative.notifyDone === "function") {
-    window.PocketNative.notifyDone(ok ? "Cursor finished" : "Cursor run ended", (job.prompt || "").slice(0, 140));
-  }
-  if ("Notification" in window && Notification.permission === "granted") {
-    new Notification(ok ? "Cursor finished" : "Cursor run ended", {
-      body: (job.prompt || "").slice(0, 140),
+  const notice = noticeFor(job);
+  showBanner(notice.ok ? "Cursor finished on the laptop." : job.error || "Run ended.", notice.ok);
+  document.title = notice.ok ? "Done · Cursor Pocket" : "Cursor Pocket";
+  if (navigator.vibrate) navigator.vibrate(notice.ok ? [40, 30, 80] : [120, 60, 120]);
+  playChime(notice.ok);
+  const native = window.PocketNative && typeof window.PocketNative.notifyDone === "function";
+  if (native) {
+    window.PocketNative.notifyDone(notice.title, notice.body);
+  } else if ("Notification" in window && Notification.permission === "granted") {
+    new Notification(notice.title, {
+      body: notice.body,
       tag: job.id || "cursor-pocket",
       icon: "/icons/icon-192.png",
     });
   }
+  refreshNotifyUi();
 }
+
+function noticeFor(job) {
+  const ok = job.status === "done";
+  let title = "Cursor finished";
+  if (job.status === "canceled") title = "Cursor canceled";
+  else if (!ok) title = "Cursor failed";
+  else if (job.mode === "cloud") title = "Cloud Agent finished";
+  const body = String(job.prompt || job.error || "Done").slice(0, 140);
+  return { title, body, ok };
+}
+
+function refreshNotifyUi() {
+  const btn = $("notify-btn");
+  const status = $("notify-status");
+  if (!btn || !status) return;
+  const nativeOn =
+    window.PocketNative &&
+    typeof window.PocketNative.notificationsReady === "function" &&
+    window.PocketNative.notificationsReady();
+  if (nativeOn) {
+    btn.hidden = true;
+    status.textContent = "Phone alerts are on (Android app). The Mac also banners when a run ends.";
+    return;
+  }
+  if (!("Notification" in window)) {
+    btn.hidden = true;
+    status.textContent = "This browser cannot show banners. Install the Android APK for lock-screen alerts.";
+    return;
+  }
+  if (Notification.permission === "granted") {
+    btn.hidden = true;
+    status.textContent = "Notifications on. You’ll get a banner when Cursor or Cloud Agent finishes.";
+    return;
+  }
+  if (Notification.permission === "denied") {
+    btn.hidden = true;
+    status.textContent = "Notifications blocked. Allow them in site settings, or install the Android APK.";
+    return;
+  }
+  btn.hidden = false;
+  status.textContent = "Turn on notifications so you hear when Cloud / Cursor finishes.";
+}
+
+$("notify-btn").addEventListener("click", async () => {
+  if (!("Notification" in window)) return;
+  try {
+    await Notification.requestPermission();
+  } catch {
+    /* some WebViews throw */
+  }
+  refreshNotifyUi();
+});
 
 function maybeNotifyPermission() {
   if (!("Notification" in window)) return;

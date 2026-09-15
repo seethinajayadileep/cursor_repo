@@ -129,7 +129,7 @@ With `--online` the URL is HTTPS, so Chrome can install it as a real standalone 
 2. Mac: start Pocket. Leave it running.
 3. Phone: open Pocket, type the prompt, pick **Agent** (local Cursor) or **Cloud** (Agents chat), tap **Send to laptop**.
 4. Cursor on the Mac gets the text and Send is clicked. The phone shows the reply and what files changed.
-5. You get a notification when it is **Finished** or **Failed**.
+5. You get a notification when it is **Finished** or **Failed**: phone banner (Enable notifications, or the Android APK for lock-screen alerts) and a Mac notification from Pocket.
 6. Back at the Mac, review the diff in Cursor.
 
 **Agent** pastes into the local composer (Cmd+I). **Cloud** opens the Agents chat, clicks the prompt box, and sends. Use `--cli` if you want Ask/Plan through Cursor CLI instead.

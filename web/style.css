@@ -100,15 +100,14 @@ button {
 
 button:disabled { opacity: 0.55; cursor: wait; }
 
-.ghost {
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--line);
-  width: auto;
-  margin: 0;
-  padding: 8px 12px;
-  font-weight: 650;
+#notify-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 10px 0 0;
 }
+#notify-btn { margin-top: 0; }
 
 .topbar {
   display: flex;

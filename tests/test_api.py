@@ -118,6 +118,8 @@ class ApiTests(unittest.TestCase):
         self.assertIn("result", kinds)
         self.assertEqual(events[-1]["kind"], "status")
         self.assertEqual(events[-1]["text"], "Finished")
+        from cursor_pocket.notify import LAST as notice
+        self.assertEqual(notice[0], "Cursor finished")
         assistant = "\n".join(event["text"] for event in events if event.get("kind") == "assistant")
         self.assertIn("Cursor desktop would answer here", assistant)
         changes = next(event["text"] for event in events if event.get("kind") == "changes")

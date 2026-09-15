@@ -4,10 +4,14 @@ import android.Manifest
 import android.annotation.SuppressLint
 import android.app.NotificationChannel
 import android.app.NotificationManager
+import android.app.PendingIntent
 import android.content.Context
+import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
@@ -23,6 +27,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivity : AppCompatActivity() {
     private lateinit var web: WebView
@@ -107,9 +112,11 @@ class MainActivity : AppCompatActivity() {
 
     private fun ensureChannel() {
         val mgr = getSystemService(NotificationManager::class.java)
-        mgr.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Cursor Pocket", NotificationManager.IMPORTANCE_HIGH),
-        )
+        val channel = NotificationChannel(CHANNEL, "Cursor Pocket", NotificationManager.IMPORTANCE_HIGH)
+        channel.description = "When Cursor or a Cloud Agent finishes on the laptop"
+        channel.enableVibration(true)
+        channel.enableLights(true)
+        mgr.createNotificationChannel(channel)
     }
 
     private fun askNotifyPermission() {
@@ -125,22 +132,45 @@ class MainActivity : AppCompatActivity() {
     private fun prefs() = getSharedPreferences("pocket", Context.MODE_PRIVATE)
 
     class PocketBridge(private val app: Context) {
+        private val main = Handler(Looper.getMainLooper())
+
         @JavascriptInterface
         fun notifyDone(title: String, body: String) {
+            main.post { post(title, body) }
+        }
+
+        @JavascriptInterface
+        fun notificationsReady(): Boolean = true
+
+        private fun post(title: String, body: String) {
+            val launch = Intent(app, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val pending = PendingIntent.getActivity(
+                app,
+                0,
+                launch,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
             val mgr = app.getSystemService(NotificationManager::class.java)
             val note = NotificationCompat.Builder(app, CHANNEL)
-                .setSmallIcon(R.mipmap.ic_launcher)
+                .setSmallIcon(R.drawable.ic_stat_notify)
                 .setContentTitle(title)
                 .setContentText(body)
+                .setStyle(NotificationCompat.BigTextStyle().bigText(body))
                 .setAutoCancel(true)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setDefaults(NotificationCompat.DEFAULT_ALL)
+                .setContentIntent(pending)
                 .build()
-            mgr.notify(42, note)
+            mgr.notify(NEXT_ID.incrementAndGet(), note)
         }
     }
 
     companion object {
         private const val KEY_URL = "laptop_url"
         private const val CHANNEL = "cursor_pocket"
+        private val NEXT_ID = AtomicInteger(100)
 
         fun normalize(raw: String): String? {
             val trimmed = raw.trim()
