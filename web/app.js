@@ -7,11 +7,13 @@ const state = {
   workspaces: [],
   jobs: [],
   activeId: "",
+  activeStatus: "",
   events: [],
   source: null,
   wakeLock: null,
   announced: new Set(),
   healthTimer: 0,
+  canFollow: false,
 };
 
 const $ = (id) => document.getElementById(id);
@@ -31,6 +33,7 @@ const historyEl = $("history");
 const logEl = $("log");
 const activeEl = $("active");
 const followForm = $("follow-form");
+const welcomeEl = $("welcome");
 
 function headers(json) {
   const out = {};
@@ -102,6 +105,18 @@ composer.addEventListener("submit", async (event) => {
   if (!prompt) return;
   $("send-btn").disabled = true;
   try {
+    if (canFollowUp()) {
+      const data = await api(`/api/jobs/${state.activeId}/follow-up`, {
+        method: "POST",
+        body: JSON.stringify({ prompt }),
+      });
+      $("prompt").value = "";
+      growPrompt();
+      maybeNotifyPermission();
+      openJob(data.job.id);
+      await refreshJobs();
+      return;
+    }
     const mode = document.querySelector("input[name=mode]:checked").value;
     localStorage.setItem(MODE_KEY, mode);
     const data = await api("/api/jobs", {
@@ -114,6 +129,7 @@ composer.addEventListener("submit", async (event) => {
       }),
     });
     $("prompt").value = "";
+    growPrompt();
     maybeNotifyPermission();
     openJob(data.job.id);
     await refreshJobs();
@@ -133,6 +149,11 @@ $("cancel-btn").addEventListener("click", async () => {
   }
 });
 
+$("new-run-btn").addEventListener("click", () => {
+  setFollow(false);
+  $("chat-heading").textContent = "Cursor Pocket";
+});
+
 followForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const prompt = $("follow-up").value.trim();
@@ -149,6 +170,25 @@ followForm.addEventListener("submit", async (event) => {
     showBanner(err.message);
   }
 });
+
+$("prompt").addEventListener("input", growPrompt);
+
+function growPrompt() {
+  const box = $("prompt");
+  box.style.height = "auto";
+  box.style.height = `${Math.min(box.scrollHeight, 160)}px`;
+}
+
+function canFollowUp() {
+  return Boolean(state.activeId && state.canFollow);
+}
+
+function setFollow(on) {
+  state.canFollow = Boolean(on);
+  followForm.hidden = true;
+  $("new-run-btn").hidden = !state.canFollow;
+  $("prompt").placeholder = state.canFollow ? "Follow up…" : "Message Cursor on your laptop…";
+}
 
 async function boot() {
   try {
@@ -280,11 +320,14 @@ function openJob(jobId, opts = {}) {
   state.activeId = jobId;
   state.events = [];
   activeEl.hidden = false;
-  followForm.hidden = true;
+  if (welcomeEl) welcomeEl.hidden = true;
+  setFollow(false);
   closeStream();
   const job = state.jobs.find((item) => item.id === jobId);
   $("active-prompt").textContent = job ? job.prompt : "";
   $("active-title").textContent = job ? titleFor(job) : "Run";
+  $("chat-heading").textContent = headingFor(job);
+  state.activeStatus = job ? job.status : "queued";
   logEl.innerHTML = "";
   const token = encodeURIComponent(state.token);
   const source = new EventSource(`/api/jobs/${jobId}/events?token=${token}`);
@@ -317,21 +360,36 @@ function openJob(jobId, opts = {}) {
   renderHistory();
 }
 
+function headingFor(job) {
+  const prompt = String(job && job.prompt ? job.prompt : "").trim();
+  if (!prompt) return "Cursor Pocket";
+  const line = prompt.split("\n")[0].trim();
+  return line.length > 42 ? `${line.slice(0, 42)}…` : line;
+}
+
+function mergeStream(event) {
+  if (!event || (event.kind !== "assistant" && event.kind !== "thinking")) return false;
+  const last = state.events[state.events.length - 1];
+  if (!last || last.kind !== event.kind) return false;
+  const incoming = String(event.text || "");
+  const previous = String(last.text || "");
+  if (event.delta) {
+    last.text = incoming.startsWith(previous) ? incoming : previous + incoming;
+  } else {
+    last.text = incoming;
+  }
+  if (event.duration_ms != null) last.duration_ms = event.duration_ms;
+  return true;
+}
+
 function pushEvent(event) {
-  if (event.kind === "assistant") {
-    const last = state.events[state.events.length - 1];
-    if (last && last.kind === "assistant") {
-      if (event.delta) {
-        last.text = event.text.startsWith(last.text) ? event.text : last.text + event.text;
-      } else {
-        last.text = event.text;
-      }
-      renderLog();
-      return;
-    }
+  if (mergeStream(event)) {
+    renderLog();
+    return;
   }
   state.events.push(event);
   if (event.kind === "status" && event.status) {
+    state.activeStatus = event.status;
     $("active-title").textContent = titleFor({ status: event.status, prompt: $("active-prompt").textContent });
     if (["done", "error", "canceled"].includes(event.status)) {
       const known = state.jobs.find((item) => item.id === state.activeId) || {};
@@ -349,17 +407,19 @@ function pushEvent(event) {
 }
 
 function updateActive(job) {
+  state.activeStatus = job.status || "";
   $("active-title").textContent = titleFor(job);
   $("active-prompt").textContent = job.prompt || "";
+  $("chat-heading").textContent = headingFor(job);
   $("cancel-btn").hidden = ["done", "error", "canceled"].includes(job.status);
-  followForm.hidden = !(job.status === "done" && job.session_id);
+  setFollow(job.status === "done" && Boolean(job.session_id));
   if (["running", "queued"].includes(job.status)) keepAwake();
   else releaseAwake();
 }
 
 function onTerminal(job, opts = {}) {
   $("cancel-btn").hidden = true;
-  followForm.hidden = job.status !== "done";
+  setFollow(job.status === "done");
   releaseAwake();
   refreshJobs().catch(() => {});
   const id = job.id || state.activeId;
@@ -370,32 +430,122 @@ function onTerminal(job, opts = {}) {
 }
 
 function titleFor(job) {
-  if (job.status === "queued") return "Queued on laptop";
-  if (job.status === "running") return "Running on laptop";
+  if (job.status === "queued") return "Queued";
+  if (job.status === "running") return "Listening";
   if (job.status === "done") return "Finished";
   if (job.status === "canceled") return "Canceled";
   return "Failed";
 }
 
+function isListening() {
+  return ["running", "queued"].includes(state.activeStatus);
+}
+
+function thinkingLabel(event) {
+  const ms = Number(event.duration_ms) || 0;
+  if (ms >= 400) {
+    const seconds = Math.max(1, Math.round(ms / 1000));
+    return `Thought ${seconds}s`;
+  }
+  const text = String(event.text || "").trim();
+  const first = text.split(/[\n—.]/)[0].trim();
+  if (/^planning/i.test(first)) return "Planning next moves";
+  if (/^thought/i.test(first)) return first;
+  if (/waiting for the agent/i.test(text)) return "Thinking";
+  return first && first.length < 56 ? first : "Thinking";
+}
+
+function groupEvents(events) {
+  const items = [];
+  for (const event of events) {
+    if (!event || event.kind === "snapshot") continue;
+    if (event.kind === "result") continue;
+    if (event.kind === "status" && (event.status === "done" || event.text === "Finished" || event.text === "Running on the laptop")) {
+      continue;
+    }
+    if (event.kind === "tool") {
+      const prev = items[items.length - 1];
+      if (prev && prev.kind === "tools") {
+        prev.tools.push(event);
+        continue;
+      }
+      items.push({ kind: "tools", tools: [event] });
+      continue;
+    }
+    items.push(event);
+  }
+  return items;
+}
+
 function renderLog() {
   logEl.innerHTML = "";
-  for (const event of state.events) {
-    if (!event || event.kind === "snapshot") continue;
-    const div = document.createElement("div");
-    div.className = "item";
-    if (event.kind === "tool") div.classList.add("tool");
-    if (event.kind === "error" || event.error) div.classList.add("error-line");
-    if (event.kind === "result") div.classList.add("result");
-    if (event.kind === "changes") div.classList.add("result");
-    const kind = document.createElement("div");
-    kind.className = "kind";
-    kind.textContent = event.kind === "changes" ? "what was fixed" : event.kind || "log";
-    const text = document.createElement("div");
-    text.textContent = event.text || "";
-    div.append(kind, text);
-    logEl.appendChild(div);
+  const prompt = ($("active-prompt").textContent || "").trim();
+  if (prompt) {
+    const user = document.createElement("div");
+    user.className = "msg user";
+    user.textContent = prompt;
+    logEl.appendChild(user);
   }
-  logEl.scrollTop = logEl.scrollHeight;
+  const items = groupEvents(state.events);
+  for (let i = 0; i < items.length; i += 1) {
+    const node = renderItem(items[i], i === items.length - 1);
+    if (node) logEl.appendChild(node);
+  }
+  if (isListening()) {
+    const live = document.createElement("div");
+    live.className = "msg live";
+    const dot = document.createElement("span");
+    dot.className = "live-dot";
+    const label = document.createElement("span");
+    label.textContent = "Listening";
+    live.append(dot, label);
+    logEl.appendChild(live);
+  }
+  const thread = $("thread");
+  if (thread) thread.scrollTop = thread.scrollHeight;
+}
+
+function renderItem(event, last) {
+  if (event.kind === "tools") {
+    const div = document.createElement("div");
+    div.className = "msg activity";
+    const names = [];
+    for (const tool of event.tools) {
+      const bit = String(tool.text || tool.tool || "tool").trim();
+      if (bit && !names.includes(bit)) names.push(bit);
+    }
+    const chip = document.createElement("span");
+    chip.textContent = names.slice(0, 4).join(" · ") || "Working";
+    div.appendChild(chip);
+    return div;
+  }
+  if (event.kind === "thinking") {
+    const wrap = document.createElement("details");
+    wrap.className = "msg thinking";
+    wrap.open = last && isListening();
+    const summary = document.createElement("summary");
+    summary.textContent = thinkingLabel(event);
+    wrap.appendChild(summary);
+    const body = String(event.text || "").trim();
+    if (body && body !== summary.textContent) {
+      const inner = document.createElement("div");
+      inner.className = "thinking-body";
+      inner.textContent = body;
+      wrap.appendChild(inner);
+    }
+    return wrap;
+  }
+  const div = document.createElement("div");
+  div.className = "msg";
+  if (event.kind === "assistant") div.classList.add("assistant");
+  else if (event.kind === "changes") div.classList.add("changes");
+  else if (event.kind === "error" || event.error) div.classList.add("error-line");
+  else if (event.kind === "system") div.classList.add("system");
+  else if (event.kind === "status") div.classList.add("status-line");
+  else div.classList.add("system");
+  div.textContent = event.text || "";
+  if (!div.textContent) return null;
+  return div;
 }
 
 function closeStream() {

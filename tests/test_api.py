@@ -59,6 +59,7 @@ class ApiTests(unittest.TestCase):
         self.assertIn("apk", body)
         self.assertIn("Install Android app", html)
         self.assertIn("Chat window", html)
+        self.assertIn("Message Cursor", html)
 
     def test_host_includes_online_url(self) -> None:
         self.state.online_url = "https://demo.trycloudflare.com"
@@ -114,9 +115,12 @@ class ApiTests(unittest.TestCase):
         self.assertTrue(job["session_id"])
         events = job["events"]
         kinds = [event.get("kind") for event in events]
+        self.assertIn("thinking", kinds)
         self.assertIn("assistant", kinds)
         self.assertIn("changes", kinds)
         self.assertIn("result", kinds)
+        thinking = next(event["text"] for event in events if event.get("kind") == "thinking")
+        self.assertTrue(thinking)
         self.assertEqual(events[-1]["kind"], "status")
         self.assertEqual(events[-1]["text"], "Finished")
         from cursor_pocket.notify import LAST as notice

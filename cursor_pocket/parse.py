@@ -38,6 +38,17 @@ def summarize_event(obj: dict[str, Any]) -> dict[str, Any] | None:
             "session_id": obj.get("session_id"),
         }
 
+    if kind in {"thinking", "reasoning"} or subtype in {"thinking", "reasoning"}:
+        text = str(obj.get("text") or obj.get("thinking") or _thinking_text(obj.get("message")) or "").strip()
+        if not text:
+            text = "Thinking"
+        return {
+            "kind": "thinking",
+            "text": text[:_MAX_TEXT],
+            "delta": True,
+            "duration_ms": obj.get("duration_ms"),
+        }
+
     if kind == "assistant":
         if obj.get("model_call_id") is not None:
             return None
@@ -46,6 +57,10 @@ def summarize_event(obj: dict[str, Any]) -> dict[str, Any] | None:
             # Keep it only when we have no streaming timestamps at all.
             pass
         text = _message_text(obj.get("message"))
+        thinking = _thinking_text(obj.get("message"))
+        if not text and thinking:
+            streaming = "timestamp_ms" in obj and "model_call_id" not in obj
+            return {"kind": "thinking", "text": thinking[:_MAX_TEXT], "delta": streaming}
         if not text:
             return None
         streaming = "timestamp_ms" in obj and "model_call_id" not in obj
@@ -93,6 +108,21 @@ def _message_text(message: Any) -> str:
             parts.append(str(item.get("text") or ""))
         elif isinstance(item, str):
             parts.append(item)
+    return "".join(parts)
+
+
+def _thinking_text(message: Any) -> str:
+    if not isinstance(message, dict):
+        return ""
+    parts: list[str] = []
+    content = message.get("content") or []
+    if not isinstance(content, list):
+        return ""
+    for item in content:
+        if not isinstance(item, dict):
+            continue
+        if item.get("type") in {"thinking", "reasoning", "thought"}:
+            parts.append(str(item.get("thinking") or item.get("text") or item.get("content") or ""))
     return "".join(parts)
 
 

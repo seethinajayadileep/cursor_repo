@@ -1,6 +1,6 @@
 [project]
 name = "cursor-pocket"
-version = "0.3.6"
+version = "0.3.7"
 description = "Phone remote for Cursor CLI: LAN or internet (--online)."
 readme = "CURSOR_POCKET.md"
 requires-python = ">=3.10"

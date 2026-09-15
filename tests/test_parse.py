@@ -54,6 +54,27 @@ class ParseTests(unittest.TestCase):
     def test_user_ignored(self) -> None:
         self.assertIsNone(summarize_event({"type": "user"}))
 
+    def test_thinking_event(self) -> None:
+        event = summarize_event(
+            {"type": "thinking", "text": "Planning next moves", "duration_ms": 5000}
+        )
+        self.assertEqual(event["kind"], "thinking")
+        self.assertEqual(event["text"], "Planning next moves")
+        self.assertEqual(event["duration_ms"], 5000)
+
+    def test_assistant_thinking_blocks(self) -> None:
+        event = summarize_event(
+            {
+                "type": "assistant",
+                "timestamp_ms": 2,
+                "message": {
+                    "content": [{"type": "thinking", "thinking": "I'll inspect the files first."}]
+                },
+            }
+        )
+        self.assertEqual(event["kind"], "thinking")
+        self.assertIn("inspect", event["text"])
+
 
 if __name__ == "__main__":
     unittest.main()
