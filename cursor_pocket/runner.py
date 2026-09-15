@@ -51,6 +51,10 @@ class Runner:
         target: str = "desktop",
         idle_seconds: float = 18.0,
         max_seconds: float = 45 * 60,
+        poll_seconds: float = 2.0,
+        open_delay: float = 1.2,
+        after_send_delay: float = 2.0,
+        no_activity_seconds: float = 180.0,
     ) -> None:
         self.demo = demo
         self.force = force
@@ -59,6 +63,10 @@ class Runner:
         self.target = target
         self.idle_seconds = idle_seconds
         self.max_seconds = max_seconds
+        self.poll_seconds = poll_seconds
+        self.open_delay = open_delay
+        self.after_send_delay = after_send_delay
+        self.no_activity_seconds = no_activity_seconds
         self._serial = threading.Lock()
 
     def available(self) -> bool:
@@ -152,12 +160,17 @@ class Runner:
         before = snapshot(job.workspace)
         store.append(job.id, {"kind": "system", "text": f"Opening Cursor desktop · {job.workspace_name}"})
         open_workspace(job.workspace)
-        time.sleep(1.2)
+        if self.open_delay:
+            time.sleep(self.open_delay)
+        if cancel and cancel.is_set():
+            self._finish(store, job, "canceled", error="Canceled from the phone")
+            return
         copy_prompt(job.prompt)
         send_prompt()
         store.append(job.id, {"kind": "status", "text": "Sent to Cursor desktop — waiting for the reply and file fixes"})
         store.mutate(job.id, lambda j: setattr(j, "session_id", f"desktop-{job.id}"))
-        time.sleep(2.0)
+        if self.after_send_delay:
+            time.sleep(self.after_send_delay)
         baseline_ax = read_cursor_text()
 
         started = time.time()
@@ -214,7 +227,7 @@ class Runner:
                 )
                 self._finish(store, job, "done", result=result)
                 return
-            if not saw_activity and now - started > 180:
+            if not saw_activity and now - started > self.no_activity_seconds:
                 summary = describe_changes(job.workspace, before)
                 grew = _new_text(baseline_ax, read_cursor_text())
                 note = (
@@ -226,7 +239,8 @@ class Runner:
                 result = _desktop_result(grew or note, summary)
                 self._finish(store, job, "done", result=result)
                 return
-            time.sleep(2.0)
+            if self.poll_seconds:
+                time.sleep(self.poll_seconds)
 
     def _run_agent(self, store: JobStore, job: Job, cancel: threading.Event | None) -> None:
         cmd = [
@@ -319,6 +333,8 @@ class Runner:
         result: str = "",
         error: str = "",
     ) -> None:
+        text = "Finished" if status == "done" else ("Canceled" if status == "canceled" else error or "Failed")
+
         def apply(j: Job) -> None:
             j.status = status
             j.finished_at = time.time()
@@ -328,10 +344,12 @@ class Runner:
                 j.error = error
             if j.started_at:
                 j.duration_ms = int((j.finished_at - j.started_at) * 1000)
+            # Append inside the same lock as the status change so SSE cannot
+            # close on "done" before the phone receives the Finished event.
+            payload = {"kind": "status", "text": text, "status": status, "ts": time.time()}
+            j.events.append(payload)
 
         store.mutate(job.id, apply)
-        text = "Finished" if status == "done" else ("Canceled" if status == "canceled" else error or "Failed")
-        store.append(job.id, {"kind": "status", "text": text, "status": status})
 
 
 def _desktop_result(ax_text: str, summary: dict) -> str:

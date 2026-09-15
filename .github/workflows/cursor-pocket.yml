@@ -12,6 +12,7 @@ on:
       - "tests/test_net.py"
       - "tests/test_tunnel.py"
       - "tests/test_changes.py"
+      - "tests/test_desktop_e2e.py"
       - "pyproject.toml"
       - ".github/workflows/cursor-pocket.yml"
   pull_request:

@@ -233,6 +233,7 @@ function openJob(jobId, opts = {}) {
     }
     if (payload.kind === "end" && payload.job) {
       updateActive(payload.job);
+      onTerminal(payload.job);
       closeStream();
       refreshJobs().catch(() => {});
       return;

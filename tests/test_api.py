@@ -109,6 +109,17 @@ class ApiTests(unittest.TestCase):
             time.sleep(0.15)
         self.assertEqual(job["status"], "done")
         self.assertTrue(job["session_id"])
+        events = job["events"]
+        kinds = [event.get("kind") for event in events]
+        self.assertIn("assistant", kinds)
+        self.assertIn("changes", kinds)
+        self.assertIn("result", kinds)
+        self.assertEqual(events[-1]["kind"], "status")
+        self.assertEqual(events[-1]["text"], "Finished")
+        assistant = "\n".join(event["text"] for event in events if event.get("kind") == "assistant")
+        self.assertIn("Cursor desktop would answer here", assistant)
+        changes = next(event["text"] for event in events if event.get("kind") == "changes")
+        self.assertIn("What was fixed", changes)
         status, follow = self._json(
             "POST", f"/api/jobs/{job_id}/follow-up", {"prompt": "also run the linter"}, token=token
         )
