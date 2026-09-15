@@ -126,15 +126,14 @@ class Runner:
             {
                 "kind": "thinking",
                 "text": "Planning next moves — reading the workspace and shaping a reply.",
-                "duration_ms": 1200,
             },
             {"kind": "assistant", "text": "Got it. I'll work through this on the laptop.\n"},
             {"kind": "tool", "text": f"read started · {job.workspace}", "tool": "read", "subtype": "started"},
             {"kind": "tool", "text": "read done", "tool": "read", "subtype": "done"},
             {
                 "kind": "thinking",
-                "text": "Thought through the prompt and the files that would change.",
-                "duration_ms": 800,
+                "text": "I'll build the reply from the prompt and the files that would change.",
+                "duration_ms": 5000,
             },
             {
                 "kind": "assistant",
