@@ -129,12 +129,12 @@ With `--online` the URL is HTTPS, so Chrome can install it as a real standalone 
 
 1. Mac: open the project in **Cursor desktop**. Keep the Mac awake and unlocked.
 2. Mac: start Pocket. Leave it running.
-3. Phone: open Pocket, type the prompt, pick **Agent** (local Cursor) or **Cloud** (Agents chat), tap **Send to laptop**.
+3. Phone: open Pocket, type the prompt, pick **Agent** (IDE) or **Cloud** (Agents Window). For Cloud, pick the **chat window** from the list (This chat / a named thread / New chat), then **Send to laptop**. Tap **Refresh list** if the thread is missing.
 4. Cursor on the Mac gets the text and Send is clicked. The phone shows the reply and what files changed.
 5. You get a notification when it is **Finished** or **Failed**: phone banner (Enable notifications, or the Android APK for lock-screen alerts) and a Mac notification from Pocket.
 6. Back at the Mac, review the diff in Cursor.
 
-**Agent** pastes into the IDE composer (Cmd+I). **Cloud** opens **Agents Window** (File → New Agents Window) and uses the **Cloud** picker — the Cloud Agents UI, not the IDE. Use `--cli` if you want Ask/Plan through Cursor CLI instead.
+**Agent** pastes into the IDE composer (Cmd+I). **Cloud** opens **Agents Window** and sends into the chat you pick on the phone (this chat, a listed thread, or New chat). Use `--cli` if you want Ask/Plan through Cursor CLI instead.
 
 ---
 

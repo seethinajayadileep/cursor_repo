@@ -316,7 +316,8 @@ class DesktopE2ETests(unittest.TestCase):
         self.assertEqual(self.fake.sends[0]["kwargs"]["kind"], "cloud")
         from cursor_pocket.notify import LAST as notice
         self.assertEqual(notice[0], "Cloud Agent finished")
-        self.assertTrue(self.fake.sends[0]["kwargs"]["new_chat"])
+        self.assertFalse(self.fake.sends[0]["kwargs"]["new_chat"])
+        self.assertEqual(self.fake.sends[0]["kwargs"].get("chat"), "current")
         status, follow = self._json(
             "POST",
             f"/api/jobs/{job['id']}/follow-up",
@@ -328,6 +329,32 @@ class DesktopE2ETests(unittest.TestCase):
         self.assertEqual(follow_job["status"], "done")
         self.assertEqual(self.fake.sends[-1]["kwargs"]["kind"], "cloud")
         self.assertFalse(self.fake.sends[-1]["kwargs"]["new_chat"])
+
+    def test_cloud_mode_named_chat_and_new_chat(self):
+        token = self._pair()
+        status, created = self._json(
+            "POST",
+            "/api/jobs",
+            {"prompt": "continue this thread", "mode": "cloud", "chat": "Mobile offline Cursor control"},
+            token=token,
+        )
+        self.assertEqual(status, 201)
+        job = self._wait_job(created["job"]["id"], token)
+        self.assertEqual(job["status"], "done")
+        self.assertEqual(job["chat"], "Mobile offline Cursor control")
+        self.assertEqual(self.fake.sends[0]["kwargs"]["chat"], "Mobile offline Cursor control")
+        self.assertFalse(self.fake.sends[0]["kwargs"]["new_chat"])
+        status, created = self._json(
+            "POST",
+            "/api/jobs",
+            {"prompt": "start over", "mode": "cloud", "chat": "new"},
+            token=token,
+        )
+        self.assertEqual(status, 201)
+        job = self._wait_job(created["job"]["id"], token)
+        self.assertEqual(job["status"], "done")
+        self.assertTrue(self.fake.sends[-1]["kwargs"]["new_chat"])
+        self.assertEqual(self.fake.sends[-1]["kwargs"]["chat"], "new")
 
 
 class DesktopGuardsTests(unittest.TestCase):
@@ -341,15 +368,14 @@ class DesktopGuardsTests(unittest.TestCase):
     def test_cloud_script_opens_agents_window_not_ide(self) -> None:
         script = cloud_script(new_chat=True)
         self.assertIn("New Agents Window", script)
-        self.assertIn("Open Agents Window", script)
         self.assertIn("New Chat", script)
         self.assertIn("Cloud", script)
         self.assertNotIn('keystroke "i" using {command down}', script)
-        self.assertNotIn('keystroke "l" using {command down}', script)
-        follow = cloud_script(new_chat=False)
-        self.assertNotIn("New Chat", follow)
-        self.assertIn("Open Agents Window", follow)
-        self.assertIn('keystroke "v"', follow)
+        current = cloud_script(chat="current")
+        self.assertNotIn("New Chat", current)
+        named = cloud_script(chat="Mobile offline Cursor control")
+        self.assertIn("Mobile offline Cursor control", named)
+        self.assertNotIn("New Chat", named)
 
     def test_desktop_result_joins_reply_and_files(self) -> None:
         text = _desktop_result("hello from Cursor", {"text": "Files Cursor changed:\n  • a.txt"})

@@ -30,6 +30,7 @@ class Job:
     follow_up_of: str | None = None
     pid: int | None = None
     model: str | None = None
+    chat: str = "current"
 
     def snapshot(self, include_events: bool = False) -> dict[str, Any]:
         data: dict[str, Any] = {
@@ -49,6 +50,7 @@ class Job:
             "follow_up_of": self.follow_up_of,
             "event_count": len(self.events),
             "model": self.model,
+            "chat": self.chat,
         }
         if include_events:
             data["events"] = list(self.events)

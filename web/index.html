@@ -67,6 +67,14 @@
             <label><input type="radio" name="mode" value="plan" /> Plan</label>
           </div>
         </div>
+        <div id="chat-row" class="row" hidden>
+          <label for="chat">Chat window</label>
+          <select id="chat">
+            <option value="current">This chat (already open)</option>
+            <option value="new">New chat</option>
+          </select>
+          <button type="button" id="refresh-chats" class="ghost">Refresh list</button>
+        </div>
         <button type="submit" id="send-btn">Send to laptop</button>
         <p id="notify-row" class="hint">
           <button type="button" id="notify-btn" class="ghost">Enable notifications</button>

@@ -1,5 +1,6 @@
 const TOKEN_KEY = "cursor-pocket-token";
 const MODE_KEY = "cursor-pocket-mode";
+const CHAT_KEY = "cursor-pocket-chat";
 const state = {
   token: localStorage.getItem(TOKEN_KEY) || "",
   laptop: "",
@@ -109,6 +110,7 @@ composer.addEventListener("submit", async (event) => {
         prompt,
         workspace: $("workspace").value,
         mode,
+        chat: mode === "cloud" ? $("chat").value : "current",
       }),
     });
     $("prompt").value = "";
@@ -160,6 +162,7 @@ async function boot() {
     fillWorkspaces();
     setPaired(true);
     refreshNotifyUi();
+    syncChatRow();
     if (status.demo) {
       showBanner("Demo mode: Cursor will not run. On the Mac, Ctrl+C and start Pocket without --demo.");
     } else {
@@ -191,6 +194,62 @@ function fillWorkspaces() {
     select.appendChild(option);
   }
 }
+
+function currentMode() {
+  const radio = document.querySelector("input[name=mode]:checked");
+  return radio ? radio.value : "agent";
+}
+
+function syncChatRow() {
+  const row = $("chat-row");
+  if (!row) return;
+  const on = currentMode() === "cloud";
+  row.hidden = !on;
+  if (on) refreshChats().catch(() => {});
+}
+
+async function refreshChats() {
+  const select = $("chat");
+  if (!select) return;
+  const previous = select.value || localStorage.getItem(CHAT_KEY) || "current";
+  let titles = [];
+  try {
+    const data = await api("/api/chats");
+    titles = (data.chats || []).map((item) => item.title).filter(Boolean);
+  } catch {
+    titles = [];
+  }
+  select.innerHTML = "";
+  const add = (value, label) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    select.appendChild(option);
+  };
+  add("current", "This chat (already open)");
+  add("new", "New chat");
+  for (const title of titles) {
+    add(title, title);
+  }
+  const allowed = ["current", "new", ...titles];
+  select.value = allowed.includes(previous) ? previous : "current";
+  localStorage.setItem(CHAT_KEY, select.value);
+}
+
+document.querySelectorAll("input[name=mode]").forEach((radio) => {
+  radio.addEventListener("change", () => {
+    localStorage.setItem(MODE_KEY, currentMode());
+    syncChatRow();
+  });
+});
+
+$("refresh-chats").addEventListener("click", () => {
+  refreshChats().catch((err) => showBanner(err.message));
+});
+
+$("chat").addEventListener("change", () => {
+  localStorage.setItem(CHAT_KEY, $("chat").value);
+});
 
 async function refreshJobs() {
   const data = await api("/api/jobs");

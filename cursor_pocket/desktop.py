@@ -92,60 +92,184 @@ def focus_cursor() -> None:
     )
 
 
-def cloud_script(*, new_chat: bool = True) -> str:
-    """Open Cursor 3 Agents Window and send to the Cloud composer.
+CHAT_SKIP = frozenset(
+    {
+        "new chat",
+        "search",
+        "automations",
+        "customize",
+        "cloud",
+        "agent",
+        "high fast",
+        "ide",
+        "changes",
+        "desktop",
+        "browser",
+        "terminal",
+        "files",
+        "cursor",
+        "file",
+        "edit",
+        "view",
+        "window",
+        "help",
+        "connect slack",
+        "getting started",
+        "plan",
+        "build",
+        "review",
+        "listening",
+        "install tonight",
+        "remind me later",
+        "updates available",
+        "plus",
+        "general chat",
+    }
+)
 
-    That is the Cloud Agents UI (New Chat, Cloud picker, prompt at the bottom) —
-    not the classic IDE and not Cmd+I / the IDE's Agents Window side panel.
+
+def parse_chat_names(raw: str) -> list[str]:
+    """Turn Accessibility names into a de-duplicated chat list."""
+    seen: set[str] = set()
+    out: list[str] = []
+    for line in (raw or "").splitlines():
+        name = line.strip()
+        key = name.lower()
+        if not name or key in CHAT_SKIP or key in seen:
+            continue
+        if len(name) < 5 or len(name) > 80:
+            continue
+        if name.startswith("http") or name.startswith("/"):
+            continue
+        seen.add(key)
+        out.append(name)
+    return out[:40]
+
+
+def resolve_cloud_target(chat: str, *, follow_up: bool = False) -> str:
+    """new | current | a chat title from the Agents Window sidebar."""
+    name = (chat or "").strip()
+    if follow_up:
+        if name.lower() in {"", "new", "current"}:
+            return "current"
+        return name
+    if not name or name.lower() == "current":
+        return "current"
+    if name.lower() == "new":
+        return "new"
+    return name
+
+
+def list_chats() -> list[str]:
+    """Read chat titles from the open Cursor Agents Window sidebar."""
+    if sys.platform != "darwin":
+        return []
+    try:
+        raw = _osascript(LIST_CHATS_SCRIPT)
+    except DesktopError:
+        return []
+    return parse_chat_names(raw)
+
+
+LIST_CHATS_SCRIPT = r"""
+tell application "Cursor" to activate
+delay 0.4
+tell application "System Events"
+  if not (exists process "Cursor") then return ""
+  tell process "Cursor"
+    set frontmost to true
+    set acc to {}
+    repeat with w in windows
+      try
+        repeat with b in (every button of w)
+          try
+            set end of acc to (name of b as text)
+          end try
+        end repeat
+      end try
+      try
+        repeat with b in (every button of every group of w)
+          try
+            set end of acc to (name of b as text)
+          end try
+        end repeat
+      end try
+      try
+        repeat with b in (every button of every group of every group of w)
+          try
+            set end of acc to (name of b as text)
+          end try
+        end repeat
+      end try
+      try
+        repeat with b in (every row of every outline of w)
+          try
+            set end of acc to (name of b as text)
+          end try
+        end repeat
+      end try
+      try
+        repeat with b in (every row of every table of w)
+          try
+            set end of acc to (name of b as text)
+          end try
+        end repeat
+      end try
+    end repeat
+    set out to ""
+    repeat with n in acc
+      set out to out & (n as text) & linefeed
+    end repeat
+    return out
+  end tell
+end tell
+"""
+
+
+def _as_literal(value: str) -> str:
+    return value.replace("\\", "\\\\").replace('"', '\\"')
+
+
+def cloud_script(*, new_chat: bool = True, chat: str | None = None) -> str:
+    """Open Cursor 3 Agents Window and send to a chosen Cloud chat.
+
+    chat: "new" starts New Chat, "current" uses the thread already open,
+    any other string clicks that sidebar title.
     """
-    open_agents = r"""
-    -- Cursor 3 Agents Window (Cloud Agents). Not Cmd+I, not the IDE side panel.
-    try
-      click menu item "New Agents Window" of menu "File" of menu bar 1
-    end try
-    delay 0.35
-    try
-      click menu item "New Agent Window" of menu "File" of menu bar 1
-    end try
-    delay 0.25
-    try
-      click menu item "Open Agents Window" of menu "File" of menu bar 1
-    end try
-    delay 0.35
-    keystroke "p" using {command down, shift down}
-    delay 0.55
-    keystroke "a" using {command down}
-    delay 0.08
-    keystroke "Open Agents Window"
-    delay 0.4
-    key code 36
-    delay 0.9
+    target = resolve_cloud_target(chat if chat is not None else ("new" if new_chat else "current"))
+    if target == "new":
+        pick = r"""
     my clickNamed("New Chat")
     delay 0.45
     my clickNamed("Cloud")
     delay 0.4
 """
-    if not new_chat:
-        open_agents = r"""
-    try
-      click menu item "Open Agents Window" of menu "File" of menu bar 1
-    end try
-    delay 0.3
+    elif target == "current":
+        pick = r"""
+    my clickNamed("Cloud")
+    delay 0.35
+"""
+    else:
+        pick = (
+            f'\n    my clickNamed("{_as_literal(target)}")\n'
+            "    delay 0.45\n"
+            '    my clickNamed("Cloud")\n'
+            "    delay 0.4\n"
+        )
+    open_agents = r"""
     try
       click menu item "New Agents Window" of menu "File" of menu bar 1
     end try
-    delay 0.35
-    keystroke "p" using {command down, shift down}
-    delay 0.5
-    keystroke "a" using {command down}
-    delay 0.08
-    keystroke "Open Agents Window"
-    delay 0.35
-    key code 36
-    delay 0.7
-    my clickNamed("Cloud")
     delay 0.3
-"""
+    try
+      click menu item "New Agent Window" of menu "File" of menu bar 1
+    end try
+    delay 0.2
+    try
+      click menu item "Open Agents Window" of menu "File" of menu bar 1
+    end try
+    delay 0.4
+""" + pick
     return rf"""
 on clickNamed(wanted)
   tell application "System Events"
@@ -224,9 +348,9 @@ end tell
 """
 
 
-def send_prompt(*, kind: str = "agent", new_chat: bool = True) -> None:
+def send_prompt(*, kind: str = "agent", new_chat: bool = True, chat: str | None = None) -> None:
     if kind == "cloud":
-        _osascript(cloud_script(new_chat=new_chat))
+        _osascript(cloud_script(new_chat=new_chat, chat=chat))
         return
     _osascript(SEND_SCRIPT)
 

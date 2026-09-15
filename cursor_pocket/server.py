@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlparse
 from . import __app_name__, __version__
 from .apk import apk_path
 from .auth import Auth, AuthError, extract_bearer
+from .desktop import list_chats
 from .jobs import JobStore
 from .net import public_base_urls
 from .runner import Runner
@@ -91,6 +92,10 @@ class PocketHandler(BaseHTTPRequestHandler):
             if path == "/api/status":
                 self._require(query)
                 self._json(200, self._status())
+                return
+            if path == "/api/chats":
+                self._require(query)
+                self._json(200, self._chats())
                 return
             if path == "/api/jobs":
                 self._require(query)
@@ -212,15 +217,23 @@ class PocketHandler(BaseHTTPRequestHandler):
             "jobs": [job.snapshot() for job in self.state.store.list()[:30]],
         }
 
+    def _chats(self) -> dict[str, Any]:
+        if self.state.runner.demo:
+            titles = ["Mobile offline Cursor control", "Open source testing"]
+        else:
+            titles = list_chats()
+        return {"chats": [{"title": title} for title in titles]}
+
     def _create_job(self, body: dict[str, Any], *, follow_up_of: str | None = None, session_id: str | None = None) -> Any:
         prompt = str(body.get("prompt") or "").strip()
         if not prompt:
             raise ValueError("Type a prompt first")
         mode = str(body.get("mode") or "agent").strip().lower()
         if mode not in MODES:
-            raise ValueError("Mode must be agent, ask, or plan")
+            raise ValueError("Mode must be agent, ask, plan, or cloud")
         workspace = self._pick_workspace(body.get("workspace"))
         model = str(body.get("model") or "").strip() or None
+        chat = str(body.get("chat") or "current").strip() or "current"
         job = self.state.store.create(
             prompt=prompt,
             workspace=workspace["path"],
@@ -229,6 +242,7 @@ class PocketHandler(BaseHTTPRequestHandler):
             follow_up_of=follow_up_of,
             session_id=session_id,
             model=model,
+            chat=chat,
         )
         self.state.runner.start(self.state.store, job)
         return job
@@ -242,6 +256,7 @@ class PocketHandler(BaseHTTPRequestHandler):
         body = dict(body)
         body.setdefault("workspace", parent.workspace)
         body.setdefault("mode", parent.mode)
+        body.setdefault("chat", parent.chat or "current")
         return self._create_job(body, follow_up_of=parent.id, session_id=parent.session_id)
 
     def _pick_workspace(self, requested: Any) -> dict[str, str]:

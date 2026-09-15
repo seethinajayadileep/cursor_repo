@@ -5,6 +5,7 @@ from __future__ import annotations
 import unittest
 
 from cursor_pocket.__main__ import _parse, resolve_demo
+from cursor_pocket.desktop import parse_chat_names, resolve_cloud_target
 
 
 class ResolveDemoTests(unittest.TestCase):
@@ -37,3 +38,25 @@ class ResolveDemoTests(unittest.TestCase):
         self.assertFalse(args.fake)
         args = _parse(["--fake", "--pin", "123456"])
         self.assertTrue(args.fake)
+
+
+class CloudChatPickTests(unittest.TestCase):
+    def test_parse_chat_names_drops_chrome(self) -> None:
+        raw = "\n".join(
+            [
+                "New Chat",
+                "Search",
+                "Mobile offline Cursor control",
+                "Cloud",
+                "Open source testing",
+                "IDE",
+            ]
+        )
+        names = parse_chat_names(raw)
+        self.assertEqual(names, ["Mobile offline Cursor control", "Open source testing"])
+
+    def test_resolve_cloud_target(self) -> None:
+        self.assertEqual(resolve_cloud_target(""), "current")
+        self.assertEqual(resolve_cloud_target("new"), "new")
+        self.assertEqual(resolve_cloud_target("Mobile offline Cursor control"), "Mobile offline Cursor control")
+        self.assertEqual(resolve_cloud_target("new", follow_up=True), "current")

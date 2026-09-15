@@ -58,6 +58,7 @@ class ApiTests(unittest.TestCase):
         self.assertIn("Pair with laptop", html)
         self.assertIn("apk", body)
         self.assertIn("Install Android app", html)
+        self.assertIn("Chat window", html)
 
     def test_host_includes_online_url(self) -> None:
         self.state.online_url = "https://demo.trycloudflare.com"
@@ -146,6 +147,16 @@ class ApiTests(unittest.TestCase):
         status, body = self._json("GET", "/api/jobs")
         self.assertEqual(status, 401)
         self.assertIn("Pair", body["error"])
+
+    def test_chats_lists_demo_titles(self) -> None:
+        status, paired = self._json("POST", "/api/pair", {"pin": "123456"})
+        token = paired["token"]
+        status, body = self._json("GET", "/api/chats", token=token)
+        self.assertEqual(status, 200)
+        titles = [item["title"] for item in body["chats"]]
+        self.assertIn("Mobile offline Cursor control", titles)
+        status, denied = self._json("GET", "/api/chats")
+        self.assertEqual(status, 401)
 
 
 if __name__ == "__main__":
