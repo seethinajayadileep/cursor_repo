@@ -5,6 +5,10 @@ venv/
 .pytest_cache/
 uploads/
 .DS_Store
-*.egg-info/
-dist/
-build/
+.cursor-pocket/
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+*.iml
+.idea/

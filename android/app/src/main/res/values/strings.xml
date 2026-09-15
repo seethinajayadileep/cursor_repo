@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Cursor Pocket</string>
+    <string name="setup_title">Connect to your MacBook</string>
+    <string name="setup_body">Start Cursor Pocket on the Mac first. Paste the phone URL from the Mac terminal (same Wi-Fi address or the https://…trycloudflare.com link if you used --online). Then enter the PIN on the next screen.</string>
+    <string name="url_hint">http://192.168.1.20:8787</string>
+    <string name="connect">Connect</string>
+    <string name="change_url">Change laptop URL</string>
+    <string name="bad_url">Enter the URL from the Mac terminal.</string>
+</resources>

@@ -1,6 +1,6 @@
 # PII Redaction Tool
 
-This repository also includes **Cursor Pocket**, a phone remote for Cursor CLI (same Wi-Fi, or `--online` over the internet). See [CURSOR_POCKET.md](CURSOR_POCKET.md).
+This repository also includes **Cursor Pocket**, a phone remote for Cursor CLI on a MacBook (same Wi-Fi, or `--online`). Mac + Android walkthrough: [MACBOOK_ANDROID.md](MACBOOK_ANDROID.md).
 
 ---
 

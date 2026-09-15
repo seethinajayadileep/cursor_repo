@@ -1,6 +1,8 @@
 # Cursor Pocket
 
-**Send Cursor prompts from an Android phone. They run on your laptop. You get the live log and a ping when it finishes. The phone never talks to Cursor Cloud.**
+**Send Cursor prompts from an Android phone. They run on your MacBook in Cursor. You get the live log and a ping when it finishes.**
+
+**Using a MacBook + Android?** Follow **[MACBOOK_ANDROID.md](MACBOOK_ANDROID.md)** (install the phone app, start Pocket on the Mac, send prompts).
 
 Cursor has no Android app. The iOS app only drives **cloud** agents. Pocket is a laptop daemon plus a phone web app. Use the same Wi-Fi, **or** put both devices on the internet with `--online`.
 
