@@ -308,11 +308,12 @@ button.ghost {
 .msg.user {
   background: var(--user);
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 18px 18px 6px 18px;
   padding: 12px 14px;
   white-space: pre-wrap;
   width: fit-content;
-  max-width: 92%;
+  max-width: 86%;
+  margin-left: auto;
   color: var(--text);
 }
 

@@ -20,7 +20,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from cursor_pocket.auth import Auth
-from cursor_pocket.desktop import DesktopError, cloud_script, desktop_available, send_prompt
+from cursor_pocket.desktop import DesktopError, agent_script, cloud_script, desktop_available, send_prompt
 from cursor_pocket.jobs import JobStore
 from cursor_pocket.runner import Runner, _desktop_result
 from cursor_pocket.server import PocketState, serve
@@ -223,6 +223,7 @@ class DesktopE2ETests(unittest.TestCase):
         self.assertEqual(job["status"], "done")
         self.assertEqual(self.fake.send_count, 1)
         self.assertEqual(self.fake.sends[0]["kwargs"].get("kind"), "agent")
+        self.assertTrue(self.fake.sends[0]["kwargs"].get("new_chat"))
         self.assertEqual(self.fake.copied, ["fix a.txt so the tests pass"])
         self.assertEqual(self.fake.opened, [str(self.root)])
         self.assertTrue(job["session_id"].startswith("desktop-"))
@@ -268,6 +269,8 @@ class DesktopE2ETests(unittest.TestCase):
         self.assertEqual(follow_job["status"], "done")
         self.assertEqual(follow_job["follow_up_of"], job_id)
         self.assertEqual(self.fake.send_count, 2)
+        self.assertFalse(self.fake.sends[-1]["kwargs"].get("new_chat"))
+        self.assertEqual(self.fake.opened, [str(self.root)])
         self.assertIn("b.txt", follow_job["result"])
         self.assertTrue((self.root / "b.txt").exists())
 
@@ -378,6 +381,14 @@ class DesktopGuardsTests(unittest.TestCase):
         named = cloud_script(chat="Mobile offline Cursor control")
         self.assertIn("Mobile offline Cursor control", named)
         self.assertNotIn("New Chat", named)
+
+    def test_agent_follow_up_stays_in_open_chat(self) -> None:
+        first = agent_script(new_chat=True)
+        self.assertIn('keystroke "i" using {command down}', first)
+        follow = agent_script(new_chat=False)
+        self.assertNotIn('keystroke "i" using {command down}', follow)
+        self.assertIn('keystroke "v" using {command down}', follow)
+        self.assertIn("key code 36", follow)
 
     def test_desktop_result_joins_reply_and_files(self) -> None:
         text = _desktop_result("hello from Cursor", {"text": "Files Cursor changed:\n  • a.txt"})

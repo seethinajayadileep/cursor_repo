@@ -178,14 +178,18 @@ class Runner:
             raise RuntimeError("Open Cursor desktop on this Mac and grant Accessibility to Terminal/Python.")
         before = snapshot(job.workspace)
         cloud = job.mode == "cloud"
+        follow = bool(job.follow_up_of)
         if cloud:
             store.append(
                 job.id,
                 {
                     "kind": "system",
-                    "text": f"Opening Cursor Agents Window · Cloud · {job.workspace_name}",
+                    "text": f"{'Continuing' if follow else 'Opening'} Cursor Agents Window · Cloud · {job.workspace_name}",
                 },
             )
+            focus_cursor()
+        elif follow:
+            store.append(job.id, {"kind": "system", "text": f"Sending follow-up to the open Cursor chat · {job.workspace_name}"})
             focus_cursor()
         else:
             store.append(job.id, {"kind": "system", "text": f"Opening Cursor desktop · {job.workspace_name}"})
@@ -201,8 +205,8 @@ class Runner:
             send_prompt(kind="cloud", new_chat=target == "new", chat=target)
             where = f"Cloud Agents · {target}"
         else:
-            send_prompt(kind="agent", new_chat=not bool(job.follow_up_of))
-            where = "Cursor desktop"
+            send_prompt(kind="agent", new_chat=not follow)
+            where = "open Cursor chat" if follow else "Cursor desktop"
         sid = f"{'cloud' if cloud else 'desktop'}-{job.id}"
         store.append(job.id, {"kind": "system", "text": f"Sent to {where}"})
         store.append(

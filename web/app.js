@@ -143,7 +143,7 @@ composer.addEventListener("submit", async (event) => {
     }
     showBanner(err.message);
   } finally {
-    $("send-btn").disabled = false;
+    $("send-btn").disabled = isListening();
   }
 });
 

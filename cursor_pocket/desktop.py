@@ -25,6 +25,34 @@ tell application "System Events"
 end tell
 """
 
+FOLLOW_SCRIPT = r"""
+tell application "Cursor" to activate
+delay 0.5
+tell application "System Events"
+  if not (exists process "Cursor") then error "Cursor desktop is not running."
+  tell process "Cursor" to set frontmost to true
+  delay 0.3
+  try
+    set areas to text areas of window 1
+    if (count of areas) > 0 then
+      click last item of areas
+    end if
+  end try
+  delay 0.15
+  keystroke "a" using {command down}
+  delay 0.08
+  keystroke "v" using {command down}
+  delay 0.35
+  key code 36
+end tell
+"""
+
+
+def agent_script(*, new_chat: bool = True) -> str:
+    """Cmd+I starts a desktop Agent. Follow-ups paste into the chat already open."""
+    return SEND_SCRIPT if new_chat else FOLLOW_SCRIPT
+
+
 READ_SCRIPT = r"""
 tell application "System Events"
   if not (exists process "Cursor") then return ""
@@ -352,7 +380,7 @@ def send_prompt(*, kind: str = "agent", new_chat: bool = True, chat: str | None 
     if kind == "cloud":
         _osascript(cloud_script(new_chat=new_chat, chat=chat))
         return
-    _osascript(SEND_SCRIPT)
+    _osascript(agent_script(new_chat=new_chat))
 
 
 def read_cursor_text() -> str:
