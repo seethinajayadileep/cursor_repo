@@ -1,6 +1,6 @@
 # PII Redaction Tool
 
-This repository also includes **Cursor Pocket**, an offline LAN remote so you can send Cursor CLI prompts from an Android phone. See [CURSOR_POCKET.md](CURSOR_POCKET.md).
+This repository also includes **Cursor Pocket**, a phone remote for Cursor CLI (same Wi-Fi, or `--online` over the internet). See [CURSOR_POCKET.md](CURSOR_POCKET.md).
 
 ---
 
