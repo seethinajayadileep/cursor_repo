@@ -56,6 +56,8 @@ class ApiTests(unittest.TestCase):
             html = resp.read().decode()
         self.assertIn("Cursor Pocket", html)
         self.assertIn("Pair with laptop", html)
+        self.assertIn("apk", body)
+        self.assertIn("Install Android app", html)
 
     def test_host_includes_online_url(self) -> None:
         self.state.online_url = "https://demo.trycloudflare.com"

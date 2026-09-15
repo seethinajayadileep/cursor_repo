@@ -9,6 +9,7 @@ import sys
 from pathlib import Path
 
 from . import __app_name__, __version__
+from .apk import apk_path
 from .auth import Auth
 from .desktop import desktop_available
 from .jobs import JobStore
@@ -101,6 +102,9 @@ def main(argv: list[str] | None = None) -> int:
             print(f"    {url}")
     print()
     print(f"  PIN  {auth.pin[0:3]} {auth.pin[3:6]}")
+    if apk_path():
+        print(f"  Android APK: {scheme}://127.0.0.1:{state.port}/apk/cursor-pocket.apk")
+        print("  Open that on the phone (or the Install Android app button) and sideload it.")
     print()
     if runner.demo:
         print("  Mode: demo (no Cursor desktop clicks)")

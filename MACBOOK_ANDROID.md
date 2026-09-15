@@ -68,7 +68,18 @@ Sleeping the Mac stops Pocket. Plug in power, and in **System Settings → Batte
 
 ## Part 3 — Install the app on Android
 
-Google Play has no Cursor app. Install Pocket like this (this **is** the Android app):
+Google Play has no Cursor app. Pocket **is** the Android app. Use the APK (home-screen icon + native notification) or Chrome “Add to Home screen”.
+
+### Option A — APK (the actual app)
+
+1. Start Pocket on the Mac (Part 2).
+2. On the phone, open Chrome to the URL printed in the Mac terminal.
+3. Tap **Install Android app (APK)** and open the downloaded file. Allow install from this source if Android asks.
+4. Open the **Cursor Pocket** icon. Paste the laptop URL, then the PIN.
+
+If the button is missing, build once: `cd android && ./gradlew assembleDebug` (see [`android/README.md`](android/README.md)).
+
+### Option B — Chrome home screen shortcut
 
 1. On the phone, open **Chrome**.
 2. Type the URL from the Mac terminal (or scan the QR).
@@ -81,8 +92,6 @@ Google Play has no Cursor app. Install Pocket like this (this **is** the Android
 With `--online` the URL is HTTPS, so Chrome can install it as a real standalone app and can show a notification when a run finishes.
 
 **Every day after that:** start Pocket on the Mac first, then tap the Pocket icon on the phone. If the PIN changed (you restarted Pocket without `--pin`), pair again.
-
-Sideload a native APK from Android Studio instead: see [`android/README.md`](android/README.md).
 
 ---
 

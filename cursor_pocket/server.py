@@ -13,6 +13,7 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from . import __app_name__, __version__
+from .apk import apk_path
 from .auth import Auth, AuthError, extract_bearer
 from .jobs import JobStore
 from .net import public_base_urls
@@ -80,6 +81,9 @@ class PocketHandler(BaseHTTPRequestHandler):
         try:
             if path == "/api/health":
                 self._json(200, self._health())
+                return
+            if path in {"/apk", "/apk/", "/apk/cursor-pocket.apk", "/cursor-pocket.apk"}:
+                self._apk()
                 return
             if path == "/api/host":
                 self._host_info()
@@ -174,6 +178,7 @@ class PocketHandler(BaseHTTPRequestHandler):
             "demo": self.state.runner.demo,
             "online": bool(self.state.online_url),
             "target": self.state.runner.target,
+            "apk": apk_path() is not None,
         }
 
     def _host_info(self) -> None:
@@ -192,6 +197,7 @@ class PocketHandler(BaseHTTPRequestHandler):
                 "version": __version__,
                 "online_url": self.state.online_url,
                 "target": self.state.runner.target,
+                "apk": apk_path() is not None,
             },
         )
 
@@ -292,6 +298,21 @@ class PocketHandler(BaseHTTPRequestHandler):
                     return
         except (BrokenPipeError, ConnectionResetError, TimeoutError):
             return
+
+    def _apk(self) -> None:
+        path = apk_path()
+        if not path:
+            self._json(404, {"error": "No APK on this laptop yet. Build android/ or download the GitHub Action artifact."})
+            return
+        data = path.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "application/vnd.android.package-archive")
+        self.send_header("Content-Disposition", 'attachment; filename="cursor-pocket.apk"')
+        self.send_header("Content-Length", str(len(data)))
+        self.send_header("Cache-Control", "no-cache")
+        self._cors()
+        self.end_headers()
+        self.wfile.write(data)
 
     def _static(self, path: str) -> None:
         if path in {"/host", "/host/"}:

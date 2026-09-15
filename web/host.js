@@ -18,14 +18,16 @@ async function main() {
     const lan = (data.urls || []).find((url) => !url.includes("127.0.0.1")) || (data.urls || [])[0];
     const phone = data.online_url || lan;
     urlEl.textContent = phone || "";
-    const demo = data.demo ? "demo mode" : "live Cursor CLI";
+    const target = data.demo ? "demo mode" : data.target === "desktop" ? "Cursor desktop" : "Cursor CLI";
     const folders = (data.workspaces || []).map((item) => item.name).join(", ");
-    meta.textContent = `${demo} · ${folders}`;
+    meta.textContent = `${target} · ${folders}`;
     if (modeLine) {
       modeLine.textContent = data.online_url
         ? "Internet URL (phone can be on another network). PIN stays on this laptop page."
         : "LAN URL. For another network, restart with --online.";
     }
+    const apk = document.getElementById("apk-link");
+    if (apk) apk.hidden = !data.apk;
     if (phone && window.QRCode) {
       const mount = document.getElementById("qr");
       mount.innerHTML = "";

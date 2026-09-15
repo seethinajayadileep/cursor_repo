@@ -414,5 +414,20 @@ function registerPwa() {
 }
 
 registerPwa();
+showApkDownload();
 if (state.token) boot();
 else setPaired(false);
+
+function showApkDownload() {
+  fetch("/api/health")
+    .then((r) => r.json())
+    .then((data) => {
+      const link = $("apk-link");
+      const hint = $("apk-hint");
+      if (!link) return;
+      const on = Boolean(data && data.apk);
+      link.hidden = !on;
+      if (hint) hint.hidden = !on;
+    })
+    .catch(() => {});
+}

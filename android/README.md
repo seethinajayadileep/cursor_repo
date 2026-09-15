@@ -1,18 +1,36 @@
-# Cursor Pocket for Android (sideload)
+# Cursor Pocket for Android (sideload APK)
 
-This is a tiny WebView wrapper. It is **not** on the Play Store. You install it from your MacBook with Android Studio (USB).
+This is a real Android app (`app.cursorpocket`). It is **not** on the Play Store. It opens the Pocket phone UI in a WebView and shows a native notification when a run finishes.
 
-Most people should skip this and use Chrome → **Add to Home screen** instead. See [MACBOOK_ANDROID.md](../MACBOOK_ANDROID.md).
+## Install on the phone (easiest)
 
-## Build and install from the MacBook
+1. On the Mac: `python3 -m cursor_pocket --workspace ~/your-project`
+2. On the phone, open the Pocket URL from the Mac terminal.
+3. Tap **Install Android app (APK)** (only shown when this repo has a built APK).
+4. Allow install from Chrome / Files.
+5. Open **Cursor Pocket**, paste the same laptop URL, enter the PIN.
 
-1. Install [Android Studio](https://developer.android.com/studio) on the Mac.
-2. On the phone: **Settings → About phone** → tap Build number 7 times → enable **USB debugging**.
-3. Plug the phone into the Mac. Allow debugging.
-4. Android Studio → **Open** → this `android/` folder.
-5. Wait for Gradle sync.
-6. Green **Run** button, pick your phone.
+You can also download `cursor-pocket.apk` from the GitHub Action named **android-apk**, or from the laptop at `/apk/cursor-pocket.apk`.
 
-The first screen asks for the laptop URL from the Mac terminal (`http://192.168.…:8787` or the `https://….trycloudflare.com` link). Then you get the same Pocket UI (PIN, prompt, live log).
+## Build on the Mac / Linux
 
-Menu (**⋮**) → **Change laptop URL** if you restart Pocket with a new tunnel URL.
+Need JDK 17+ and the Android SDK.
+
+```bash
+cd android
+echo "sdk.dir=$ANDROID_HOME" > local.properties   # or ANDROID_SDK_ROOT
+chmod +x gradlew
+./gradlew assembleDebug
+mkdir -p dist
+cp app/build/outputs/apk/debug/app-debug.apk dist/cursor-pocket.apk
+```
+
+Then restart Pocket so the phone page offers the download.
+
+## Android Studio
+
+1. Enable **USB debugging** on the phone.
+2. Android Studio → **Open** → this `android/` folder.
+3. Green **Run**.
+
+The first screen asks for the laptop URL (`http://192.168.…:8787` or the `https://….trycloudflare.com` link). Menu (**⋮**) → **Change laptop URL** if the tunnel URL changes.
