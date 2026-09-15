@@ -543,8 +543,14 @@ function renderLog() {
 }
 
 function displayEvents() {
-  const combined = [...state.thread, ...state.events];
-  const hasUser = combined.some((event) => event && event.kind === "user");
+  const combined = [];
+  for (const event of [...state.thread, ...state.events]) {
+    if (!event) continue;
+    const last = combined[combined.length - 1];
+    if (event.kind === "user" && last && last.kind === "user" && last.text === event.text) continue;
+    combined.push(event);
+  }
+  const hasUser = combined.some((event) => event.kind === "user");
   const prompt = ($("active-prompt").textContent || "").trim();
   if (!hasUser && prompt) combined.unshift({ kind: "user", text: prompt });
   return combined;
