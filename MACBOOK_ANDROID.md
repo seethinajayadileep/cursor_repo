@@ -75,7 +75,7 @@ cd /Users/jaya/Desktop/Cursor-Pocket
 python3 -m cursor_pocket --workspace /Users/you/Projects/my-app
 ```
 
-Do **not** add `--demo`. If the Mac prints `Mode: DEMO` or the phone badge says **demo**, Cursor will not run.
+`--demo` is ignored when Cursor is installed (Pocket 0.3.3+), so Send still works. The phone badge should say **live**. If it still says **demo**, you are on an old copy — `git pull` — or you passed `--fake`.
 
 Use the **real path** of the project you have open in Cursor.
 
@@ -146,14 +146,16 @@ On the Mac terminal: **Ctrl+C**. The phone cannot send prompts until you start P
 
 ## First test (no real Cursor edits)
 
-`--demo` only checks that the phone can pair. **Cursor stays idle.** The phone will show **Finished** with fake text. That is expected.
+`--fake` only checks that the phone can pair. **Cursor stays idle.** The phone will show **Finished** with fake text. That is expected.
 
 ```bash
-cd /path/to/Cursor-Pocket
-python3 -m cursor_pocket --demo --pin 123456
+cd /Users/jaya/Desktop/Cursor-Pocket
+python3 -m cursor_pocket --fake --pin 123456
 ```
 
-On the phone use PIN `123456`, send any text, wait for **Finished**. Then **Ctrl+C** and start the real command from Part 2 (**no** `--demo`) if you want Cursor to actually run.
+On the phone use PIN `123456`, send any text, wait for **Finished**. Then **Ctrl+C** and start the real command from Part 2 if you want Cursor to actually run.
+
+If you already started with `--demo` on a Mac that has Cursor (0.3.3+), Pocket sends for real and the phone should say **live**, not demo.
 
 ---
 
@@ -165,5 +167,5 @@ On the phone use PIN `123456`, send any text, wait for **Finished**. Then **Ctrl
 - Wrong project path: `--workspace` must be the folder Cursor has open.
 - `No Cursor desktop`: install Cursor, or pass `--demo` / `--cli`.
 - Send is not clicked: enable **Privacy & Security → Accessibility** for Terminal/Python (not the VoiceOver/Zoom Accessibility page). Paste `open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"` in Terminal.
-- Phone or Mac says **demo** / `Mode: DEMO`: you started with `--demo`. Ctrl+C, then start again **without** `--demo` (Part 2). Re-open the phone URL after it restarts.
+- Phone or Mac says **demo** / `Mode: DEMO`: `git pull` (need 0.3.3+), Ctrl+C, start again. `--demo` is ignored when Cursor is installed. `--fake` still shows demo and will not click Cursor. Re-open the phone URL.
 - Send goes to the wrong chat: on the phone pick **Cloud** for the Agents / Cloud prompt box, or **Agent** for the local Cmd+I composer. Leave Cursor in front.

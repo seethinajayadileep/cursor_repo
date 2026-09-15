@@ -20,15 +20,45 @@ from .tls import wrap_https
 from .tunnel import start_tunnel
 
 
+def resolve_demo(
+    demo: bool,
+    *,
+    fake: bool = False,
+    cursor_installed: bool | None = None,
+) -> tuple[bool, str]:
+    """`--demo` fakes a run only when Cursor is not installed.
+
+    On a Mac that already has Cursor.app, people keep `--demo` from the first-test
+    snippet and then the phone says DEMO while Send does nothing. Ignore `--demo`
+    in that case so Cloud/Agent actually click Cursor. `--fake` still fakes.
+    """
+    if fake:
+        return True, ""
+    if not demo:
+        return False, ""
+    installed = desktop_available() if cursor_installed is None else cursor_installed
+    if installed:
+        return (
+            False,
+            "You passed --demo, but Cursor is installed — sending to Cursor for real "
+            "(phone badge will say live, not demo). Pass --fake only to test the phone UI.",
+        )
+    return True, ""
+
+
 def main(argv: list[str] | None = None) -> int:
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(line_buffering=True)
         sys.stderr.reconfigure(line_buffering=True)
     args = _parse(argv)
+    demo, demo_note = resolve_demo(args.demo, fake=args.fake)
+    if demo_note:
+        print(demo_note, file=sys.stderr)
+        print(file=sys.stderr)
     workspaces = _workspaces(args.workspace)
     target = "cli" if args.cli else "desktop"
-    agent = None if args.demo or target == "desktop" else find_agent()
-    if not args.demo and target == "cli" and not agent:
+    agent = None if demo or target == "desktop" else find_agent()
+    if not demo and target == "cli" and not agent:
         print(
             "No Cursor CLI (`agent`) found on PATH.\n"
             "Install it from https://cursor.com/docs/cli/overview\n"
@@ -36,7 +66,7 @@ def main(argv: list[str] | None = None) -> int:
             file=sys.stderr,
         )
         return 2
-    if not args.demo and target == "desktop" and not desktop_available():
+    if not demo and target == "desktop" and not desktop_available():
         print(
             "Cursor desktop was not found. Install Cursor on this Mac, open your project,\n"
             "or pass --cli to use Cursor CLI, or --demo to try the phone UI.\n",
@@ -46,7 +76,7 @@ def main(argv: list[str] | None = None) -> int:
 
     auth = Auth.generate(args.pin)
     runner = Runner(
-        demo=args.demo,
+        demo=demo,
         force=not args.no_force,
         trust=not args.no_trust,
         agent_bin=agent or find_agent(),
@@ -170,7 +200,16 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     )
     parser.add_argument("--name", default="", help="Laptop label shown on the phone")
     parser.add_argument("--pin", default=None, help="Override the 6-digit pairing PIN")
-    parser.add_argument("--demo", action="store_true", help="Fake a Cursor run so you can try the phone UI")
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Fake a run if Cursor is not installed. Ignored on a Mac that has Cursor (use --fake to fake anyway).",
+    )
+    parser.add_argument(
+        "--fake",
+        action="store_true",
+        help="Always fake the run (phone says demo). Cursor is not clicked.",
+    )
     parser.add_argument(
         "--cli",
         action="store_true",
