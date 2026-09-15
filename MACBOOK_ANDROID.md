@@ -16,6 +16,10 @@ MacBook (Cursor + your project)          Android phone
 
 Open your project in **Cursor desktop**. Leave that window open. Pocket clicks **Send** in this app; it does not use a separate hidden agent unless you pass `--cli`.
 
+**Which Cursor screen?** Both the file editor and the Agents chat are the same app (`Cursor.app`). Pocket drives the **local IDE Agent box** (press **Cmd+I** in the editor), not the **Cloud / Agents** chat on the left (New Chat, cloud runs, Browser/Terminal tabs). That cloud chat is a different product; the phone will not type into it.
+
+Before you send from the phone: click the editor, press **Cmd+I**, and keep that composer in front. Do not leave a Cloud Agent thread focused.
+
 Example folder: `/Users/you/Projects/my-app`
 
 ### 2. Accessibility permission (required)
