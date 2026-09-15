@@ -312,6 +312,7 @@ class DesktopE2ETests(unittest.TestCase):
         job = self._wait_job(created["job"]["id"], token)
         self.assertEqual(job["status"], "done")
         self.assertTrue(job["session_id"].startswith("cloud-"))
+        self.assertEqual(self.fake.opened, [])
         self.assertEqual(self.fake.sends[0]["kwargs"]["kind"], "cloud")
         from cursor_pocket.notify import LAST as notice
         self.assertEqual(notice[0], "Cloud Agent finished")
@@ -337,13 +338,16 @@ class DesktopGuardsTests(unittest.TestCase):
         with self.assertRaises(DesktopError):
             send_prompt()
 
-    def test_cloud_script_opens_agents_not_ide_composer(self) -> None:
+    def test_cloud_script_stays_in_editor_not_agents_window(self) -> None:
         script = cloud_script(new_chat=True)
-        self.assertIn("New Chat", script)
         self.assertIn("Cloud", script)
-        self.assertNotIn('keystroke "i" using {command down}', script)
+        self.assertIn("Agents Window", script)
+        self.assertIn('keystroke "i" using {command down}', script)
+        self.assertNotIn('keystroke "l" using {command down}', script)
+        self.assertNotIn('menu item "New Agent"', script)
+        self.assertNotIn('menu item "Agents" of menu "View"', script)
         follow = cloud_script(new_chat=False)
-        self.assertNotIn("New Chat", follow)
+        self.assertNotIn('keystroke "i" using {command down}', follow)
         self.assertIn('keystroke "v"', follow)
 
     def test_desktop_result_joins_reply_and_files(self) -> None:

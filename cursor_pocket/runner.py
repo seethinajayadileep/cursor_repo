@@ -13,6 +13,7 @@ from .changes import describe_changes, snapshot
 from .desktop import (
     copy_prompt,
     desktop_available,
+    focus_cursor,
     open_workspace,
     read_cursor_text,
     request_stop,
@@ -159,17 +160,27 @@ class Runner:
         if not desktop_available():
             raise RuntimeError("Open Cursor desktop on this Mac and grant Accessibility to Terminal/Python.")
         before = snapshot(job.workspace)
-        store.append(job.id, {"kind": "system", "text": f"Opening Cursor desktop · {job.workspace_name}"})
-        open_workspace(job.workspace)
+        cloud = job.mode == "cloud"
+        if cloud:
+            store.append(
+                job.id,
+                {
+                    "kind": "system",
+                    "text": f"Using the Cursor window in front · Cloud · {job.workspace_name}",
+                },
+            )
+            focus_cursor()
+        else:
+            store.append(job.id, {"kind": "system", "text": f"Opening Cursor desktop · {job.workspace_name}"})
+            open_workspace(job.workspace)
         if self.open_delay:
             time.sleep(self.open_delay)
         if cancel and cancel.is_set():
             self._finish(store, job, "canceled", error="Canceled from the phone")
             return
         copy_prompt(job.prompt)
-        cloud = job.mode == "cloud"
         send_prompt(kind="cloud" if cloud else "agent", new_chat=not bool(job.follow_up_of))
-        where = "Cursor Cloud Agent" if cloud else "Cursor desktop"
+        where = "Cloud in the open Cursor window" if cloud else "Cursor desktop"
         sid = f"{'cloud' if cloud else 'desktop'}-{job.id}"
         store.append(job.id, {"kind": "status", "text": f"Sent to {where} — waiting for the reply and file fixes"})
         store.mutate(job.id, lambda j: setattr(j, "session_id", sid))

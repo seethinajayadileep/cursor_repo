@@ -80,62 +80,103 @@ def copy_prompt(prompt: str) -> None:
     subprocess.run(["pbcopy"], input=prompt.encode("utf-8"), check=True, timeout=10)
 
 
-def cloud_script(*, new_chat: bool = True) -> str:
-    """Open the Agents / Cloud composer, click it, paste, and Send (Return).
+def focus_cursor() -> None:
+    """Bring Cursor to the front without opening a different project folder."""
+    if sys.platform != "darwin":
+        return
+    subprocess.run(
+        ["osascript", "-e", 'tell application "Cursor" to activate'],
+        check=False,
+        capture_output=True,
+        timeout=10,
+    )
 
-    This is not Cmd+I (local IDE Agent). It targets the Agents sidebar chat
-    with the bottom prompt box and the Cloud picker.
+
+def cloud_script(*, new_chat: bool = True) -> str:
+    """Paste into Cloud on the Cursor editor window that is already open.
+
+    Do not open Agents Window (View → Agents, Cmd+L, New Agent). That is the
+    local IDE Agent. Cloud is the Cloud picker on the same composer you code in.
     """
-    open_chat = ""
     if new_chat:
-        open_chat = r"""
-  -- New Cloud Agent thread (Agents UI, not the IDE Cmd+I box)
-  try
-    click menu item "New Chat" of menu "File" of menu bar 1
-  end try
-  delay 0.25
-  try
-    click menu item "New Agent" of menu "File" of menu bar 1
-  end try
-  delay 0.25
-  try
-    click menu item "Agents" of menu "View" of menu bar 1
-  end try
-  delay 0.25
-  my clickNamed("New Chat")
-  delay 0.35
-  keystroke "l" using {command down}
-  delay 0.6
-  my clickNamed("Cloud")
-  delay 0.35
+        prepare = r"""
+    -- Dismiss command palette / leftover Agents Window focus
+    key code 53
+    delay 0.2
+    try
+      repeat with w in windows
+        set winName to ""
+        try
+          set winName to (name of w as text)
+        end try
+        if winName does not contain "Agents Window" then
+          try
+            perform action "AXRaise" of w
+          end try
+          exit repeat
+        end if
+      end repeat
+    end try
+    delay 0.3
+    -- Composer in this editor window
+    keystroke "i" using {command down}
+    delay 0.7
+    my clickNamed("Cloud")
+    delay 0.35
+"""
+    else:
+        prepare = r"""
+    key code 53
+    delay 0.15
+    my clickNamed("Cloud")
+    delay 0.25
 """
     return rf"""
 on clickNamed(wanted)
   tell application "System Events"
     tell process "Cursor"
-      set spots to {{window 1}}
+      set winList to {{}}
       try
-        set spots to spots & (every group of window 1)
+        repeat with w in windows
+          set n to ""
+          try
+            set n to (name of w as text)
+          end try
+          if n does not contain "Agents Window" then
+            set end of winList to w
+          end if
+        end repeat
       end try
-      try
-        set spots to spots & (every group of every group of window 1)
-      end try
-      try
-        set spots to spots & (every splitter group of window 1)
-      end try
-      repeat with spot in spots
+      if (count of winList) is 0 then set winList to windows
+      repeat with w in winList
+        set spots to {{w}}
         try
-          click (first button of spot whose name is wanted)
-          return true
+          set spots to spots & (every group of w)
         end try
         try
-          click (first UI element of spot whose name is wanted)
-          return true
+          set spots to spots & (every group of every group of w)
         end try
         try
-          click (first pop up button of spot whose name is wanted)
-          return true
+          set spots to spots & (every splitter group of w)
         end try
+        repeat with spot in spots
+          try
+            click (first button of spot whose name is wanted)
+            return true
+          end try
+          try
+            click (first pop up button of spot whose name is wanted)
+            return true
+          end try
+          try
+            click (first pop up button of spot whose name contains wanted)
+            return true
+          end try
+          try
+            click (first UI element of spot whose name is wanted)
+            return true
+          end try
+        end repeat
       end repeat
     end tell
   end tell
@@ -143,28 +184,27 @@ on clickNamed(wanted)
 end clickNamed
 
 tell application "Cursor" to activate
-delay 1.0
+delay 0.8
 tell application "System Events"
   if not (exists process "Cursor") then error "Cursor desktop is not running."
   tell process "Cursor"
     set frontmost to true
-    delay 0.4
-{open_chat}
-    -- Click the prompt box (bottom composer), paste, Send
+    delay 0.3
+{prepare}
     try
       set areas to text areas of window 1
       if (count of areas) > 0 then
         click last item of areas
       end if
     end try
-    delay 0.25
+    delay 0.2
     try
       set areas to text areas of every group of window 1
       if (count of areas) > 0 then
         click last item of areas
       end if
     end try
-    delay 0.25
+    delay 0.2
     keystroke "a" using {{command down}}
     delay 0.1
     keystroke "v" using {{command down}}
