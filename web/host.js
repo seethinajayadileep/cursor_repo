@@ -12,7 +12,7 @@ async function main() {
       error.textContent = data.error || "Open this page on the laptop (localhost).";
       return;
     }
-    pin.textContent = `${data.pin.slice(0, 3)} ${data.pin.slice(3)}`;
+    pin.textContent = data.pin;
     nameEl.textContent = data.laptop || "";
     const phone = (data.urls || []).find((url) => !url.includes("127.0.0.1")) || (data.urls || [])[0];
     urlEl.textContent = phone || "";

@@ -156,7 +156,6 @@ async function boot() {
     await refreshJobs();
     const running = state.jobs.find((job) => job.status === "running" || job.status === "queued");
     if (running) openJob(running.id);
-    else if (state.jobs[0]) openJob(state.jobs[0].id, { quiet: true });
     pingHealth();
   } catch (err) {
     if (err.status === 401) {

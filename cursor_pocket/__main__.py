@@ -18,6 +18,9 @@ from .tls import wrap_https
 
 
 def main(argv: list[str] | None = None) -> int:
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(line_buffering=True)
+        sys.stderr.reconfigure(line_buffering=True)
     args = _parse(argv)
     workspaces = _workspaces(args.workspace)
     agent = None if args.demo else find_agent()

@@ -72,10 +72,17 @@ input, textarea, select {
 }
 
 #pin {
-  letter-spacing: 0.4em;
+  letter-spacing: 0.18em;
   text-align: center;
-  font-size: 1.6rem;
+  font-size: 1.55rem;
   font-weight: 700;
+  color: var(--text);
+  caret-color: var(--accent);
+}
+
+#pin::placeholder {
+  letter-spacing: 0.18em;
+  color: #6d6358;
 }
 
 textarea { resize: vertical; min-height: 96px; }
@@ -227,7 +234,7 @@ button:disabled { opacity: 0.55; cursor: wait; }
 .host-body { display: flex; justify-content: center; padding-top: 48px; }
 .host-grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
 .qr { display: flex; justify-content: center; background: #fff; padding: 16px; border-radius: 16px; }
-.pin-display { font-size: 2.6rem; letter-spacing: 0.28em; margin: 8px 0; font-weight: 800; }
+.pin-display { font-size: 2.4rem; letter-spacing: 0.22em; margin: 8px 0; font-weight: 800; }
 .mono { word-break: break-all; }
 
 @media (min-width: 800px) {
