@@ -71,16 +71,18 @@ Leave **Cursor desktop** open on your project. The Mac must stay **awake and unl
 **Same Wi-Fi as the phone** (home router, or turn on Mac hotspot and join it from Android):
 
 ```bash
-cd /path/to/cursor_repo
+cd /Users/jaya/Desktop/Cursor-Pocket
 python3 -m cursor_pocket --workspace /Users/you/Projects/my-app
 ```
+
+Do **not** add `--demo`. If the Mac prints `Mode: DEMO` or the phone badge says **demo**, Cursor will not run.
 
 Use the **real path** of the project you have open in Cursor.
 
 **Phone on mobile data / another Wi-Fi** (both devices online). First install [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/) **or** [ngrok](https://ngrok.com/download), then:
 
 ```bash
-cd /path/to/cursor_repo
+cd /Users/jaya/Desktop/Cursor-Pocket
 python3 -m cursor_pocket --online --workspace /Users/you/Projects/my-app
 ```
 
@@ -163,4 +165,5 @@ On the phone use PIN `123456`, send any text, wait for **Finished**. Then **Ctrl
 - Wrong project path: `--workspace` must be the folder Cursor has open.
 - `No Cursor desktop`: install Cursor, or pass `--demo` / `--cli`.
 - Send is not clicked: enable **Privacy & Security → Accessibility** for Terminal/Python (not the VoiceOver/Zoom Accessibility page). Paste `open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"` in Terminal.
+- Phone or Mac says **demo** / `Mode: DEMO`: you started with `--demo`. Ctrl+C, then start again **without** `--demo` (Part 2). Re-open the phone URL after it restarts.
 - Send goes to the wrong chat: on the phone pick **Cloud** for the Agents / Cloud prompt box, or **Agent** for the local Cmd+I composer. Leave Cursor in front.
