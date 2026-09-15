@@ -107,7 +107,21 @@ class MainActivity : AppCompatActivity() {
         setup.visibility = View.GONE
         web.visibility = View.VISIBLE
         web.setNetworkAvailable(true)
-        web.loadUrl(url)
+        Thread {
+            try {
+                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+                conn.connectTimeout = 8000
+                conn.readTimeout = 20000
+                conn.instanceFollowRedirects = true
+                val html = conn.inputStream.bufferedReader(Charsets.UTF_8).readText()
+                val base = url.trimEnd('/') + "/"
+                runOnUiThread {
+                    web.loadDataWithBaseURL(base, html, "text/html", "utf-8", url)
+                }
+            } catch (e: Exception) {
+                runOnUiThread { web.loadUrl(url) }
+            }
+        }.start()
     }
 
     @SuppressLint("SetJavaScriptEnabled")
