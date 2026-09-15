@@ -16,9 +16,12 @@ MacBook (Cursor + your project)          Android phone
 
 Open your project in **Cursor desktop**. Leave that window open. Pocket clicks **Send** in this app; it does not use a separate hidden agent unless you pass `--cli`.
 
-**Which Cursor screen?** Both the file editor and the Agents chat are the same app (`Cursor.app`). Pocket drives the **local IDE Agent box** (press **Cmd+I** in the editor), not the **Cloud / Agents** chat on the left (New Chat, cloud runs, Browser/Terminal tabs). That cloud chat is a different product; the phone will not type into it.
+**Which Cursor screen?** Both the file editor and the Agents chat are the same app (`Cursor.app`).
 
-Before you send from the phone: click the editor, press **Cmd+I**, and keep that composer in front. Do not leave a Cloud Agent thread focused.
+- Phone **Agent**: local IDE box (**Cmd+I**).
+- Phone **Cloud**: opens **New Chat / Agents**, clicks the bottom prompt, pastes, and Send. That is the Cloud Agents thread (left sidebar, Cloud picker).
+
+Keep Cursor in front, Mac awake and unlocked. The Mac still needs internet for Cloud Agents.
 
 Example folder: `/Users/you/Projects/my-app`
 
@@ -124,12 +127,12 @@ With `--online` the URL is HTTPS, so Chrome can install it as a real standalone 
 
 1. Mac: open the project in **Cursor desktop**. Keep the Mac awake and unlocked.
 2. Mac: start Pocket. Leave it running.
-3. Phone: open Pocket, type the prompt, tap **Send to laptop**.
-4. Cursor on the Mac gets the text and Send is clicked. The phone shows **Cursor’s reply** and **what files it fixed**.
+3. Phone: open Pocket, type the prompt, pick **Agent** (local Cursor) or **Cloud** (Agents chat), tap **Send to laptop**.
+4. Cursor on the Mac gets the text and Send is clicked. The phone shows the reply and what files changed.
 5. You get a notification when it is **Finished** or **Failed**.
 6. Back at the Mac, review the diff in Cursor.
 
-Desktop mode pastes into the Agent composer (Cmd+I). Use `--cli` if you want Ask/Plan through Cursor CLI instead.
+**Agent** pastes into the local composer (Cmd+I). **Cloud** opens the Agents chat, clicks the prompt box, and sends. Use `--cli` if you want Ask/Plan through Cursor CLI instead.
 
 ---
 
@@ -160,4 +163,4 @@ On the phone use PIN `123456`, send any text, wait for **Finished**. Then **Ctrl
 - Wrong project path: `--workspace` must be the folder Cursor has open.
 - `No Cursor desktop`: install Cursor, or pass `--demo` / `--cli`.
 - Send is not clicked: enable **Privacy & Security → Accessibility** for Terminal/Python (not the VoiceOver/Zoom Accessibility page). Paste `open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"` in Terminal.
-- Mac locked or asleep: unlock it; automation cannot click Send on the lock screen.
+- Send goes to the wrong chat: on the phone pick **Cloud** for the Agents / Cloud prompt box, or **Agent** for the local Cmd+I composer. Leave Cursor in front.

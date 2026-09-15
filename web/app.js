@@ -1,4 +1,5 @@
 const TOKEN_KEY = "cursor-pocket-token";
+const MODE_KEY = "cursor-pocket-mode";
 const state = {
   token: localStorage.getItem(TOKEN_KEY) || "",
   laptop: "",
@@ -19,6 +20,11 @@ const mainScreen = $("main-screen");
 const pairForm = $("pair-form");
 const pairError = $("pair-error");
 const composer = $("composer");
+const savedMode = localStorage.getItem(MODE_KEY);
+if (["agent", "cloud", "ask", "plan"].includes(savedMode)) {
+  const radio = document.querySelector(`input[name=mode][value="${savedMode}"]`);
+  if (radio) radio.checked = true;
+}
 const banner = $("banner");
 const historyEl = $("history");
 const logEl = $("log");
@@ -96,6 +102,7 @@ composer.addEventListener("submit", async (event) => {
   $("send-btn").disabled = true;
   try {
     const mode = document.querySelector("input[name=mode]:checked").value;
+    localStorage.setItem(MODE_KEY, mode);
     const data = await api("/api/jobs", {
       method: "POST",
       body: JSON.stringify({

@@ -20,7 +20,7 @@ from .net import public_base_urls
 from .runner import Runner
 
 WEB_ROOT = Path(__file__).resolve().parent.parent / "web"
-MODES = {"agent", "ask", "plan"}
+MODES = {"agent", "ask", "plan", "cloud"}
 
 
 class PocketState:

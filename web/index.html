@@ -18,7 +18,7 @@
       <header class="hero">
         <p class="eyebrow">Phone remote</p>
         <h1>Cursor Pocket</h1>
-        <p class="lede">Type a prompt here. It is pasted into <strong>Cursor on the Mac</strong> and Send is clicked. This app shows Cursor’s reply and what files it fixed, then notifies you when it is done.</p>
+        <p class="lede">Type a prompt here. <strong>Agent</strong> pastes into the local Cursor composer (Cmd+I). <strong>Cloud</strong> opens the Agents chat, clicks the prompt box, and sends. This app shows the reply and what files changed, then notifies you when it is done.</p>
       </header>
       <form id="pair-form" class="card">
         <label for="pin">Laptop PIN</label>
@@ -62,6 +62,7 @@
           <select id="workspace"></select>
           <div class="pills" role="radiogroup" aria-label="Mode">
             <label><input type="radio" name="mode" value="agent" checked /> Agent</label>
+            <label><input type="radio" name="mode" value="cloud" /> Cloud</label>
             <label><input type="radio" name="mode" value="ask" /> Ask</label>
             <label><input type="radio" name="mode" value="plan" /> Plan</label>
           </div>

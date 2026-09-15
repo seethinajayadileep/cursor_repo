@@ -20,7 +20,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from cursor_pocket.auth import Auth
-from cursor_pocket.desktop import DesktopError, desktop_available, send_prompt
+from cursor_pocket.desktop import DesktopError, cloud_script, desktop_available, send_prompt
 from cursor_pocket.jobs import JobStore
 from cursor_pocket.runner import Runner, _desktop_result
 from cursor_pocket.server import PocketState, serve
@@ -47,6 +47,7 @@ class FakeCursorDesktop:
         self.opened: list[str] = []
         self.copied: list[str] = []
         self.send_count = 0
+        self.sends: list[dict] = []
         self.stop_count = 0
         self.reads = 0
         self.silent = False
@@ -58,8 +59,9 @@ class FakeCursorDesktop:
     def copy_prompt(self, prompt: str) -> None:
         self.copied.append(prompt)
 
-    def send_prompt(self) -> None:
+    def send_prompt(self, *args, **kwargs) -> None:
         self.send_count += 1
+        self.sends.append({"args": args, "kwargs": kwargs})
         self.reads = 0
 
     def request_stop(self) -> None:
@@ -219,6 +221,7 @@ class DesktopE2ETests(unittest.TestCase):
 
         self.assertEqual(job["status"], "done")
         self.assertEqual(self.fake.send_count, 1)
+        self.assertEqual(self.fake.sends[0]["kwargs"].get("kind"), "agent")
         self.assertEqual(self.fake.copied, ["fix a.txt so the tests pass"])
         self.assertEqual(self.fake.opened, [str(self.root)])
         self.assertTrue(job["session_id"].startswith("desktop-"))
@@ -297,6 +300,32 @@ class DesktopE2ETests(unittest.TestCase):
         assistant = next(event["text"] for event in job["events"] if event.get("kind") == "assistant")
         self.assertIn("Accessibility", assistant)
 
+    def test_cloud_mode_opens_agents_composer(self):
+        token = self._pair()
+        status, created = self._json(
+            "POST",
+            "/api/jobs",
+            {"prompt": "run this in cloud agents", "mode": "cloud"},
+            token=token,
+        )
+        self.assertEqual(status, 201)
+        job = self._wait_job(created["job"]["id"], token)
+        self.assertEqual(job["status"], "done")
+        self.assertTrue(job["session_id"].startswith("cloud-"))
+        self.assertEqual(self.fake.sends[0]["kwargs"]["kind"], "cloud")
+        self.assertTrue(self.fake.sends[0]["kwargs"]["new_chat"])
+        status, follow = self._json(
+            "POST",
+            f"/api/jobs/{job['id']}/follow-up",
+            {"prompt": "continue"},
+            token=token,
+        )
+        self.assertEqual(status, 201)
+        follow_job = self._wait_job(follow["job"]["id"], token)
+        self.assertEqual(follow_job["status"], "done")
+        self.assertEqual(self.fake.sends[-1]["kwargs"]["kind"], "cloud")
+        self.assertFalse(self.fake.sends[-1]["kwargs"]["new_chat"])
+
 
 class DesktopGuardsTests(unittest.TestCase):
     def test_desktop_unavailable_on_linux(self) -> None:
@@ -305,6 +334,15 @@ class DesktopGuardsTests(unittest.TestCase):
     def test_send_prompt_refuses_non_mac(self) -> None:
         with self.assertRaises(DesktopError):
             send_prompt()
+
+    def test_cloud_script_opens_agents_not_ide_composer(self) -> None:
+        script = cloud_script(new_chat=True)
+        self.assertIn("New Chat", script)
+        self.assertIn("Cloud", script)
+        self.assertNotIn('keystroke "i" using {command down}', script)
+        follow = cloud_script(new_chat=False)
+        self.assertNotIn("New Chat", follow)
+        self.assertIn('keystroke "v"', follow)
 
     def test_desktop_result_joins_reply_and_files(self) -> None:
         text = _desktop_result("hello from Cursor", {"text": "Files Cursor changed:\n  • a.txt"})

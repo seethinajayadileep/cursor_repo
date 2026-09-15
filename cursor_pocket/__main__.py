@@ -110,7 +110,7 @@ def main(argv: list[str] | None = None) -> int:
         print("  Mode: DEMO — Cursor will NOT run. This only tests the phone UI.")
         print("  To actually click Send in Cursor, stop this (Ctrl+C) and rerun without --demo.")
     elif runner.target == "desktop":
-        print("  Target: Cursor desktop (paste prompt + Send)")
+        print("  Target: Cursor desktop — Agent = local Cmd+I, Cloud = Agents chat prompt box")
         print("  Grant Accessibility to Terminal/Python in macOS Settings.")
     else:
         print(f"  Agent CLI: {runner.agent_bin}")

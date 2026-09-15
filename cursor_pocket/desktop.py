@@ -80,7 +80,105 @@ def copy_prompt(prompt: str) -> None:
     subprocess.run(["pbcopy"], input=prompt.encode("utf-8"), check=True, timeout=10)
 
 
-def send_prompt() -> None:
+def cloud_script(*, new_chat: bool = True) -> str:
+    """Open the Agents / Cloud composer, click it, paste, and Send (Return).
+
+    This is not Cmd+I (local IDE Agent). It targets the Agents sidebar chat
+    with the bottom prompt box and the Cloud picker.
+    """
+    open_chat = ""
+    if new_chat:
+        open_chat = r"""
+  -- New Cloud Agent thread (Agents UI, not the IDE Cmd+I box)
+  try
+    click menu item "New Chat" of menu "File" of menu bar 1
+  end try
+  delay 0.25
+  try
+    click menu item "New Agent" of menu "File" of menu bar 1
+  end try
+  delay 0.25
+  try
+    click menu item "Agents" of menu "View" of menu bar 1
+  end try
+  delay 0.25
+  my clickNamed("New Chat")
+  delay 0.35
+  keystroke "l" using {command down}
+  delay 0.6
+  my clickNamed("Cloud")
+  delay 0.35
+"""
+    return rf"""
+on clickNamed(wanted)
+  tell application "System Events"
+    tell process "Cursor"
+      set spots to {{window 1}}
+      try
+        set spots to spots & (every group of window 1)
+      end try
+      try
+        set spots to spots & (every group of every group of window 1)
+      end try
+      try
+        set spots to spots & (every splitter group of window 1)
+      end try
+      repeat with spot in spots
+        try
+          click (first button of spot whose name is wanted)
+          return true
+        end try
+        try
+          click (first UI element of spot whose name is wanted)
+          return true
+        end try
+        try
+          click (first pop up button of spot whose name is wanted)
+          return true
+        end try
+      end repeat
+    end tell
+  end tell
+  return false
+end clickNamed
+
+tell application "Cursor" to activate
+delay 1.0
+tell application "System Events"
+  if not (exists process "Cursor") then error "Cursor desktop is not running."
+  tell process "Cursor"
+    set frontmost to true
+    delay 0.4
+{open_chat}
+    -- Click the prompt box (bottom composer), paste, Send
+    try
+      set areas to text areas of window 1
+      if (count of areas) > 0 then
+        click last item of areas
+      end if
+    end try
+    delay 0.25
+    try
+      set areas to text areas of every group of window 1
+      if (count of areas) > 0 then
+        click last item of areas
+      end if
+    end try
+    delay 0.25
+    keystroke "a" using {{command down}}
+    delay 0.1
+    keystroke "v" using {{command down}}
+    delay 0.4
+    key code 36
+  end tell
+end tell
+"""
+
+
+def send_prompt(*, kind: str = "agent", new_chat: bool = True) -> None:
+    if kind == "cloud":
+        _osascript(cloud_script(new_chat=new_chat))
+        return
     _osascript(SEND_SCRIPT)
 
 
