@@ -4,7 +4,7 @@
 
 **Using a MacBook + Android?** Follow **[MACBOOK_ANDROID.md](MACBOOK_ANDROID.md)** (install the phone app, start Pocket on the Mac, send prompts).
 
-Cursor has no Android app. The iOS app only drives **cloud** agents. Pocket is a laptop daemon plus a phone web app. Use the same Wi-Fi, **or** put both devices on the internet with `--online`.
+Cursor has no Android app. The iOS app only drives **cloud** agents. Pocket is a laptop daemon plus a phone web app. Use the same Wi-Fi, two virtual machines, USB, **or** (only if you need it) `--online` on the public internet. Internet is not required.
 
 ```text
   Android Chrome                         Laptop (stays on)
@@ -30,7 +30,7 @@ No Play Store build is required. Chrome on Android opens the laptop URL (LAN) or
 
 **What “local” means here:** prompts still run as Cursor CLI **on the laptop**. Pocket is only the remote control. The phone never talks to Cursor Cloud Agents.
 
-- **Same Wi-Fi / hotspot / USB:** no internet required between phone and laptop.
+- **Same Wi-Fi / hotspot / USB / two VMs:** no internet required between phone and laptop.
 - **Different networks:** both devices need internet. `--online` opens a public HTTPS URL (Cloudflare or ngrok). Or install Tailscale on both and use the Tailscale IP like a LAN address.
 
 Cursor CLI on the laptop still uses whatever that machine already uses for models (Cursor API, or a local model if you have one).
@@ -100,7 +100,21 @@ Laptop pairing page (QR + PIN, localhost only): [http://127.0.0.1:8787/host](htt
 
 Chrome menu → **Add to Home screen** / **Install app** gives an icon. Full install + notifications on Wi-Fi need a [secure context](https://developer.mozilla.org/en-US/docs/Web/Security/Secure_Contexts): use USB localhost, `--https`, or `--online` (real HTTPS).
 
-### 3. Phone and laptop both online (different networks)
+### 3. Two virtual machines (no internet)
+
+Pocket on the host VM, the Android emulator or another guest on the same hypervisor:
+
+1. On the **host** VM: `python3 -m cursor_pocket --workspace ~/your-project` (do **not** pass `--online`).
+2. Inside the **guest** (Android emulator, QEMU user-net, VirtualBox NAT) open:
+
+   `http://10.0.2.2:8787`
+
+   `10.0.2.2` is the host as seen from the guest. The guest does not need a public internet route.
+3. If both VMs are on a host-only / internal network instead, use the host’s `192.168.*` or `172.16–31.*` address printed at startup.
+
+USB from a physical phone to the host is the same idea: `adb reverse tcp:8787 tcp:8787` then `http://127.0.0.1:8787`.
+
+### 4. Phone and laptop both online (different networks)
 
 On the laptop, install [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/) **or** [ngrok](https://ngrok.com/download), then:
 
@@ -114,7 +128,7 @@ The terminal prints a public HTTPS URL (and the same QR on http://127.0.0.1:8787
 
 **More private alternative:** install [Tailscale](https://tailscale.com) on the phone and the laptop, then open `http://<laptop-tailscale-ip>:8787` on the phone. Do not pass `--online`. Traffic stays on your tailnet.
 
-### 4. USB, no Wi-Fi
+### 5. USB, no Wi-Fi
 
 On the laptop (with [platform-tools](https://developer.android.com/tools/releases/platform-tools) / `adb`):
 
@@ -132,7 +146,7 @@ On the phone open `http://127.0.0.1:8787`. That is localhost, so Chrome treats i
 | `--pin 123456` | Fix the PIN (otherwise random each start) |
 | `--demo` | Fake a run; no `agent` binary needed |
 | `--https` | Self-signed TLS (cert in `~/.cursor-pocket/`) |
-| `--online` | Public HTTPS URL via cloudflared or ngrok so the phone can be on another network |
+| `--online` | Optional public HTTPS URL via cloudflared or ngrok. Skip this on LAN or between two VMs |
 | `--no-force` | Do not pass `--force` to CLI (commands may wait for approval on the laptop) |
 | `--no-trust` | Do not pass `--trust` |
 | `--host` / `--port` | Bind address (default `0.0.0.0:8787`) |

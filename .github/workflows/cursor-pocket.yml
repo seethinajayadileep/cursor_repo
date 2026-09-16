@@ -5,15 +5,7 @@ on:
     paths:
       - "cursor_pocket/**"
       - "web/**"
-      - "tests/test_auth.py"
-      - "tests/test_jobs.py"
-      - "tests/test_parse.py"
-      - "tests/test_api.py"
-      - "tests/test_net.py"
-      - "tests/test_tunnel.py"
-      - "tests/test_changes.py"
-      - "tests/test_desktop_e2e.py"
-      - "tests/test_apk.py"
+      - "tests/**"
       - "pyproject.toml"
       - ".github/workflows/cursor-pocket.yml"
   pull_request:

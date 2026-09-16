@@ -68,7 +68,7 @@ Folder must contain `cursor_pocket/` and `web/`.
 
 Leave **Cursor desktop** open on your project. The Mac must stay **awake and unlocked**. Open a terminal **and do not close it**.
 
-**Same Wi-Fi as the phone** (home router, or turn on Mac hotspot and join it from Android):
+**Same Wi-Fi as the phone, two VMs, or USB** — internet is **not** required (home router, Mac hotspot, Android emulator `10.0.2.2`, or `adb reverse`):
 
 ```bash
 cd /Users/jaya/Desktop/Cursor-Pocket
@@ -79,7 +79,11 @@ python3 -m cursor_pocket --workspace /Users/you/Projects/my-app
 
 Use the **real path** of the project you have open in Cursor.
 
-**Phone on mobile data / another Wi-Fi** (both devices online). First install [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/) **or** [ngrok](https://ngrok.com/download), then:
+**Two virtual machines** (host Pocket + Android emulator / another guest, no internet):
+
+On the host run the same command as above. In the guest browser or Pocket APK paste `http://10.0.2.2:8787`.
+
+**Phone on mobile data / another Wi-Fi only** (both devices online). First install [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/) **or** [ngrok](https://ngrok.com/download), then:
 
 ```bash
 cd /Users/jaya/Desktop/Cursor-Pocket
@@ -173,8 +177,9 @@ If you already started with `--demo` on a Mac that has Cursor (0.3.3+), Pocket s
 
 ## If the phone cannot open the URL
 
-- Same Wi-Fi: both on the same network. “Guest” Wi-Fi often blocks phone→Mac. Use the Mac hotspot or `--online`.
-- `--online`: Mac must have `cloudflared` or `ngrok`. Phone needs internet. Anyone with the URL still needs the PIN.
+- Same Wi-Fi: both on the same network. “Guest” Wi-Fi often blocks phone→Mac. Use the Mac hotspot, USB, two VMs, or `--online`.
+- Two VMs / Android emulator: from the guest open `http://10.0.2.2:8787`. Internet is not required.
+- `--online`: only when the phone is on another network. Mac must have `cloudflared` or `ngrok`. Phone needs internet. Anyone with the URL still needs the PIN.
 - Mac firewall blocked Python: System Settings → Network → Firewall → Options → allow Python.
 - Wrong project path: `--workspace` must be the folder Cursor has open.
 - `No Cursor desktop`: install Cursor, or pass `--demo` / `--cli`.

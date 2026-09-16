@@ -13,7 +13,7 @@ from .apk import apk_path
 from .auth import Auth
 from .desktop import desktop_available
 from .jobs import JobStore
-from .net import public_base_urls
+from .net import format_connect_help
 from .runner import Runner, find_agent
 from .server import PocketHTTPServer, PocketState
 from .tls import wrap_https
@@ -99,8 +99,6 @@ def main(argv: list[str] | None = None) -> int:
         wrap_https(httpd)
         scheme = "https"
     state.port = httpd.server_address[1]
-    urls = public_base_urls(args.host, state.port)
-    phone_urls = [u.replace("http://", f"{scheme}://", 1) for u in urls]
     host_url = f"{scheme}://127.0.0.1:{state.port}/host"
 
     tunnel = None
@@ -111,25 +109,13 @@ def main(argv: list[str] | None = None) -> int:
 
     print()
     print(f"{__app_name__} v{__version__}")
-    if state.online_url:
-        print("Phone remote for Cursor desktop. Laptop and phone both use the internet.")
-    else:
-        print("Phone remote for Cursor desktop. Keep Cursor open on this Mac.")
-        print("Need the phone on another network? Rerun with --online.")
+    print("Phone remote for Cursor desktop. Keep Cursor open on this Mac.")
+    print("Internet is optional. Same Wi-Fi, two VMs, USB, or laptop hotspot is enough.")
     print("Keep this window open, keep the Mac awake and unlocked, and leave Cursor running.")
     print()
     print(f"  Laptop pairing page: {host_url}")
-    if state.online_url:
-        print()
-        print(f"  Phone (any network with internet):  {state.online_url}")
-        print("  Scan the QR on the laptop pairing page, or paste that URL in Chrome.")
-        print("  Anyone who has the URL still needs the PIN.")
-    print("  Phone (same Wi-Fi, laptop hotspot, or USB):")
-    for url in phone_urls:
-        if "127.0.0.1" in url:
-            print(f"    laptop browser also: {url}")
-        else:
-            print(f"    {url}")
+    print()
+    print(format_connect_help(args.host, state.port, state.online_url, scheme=scheme), end="")
     print()
     print(f"  PIN  {auth.pin[0:3]} {auth.pin[3:6]}")
     if apk_path():
@@ -153,8 +139,7 @@ def main(argv: list[str] | None = None) -> int:
         print()
         print("  HTTPS uses a self-signed cert. On the phone tap Advanced → Proceed.")
     print()
-    print("  USB without Wi-Fi:  adb reverse tcp:%s tcp:%s" % (state.port, state.port))
-    print(f"  then open {scheme}://127.0.0.1:{state.port} on the phone.")
+    print("  USB is listed above. PIN is required even on a public --online URL.")
     print()
     print("Leave the phone page open to see (and be notified of) a finished run.")
     print("Ctrl+C to stop.")
@@ -225,7 +210,7 @@ def _parse(argv: list[str] | None) -> argparse.Namespace:
     parser.add_argument(
         "--online",
         action="store_true",
-        help="Give the phone a public HTTPS URL (cloudflared or ngrok). Both devices need internet.",
+        help="Optional public HTTPS URL (cloudflared or ngrok). Not needed on LAN or between two VMs.",
     )
     parser.add_argument("--version", action="version", version=f"%(prog)s {__version__}")
     return parser.parse_args(argv)

@@ -57,9 +57,13 @@ class ApiTests(unittest.TestCase):
         self.assertIn("Cursor Pocket", html)
         self.assertIn("Pair with laptop", html)
         self.assertIn("apk", body)
+        self.assertFalse(body["internet_required"])
+        self.assertTrue(body["vm_url"].startswith("http://10.0.2.2:"))
         self.assertIn("Install Android app", html)
         self.assertIn("Chat window", html)
         self.assertIn("Message Cursor", html)
+        self.assertIn("10.0.2.2", html)
+        self.assertIn("Internet is optional", html)
 
     def test_host_includes_online_url(self) -> None:
         self.state.online_url = "https://demo.trycloudflare.com"
@@ -68,12 +72,18 @@ class ApiTests(unittest.TestCase):
         self.assertEqual(body["online_url"], "https://demo.trycloudflare.com")
         status, health = self._json("GET", "/api/health")
         self.assertTrue(health["online"])
+        status, host = self._json("GET", "/api/host")
+        self.assertIn("internet", [item["kind"] for item in host["routes"]])
 
     def test_host_pin_on_localhost(self) -> None:
         status, body = self._json("GET", "/api/host")
         self.assertEqual(status, 200)
         self.assertEqual(body["pin"], "123456")
         self.assertIsNone(body.get("online_url"))
+        self.assertTrue(body["vm_url"].startswith("http://10.0.2.2:"))
+        kinds = [item["kind"] for item in body["routes"]]
+        self.assertIn("emulator", kinds)
+        self.assertNotIn("internet", kinds)
 
     def test_host_pin_hidden_when_forwarded(self) -> None:
         req = urllib.request.Request(

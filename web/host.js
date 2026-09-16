@@ -15,16 +15,19 @@ async function main() {
     }
     pin.textContent = data.pin;
     nameEl.textContent = data.laptop || "";
+    const routes = data.routes || [];
     const lan = (data.urls || []).find((url) => !url.includes("127.0.0.1")) || (data.urls || [])[0];
+    const vm = data.vm_url || (routes.find((item) => item.kind === "emulator") || {}).url;
     const phone = data.online_url || lan;
     urlEl.textContent = phone || "";
+    const extra = [];
+    if (vm) extra.push(`Two VMs / emulator: ${vm}`);
+    if (data.online_url) extra.push(`Internet: ${data.online_url}`);
     const target = data.demo ? "demo mode" : data.target === "desktop" ? "Cursor desktop" : "Cursor CLI";
     const folders = (data.workspaces || []).map((item) => item.name).join(", ");
     meta.textContent = `${target} · ${folders}`;
     if (modeLine) {
-      modeLine.textContent = data.online_url
-        ? "Internet URL (phone can be on another network). PIN stays on this laptop page."
-        : "LAN URL. For another network, restart with --online.";
+      modeLine.textContent = extra.join(" · ") || "LAN URL. Internet is not required.";
     }
     const apk = document.getElementById("apk-link");
     if (apk) apk.hidden = !data.apk;

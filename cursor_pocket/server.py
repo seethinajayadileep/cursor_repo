@@ -1,4 +1,4 @@
-"""Stdlib HTTP + SSE server. Phone and laptop talk only over the local network."""
+"""Stdlib HTTP + SSE server. Phone and laptop talk over LAN, two VMs, USB, or an optional internet tunnel."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from .apk import apk_path
 from .auth import Auth, AuthError, extract_bearer
 from .desktop import list_chats
 from .jobs import JobStore
-from .net import public_base_urls
+from .net import connection_routes, guest_host_url, public_base_urls
 from .runner import Runner
 
 WEB_ROOT = Path(__file__).resolve().parent.parent / "web"
@@ -182,6 +182,8 @@ class PocketHandler(BaseHTTPRequestHandler):
             "agent": self.state.runner.available(),
             "demo": self.state.runner.demo,
             "online": bool(self.state.online_url),
+            "internet_required": False,
+            "vm_url": guest_host_url(self.state.port),
             "target": self.state.runner.target,
             "apk": apk_path() is not None,
         }
@@ -196,6 +198,8 @@ class PocketHandler(BaseHTTPRequestHandler):
                 "pin": self.state.auth.pin,
                 "laptop": self.state.laptop_name,
                 "urls": public_base_urls(self.state.host, self.state.port),
+                "routes": connection_routes(self.state.host, self.state.port, self.state.online_url),
+                "vm_url": guest_host_url(self.state.port),
                 "workspaces": self.state.workspaces,
                 "demo": self.state.runner.demo,
                 "agent_path": self.state.runner.agent_bin,

@@ -11,7 +11,7 @@
   <main class="host-wrap">
     <p class="eyebrow">Laptop pairing</p>
     <h1>Cursor Pocket</h1>
-    <p class="lede">Scan from the Android phone, then enter the PIN. Same Wi-Fi or, with <code>--online</code>, any network where both devices have internet. This page only reveals the PIN on the laptop itself.</p>
+    <p class="lede">Scan from the Android phone, then enter the PIN. Internet is optional: same Wi-Fi, two virtual machines (<code>http://10.0.2.2</code> from the guest), USB, or <code>--online</code> when the phone is on another network. This page only reveals the PIN on the laptop itself.</p>
     <div class="host-grid">
       <section class="card">
         <div id="qr" class="qr"></div>
@@ -26,7 +26,7 @@
         <p id="mode-line" class="hint"></p>
         <p><a id="apk-link" class="apk-btn" href="/apk/cursor-pocket.apk" hidden>Install Android app (APK)</a></p>
         <ol class="help-list">
-          <li>Same Wi-Fi, or both devices on the internet with <code>--online</code>.</li>
+          <li>Same Wi-Fi or two VMs (no internet). <code>--online</code> only if the phone is on another network.</li>
           <li>Open the URL or scan the QR.</li>
           <li>Type the PIN once. Prompts run through Cursor CLI on this machine.</li>
           <li>No Wi-Fi: <code>adb reverse tcp:8787 tcp:8787</code> then <code>http://127.0.0.1:8787</code>.</li>

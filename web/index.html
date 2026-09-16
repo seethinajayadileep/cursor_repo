@@ -11,7 +11,7 @@
   <link rel="manifest" href="/manifest.webmanifest" />
   <link rel="icon" href="/icons/icon-192.png" type="image/png" />
   <link rel="apple-touch-icon" href="/icons/icon-192.png" />
-  <link rel="stylesheet" href="/style.css?v=0.3.8.1" />
+  <link rel="stylesheet" href="/style.css?v=0.3.9" />
 </head>
 <body>
   <div id="app">
@@ -26,7 +26,7 @@
         <input id="pin" name="pin" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="one-time-code" placeholder="______" required />
         <p id="pair-error" class="error" hidden></p>
         <button type="submit" id="pair-btn">Pair with laptop</button>
-        <p class="hint">Same Wi-Fi, internet (<code>--online</code>), laptop hotspot, or USB. PIN is printed in the laptop terminal and on <code>/host</code>.</p>
+        <p class="hint">Internet is optional. Same Wi-Fi, two VMs (<code>http://10.0.2.2:8787</code> from the guest), laptop hotspot, or USB. Use <code>--online</code> only when the phone is on another network. PIN is on the laptop terminal and <code>/host</code>.</p>
         <a id="apk-link" class="apk-btn" href="/apk/cursor-pocket.apk" hidden>Install Android app (APK)</a>
         <p id="apk-hint" class="hint" hidden>On the phone: download, tap the file, allow install from this browser. Then open <strong>Cursor Pocket</strong>, paste the laptop URL, enter the PIN.</p>
       </form>
@@ -35,7 +35,7 @@
         <ol>
           <li>On the Mac: open your project in <strong>Cursor</strong>, then run <code>python3 -m cursor_pocket --workspace ~/your-project</code></li>
           <li>Allow Terminal under <strong>System Settings → Privacy &amp; Security → Accessibility</strong> (the app-permission list, not Zoom/VoiceOver), so Pocket can click Send.</li>
-          <li>Same Wi-Fi: open the LAN URL. Away from home: use <code>--online</code>.</li>
+          <li>Same Wi-Fi or two VMs: open the LAN / <code>10.0.2.2</code> URL. Away from home: <code>--online</code>.</li>
           <li>Type the 6-digit PIN once.</li>
         </ol>
       </details>
@@ -131,6 +131,6 @@
       </div>
     </section>
   </div>
-  <script src="/app.js?v=0.3.8.1"></script>
+  <script src="/app.js?v=0.3.9"></script>
 </body>
 </html>

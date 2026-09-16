@@ -8,6 +8,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -19,6 +20,7 @@ import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -29,6 +31,10 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
+import org.json.JSONObject
+import java.io.ByteArrayInputStream
+import java.net.HttpURLConnection
+import java.net.URL
 import java.util.concurrent.atomic.AtomicInteger
 
 class MainActivity : AppCompatActivity() {
@@ -98,10 +104,12 @@ class MainActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         if (this::web.isInitialized) {
-            // USB reverse / LAN HTTP still work when Android reports "no internet".
+            // LAN / two VMs still work when Android reports "no internet".
             web.setNetworkAvailable(true)
         }
     }
+
+    private fun laptopUrl(): String = prefs().getString(KEY_URL, "").orEmpty().trimEnd('/')
 
     private fun load(url: String) {
         setup.visibility = View.GONE
@@ -109,11 +117,7 @@ class MainActivity : AppCompatActivity() {
         web.setNetworkAvailable(true)
         Thread {
             try {
-                val conn = java.net.URL(url).openConnection() as java.net.HttpURLConnection
-                conn.connectTimeout = 8000
-                conn.readTimeout = 20000
-                conn.instanceFollowRedirects = true
-                val html = conn.inputStream.bufferedReader(Charsets.UTF_8).readText()
+                val html = httpGet(url).decodeToString()
                 val base = url.trimEnd('/') + "/"
                 runOnUiThread {
                     web.loadDataWithBaseURL(base, html, "text/html", "utf-8", url)
@@ -130,9 +134,27 @@ class MainActivity : AppCompatActivity() {
         web.settings.domStorageEnabled = true
         web.settings.cacheMode = WebSettings.LOAD_NO_CACHE
         web.settings.mixedContentMode = WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE
+        web.settings.blockNetworkImage = false
+        web.settings.blockNetworkLoads = false
         web.setNetworkAvailable(true)
         web.webViewClient =
             object : WebViewClient() {
+                override fun shouldInterceptRequest(
+                    view: WebView,
+                    request: WebResourceRequest,
+                ): WebResourceResponse? {
+                    if (request.method != "GET") return null
+                    val uri = request.url ?: return null
+                    if (!isLaptop(uri)) return null
+                    val path = uri.path ?: ""
+                    if (path.contains("/events")) return null
+                    return try {
+                        proxyGet(uri.toString())
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+
                 override fun onReceivedError(
                     view: WebView,
                     request: WebResourceRequest,
@@ -144,10 +166,12 @@ class MainActivity : AppCompatActivity() {
                     view.loadData(
                         """
                         <html><body style="background:#000;color:#f5f5f7;font-family:-apple-system,sans-serif;padding:28px">
-                        <h2>Cannot reach the Mac</h2>
+                        <h2>Cannot reach the laptop</h2>
                         <p>$description</p>
                         <p style="color:#8e8e93">$target</p>
-                        <p>Same Wi-Fi, or USB: <code>adb reverse tcp:8787 tcp:8787</code></p>
+                        <p>Internet is not required. Same Wi-Fi, two VMs, or USB.</p>
+                        <p>Android emulator / nested VM: <code>http://10.0.2.2:8787</code></p>
+                        <p>USB: <code>adb reverse tcp:8787 tcp:8787</code> then <code>http://127.0.0.1:8787</code></p>
                         </body></html>
                         """.trimIndent(),
                         "text/html",
@@ -157,6 +181,14 @@ class MainActivity : AppCompatActivity() {
             }
         web.webChromeClient = WebChromeClient()
         web.addJavascriptInterface(PocketBridge(this), "PocketNative")
+    }
+
+    private fun isLaptop(uri: Uri): Boolean {
+        val saved = laptopUrl()
+        if (saved.isBlank()) return false
+        val laptop = Uri.parse(saved)
+        if (!uri.host.equals(laptop.host, ignoreCase = true)) return false
+        return effectivePort(uri) == effectivePort(laptop)
     }
 
     private fun ensureChannel() {
@@ -180,7 +212,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun prefs() = getSharedPreferences("pocket", Context.MODE_PRIVATE)
 
-    class PocketBridge(private val app: Context) {
+    class PocketBridge(private val app: MainActivity) {
         private val main = Handler(Looper.getMainLooper())
 
         @JavascriptInterface
@@ -190,6 +222,28 @@ class MainActivity : AppCompatActivity() {
 
         @JavascriptInterface
         fun notificationsReady(): Boolean = true
+
+        @JavascriptInterface
+        fun http(method: String, path: String, body: String, token: String): String {
+            return try {
+                val base = app.laptopUrl()
+                if (base.isBlank()) {
+                    return JSONObject().put("status", 0).put("error", "No laptop URL").toString()
+                }
+                val url =
+                    if (path.startsWith("http://") || path.startsWith("https://")) {
+                        path
+                    } else {
+                        base + if (path.startsWith("/")) path else "/$path"
+                    }
+                javaHttp(method, url, body, token)
+            } catch (e: Exception) {
+                JSONObject()
+                    .put("status", 0)
+                    .put("error", e.message ?: "Cannot reach the laptop")
+                    .toString()
+            }
+        }
 
         private fun post(title: String, body: String) {
             val launch = Intent(app, MainActivity::class.java).apply {
@@ -231,6 +285,70 @@ class MainActivity : AppCompatActivity() {
                     "http://$trimmed"
                 }
             return withScheme.trimEnd('/')
+        }
+
+        fun effectivePort(uri: Uri): Int {
+            if (uri.port != -1) return uri.port
+            return if (uri.scheme.equals("https", ignoreCase = true)) 443 else 80
+        }
+
+        fun httpGet(url: String): ByteArray {
+            val conn = open(url, "GET", null, "")
+            val code = conn.responseCode
+            val stream = if (code in 200..399) conn.inputStream else conn.errorStream
+            val bytes = stream?.readBytes() ?: ByteArray(0)
+            conn.disconnect()
+            if (code !in 200..399) {
+                throw IllegalStateException("HTTP $code")
+            }
+            return bytes
+        }
+
+        fun proxyGet(url: String): WebResourceResponse {
+            val conn = open(url, "GET", null, "")
+            val code = conn.responseCode
+            val rawType = conn.contentType ?: "application/octet-stream"
+            val mime = rawType.split(";", limit = 2)[0].trim().ifBlank { "application/octet-stream" }
+            val stream =
+                (if (code in 200..399) conn.inputStream else conn.errorStream)
+                    ?: ByteArrayInputStream(ByteArray(0))
+            val headers =
+                conn.headerFields
+                    .filterKeys { it != null }
+                    .mapValues { it.value.joinToString(",") }
+            return WebResourceResponse(mime, "utf-8", code, "OK", headers, stream)
+        }
+
+        fun javaHttp(method: String, url: String, body: String, token: String): String {
+            val conn = open(url, method.uppercase(), body, token)
+            val code = conn.responseCode
+            val stream = if (code in 200..399) conn.inputStream else conn.errorStream
+            val text = stream?.bufferedReader(Charsets.UTF_8)?.readText() ?: ""
+            conn.disconnect()
+            return JSONObject()
+                .put("status", code)
+                .put("body", text)
+                .toString()
+        }
+
+        private fun open(url: String, method: String, body: String?, token: String): HttpURLConnection {
+            val conn = URL(url).openConnection() as HttpURLConnection
+            conn.connectTimeout = 8000
+            conn.readTimeout = 25000
+            conn.instanceFollowRedirects = true
+            conn.requestMethod = method
+            conn.useCaches = false
+            if (token.isNotBlank()) {
+                conn.setRequestProperty("Authorization", "Bearer $token")
+            }
+            if (method != "GET" && method != "HEAD") {
+                conn.doOutput = true
+                conn.setRequestProperty("Content-Type", "application/json")
+                val payload = (body ?: "").toByteArray(Charsets.UTF_8)
+                conn.setRequestProperty("Content-Length", payload.size.toString())
+                conn.outputStream.use { it.write(payload) }
+            }
+            return conn
         }
     }
 }

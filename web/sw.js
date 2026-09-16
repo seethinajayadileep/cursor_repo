@@ -1,5 +1,5 @@
-const CACHE = "cursor-pocket-v12";
-const ASSETS = ["/", "/index.html", "/style.css?v=0.3.8.1", "/app.js?v=0.3.8.1", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
+const CACHE = "cursor-pocket-v13";
+const ASSETS = ["/", "/index.html", "/style.css?v=0.3.9", "/app.js?v=0.3.9", "/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE).then((cache) => cache.addAll(ASSETS)).then(() => self.skipWaiting()));

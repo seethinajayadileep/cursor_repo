@@ -13,9 +13,14 @@ const state = {
   wakeLock: null,
   announced: new Set(),
   healthTimer: 0,
+  pollTimer: 0,
   canFollow: false,
   thread: [],
 };
+
+function hasNativeHttp() {
+  return Boolean(window.PocketNative && typeof window.PocketNative.http === "function");
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -44,6 +49,31 @@ function headers(json) {
 }
 
 async function api(path, options = {}) {
+  if (hasNativeHttp()) {
+    const method = String(options.method || "GET").toUpperCase();
+    const payload = options.body == null ? "" : String(options.body);
+    let parsed;
+    try {
+      parsed = JSON.parse(window.PocketNative.http(method, path, payload, state.token || ""));
+    } catch {
+      throw new Error("Cannot reach the laptop (no internet needed — check the VM / LAN URL).");
+    }
+    if (!parsed || parsed.status === 0) {
+      throw new Error(parsed && parsed.error ? parsed.error : "Cannot reach the laptop");
+    }
+    let data = {};
+    try {
+      data = parsed.body ? JSON.parse(parsed.body) : {};
+    } catch {
+      data = { error: parsed.body || "Laptop returned invalid data" };
+    }
+    if (parsed.status >= 400) {
+      const error = new Error(data.error || parsed.error || "Request failed");
+      error.status = parsed.status;
+      throw error;
+    }
+    return data;
+  }
   const response = await fetch(path, {
     ...options,
     headers: { ...headers(Boolean(options.body)), ...(options.headers || {}) },
@@ -370,10 +400,36 @@ function openJob(jobId, opts = {}) {
   $("chat-heading").textContent = headingFor(job || { prompt: $("active-prompt").textContent });
   state.activeStatus = job ? job.status : "queued";
   if (!keep) logEl.innerHTML = "";
+  if (hasNativeHttp()) {
+    pollJob(jobId);
+  } else {
+    startEventSource(jobId);
+  }
+  renderHistory();
+}
+
+function applyJobPayload(job) {
+  if (!job) return;
+  state.events = job.events || [];
+  updateActive(job);
+  renderLog();
+  if (["done", "error", "canceled"].includes(job.status)) {
+    onTerminal(job);
+    closeStream();
+    refreshJobs().catch(() => {});
+  }
+}
+
+function startEventSource(jobId) {
   const token = encodeURIComponent(state.token);
   const source = new EventSource(`/api/jobs/${jobId}/events?token=${token}`);
   state.source = source;
+  let opened = false;
+  source.onopen = () => {
+    opened = true;
+  };
   source.onmessage = (message) => {
+    opened = true;
     let payload;
     try {
       payload = JSON.parse(message.data);
@@ -396,9 +452,33 @@ function openJob(jobId, opts = {}) {
     pushEvent(payload);
   };
   source.onerror = () => {
-    /* browser retries; banner only if we lost the laptop */
+    if (opened) return;
+    window.setTimeout(() => {
+      if (opened || state.source !== source) return;
+      try {
+        source.close();
+      } catch {
+        /* ignore */
+      }
+      state.source = null;
+      pollJob(jobId);
+    }, 800);
   };
-  renderHistory();
+}
+
+function pollJob(jobId) {
+  const tick = async () => {
+    if (state.activeId !== jobId) return;
+    try {
+      const data = await api(`/api/jobs/${jobId}`);
+      applyJobPayload(data.job);
+      if (["done", "error", "canceled"].includes((data.job || {}).status)) return;
+    } catch {
+      showBanner("Cannot reach the laptop. Is Cursor Pocket still running?");
+    }
+    state.pollTimer = setTimeout(tick, 400);
+  };
+  tick();
 }
 
 function headingFor(job) {
@@ -613,6 +693,10 @@ function closeStream() {
     state.source.close();
     state.source = null;
   }
+  if (state.pollTimer) {
+    clearTimeout(state.pollTimer);
+    state.pollTimer = 0;
+  }
 }
 
 function announce(job) {
@@ -727,7 +811,7 @@ function pingHealth() {
   if (state.healthTimer) return;
   state.healthTimer = setInterval(async () => {
     try {
-      await fetch("/api/health").then((r) => r.json());
+      await api("/api/health");
     } catch {
       showBanner("Cannot reach the laptop. Is Cursor Pocket still running?");
     }
@@ -786,8 +870,7 @@ function wireChrome() {
 }
 
 function showApkDownload() {
-  fetch("/api/health")
-    .then((r) => r.json())
+  api("/api/health")
     .then((data) => {
       const link = $("apk-link");
       const hint = $("apk-hint");

@@ -1,7 +1,7 @@
 [project]
 name = "cursor-pocket"
-version = "0.3.8"
-description = "Phone remote for Cursor CLI: LAN or internet (--online)."
+version = "0.3.9"
+description = "Phone remote for Cursor CLI: LAN, two VMs, or optional internet (--online)."
 readme = "CURSOR_POCKET.md"
 requires-python = ">=3.10"
 license = { file = "cursor_pocket/LICENSE" }

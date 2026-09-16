@@ -48,4 +48,10 @@ Then restart Pocket so the phone page offers the download.
 2. Android Studio → **Open** → this `android/` folder.
 3. Green **Run**.
 
-The first screen asks for the laptop URL (`http://192.168.…:8787` or the `https://….trycloudflare.com` link). Menu (**⋮**) → **Change laptop URL** if the tunnel URL changes.
+The first screen asks for the laptop URL. Internet is optional:
+
+- Same Wi-Fi: `http://192.168.…:8787`
+- Android emulator / nested VM: `http://10.0.2.2:8787`
+- `--online`: the `https://….trycloudflare.com` link
+
+Menu (**⋮**) → **Change laptop URL** if the address changes.
