@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.CursorPocket" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <item name="colorPrimary">@color/pocket_accent</item>
+        <item name="colorPrimaryVariant">@color/pocket_bg</item>
+        <item name="colorOnPrimary">@color/pocket_bg</item>
+        <item name="android:statusBarColor">@color/pocket_bg</item>
+        <item name="android:navigationBarColor">@color/pocket_bg</item>
+        <item name="android:windowBackground">@color/pocket_bg</item>
+    </style>
+</resources>

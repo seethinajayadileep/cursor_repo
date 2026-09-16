@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Cursor Pocket · Laptop</title>
+  <link rel="icon" href="/icons/icon-192.png" type="image/png" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body class="host-body">
+  <main class="host-wrap">
+    <p class="eyebrow">Laptop pairing</p>
+    <h1>Cursor Pocket</h1>
+    <p class="lede">Scan from the Android phone, then enter the PIN. Internet is optional: same Wi-Fi, two virtual machines (<code>http://10.0.2.2</code> from the guest), USB, or <code>--online</code> when the phone is on another network. This page only reveals the PIN on the laptop itself.</p>
+    <div class="host-grid">
+      <section class="card">
+        <div id="qr" class="qr"></div>
+        <p id="phone-url" class="mono"></p>
+        <p id="host-error" class="error" hidden></p>
+      </section>
+      <section class="card">
+        <p class="hint">PIN</p>
+        <p id="host-pin" class="pin-display">······</p>
+        <p id="laptop-name" class="hint"></p>
+        <p id="meta" class="hint"></p>
+        <p id="mode-line" class="hint"></p>
+        <p><a id="apk-link" class="apk-btn" href="/apk/cursor-pocket.apk" hidden>Install Android app (APK)</a></p>
+        <ol class="help-list">
+          <li>Same Wi-Fi or two VMs (no internet). <code>--online</code> only if the phone is on another network.</li>
+          <li>Open the URL or scan the QR.</li>
+          <li>Type the PIN once. Prompts run through Cursor CLI on this machine.</li>
+          <li>No Wi-Fi: <code>adb reverse tcp:8787 tcp:8787</code> then <code>http://127.0.0.1:8787</code>.</li>
+        </ol>
+      </section>
+    </div>
+  </main>
+  <script src="/vendor/qrcode.min.js"></script>
+  <script src="/host.js"></script>
+</body>
+</html>

@@ -1,5 +1,9 @@
 # PII Redaction Tool
 
+This repository also includes **Cursor Pocket**, a phone remote for Cursor CLI on a MacBook (same Wi-Fi, two VMs, USB, or optional `--online`). Mac + Android walkthrough: [MACBOOK_ANDROID.md](MACBOOK_ANDROID.md).
+
+---
+
 Python tool that reads the attached KSH International Red Herring Prospectus (or any PDF / ticket-log text file), finds personally identifiable information, replaces each value with a **stable fake stand-in**, and writes a redacted `.docx`.
 
 ## Approach
