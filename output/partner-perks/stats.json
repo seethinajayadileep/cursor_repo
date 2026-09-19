@@ -1,0 +1,9 @@
+{
+  "source_rows": 1312,
+  "unique_urls": 1125,
+  "fetch_ok": 1005,
+  "fetch_fail": 120,
+  "unique_vendors_or_programs": 350,
+  "vendor_rows": 139,
+  "program_rows": 211
+}
