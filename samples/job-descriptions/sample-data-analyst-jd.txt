@@ -1,0 +1,25 @@
+# SAMPLE DATA — Data Analyst Job Description
+
+Company: SampleCorp
+Role: Data Analyst
+
+About the role
+SampleCorp is hiring a Data Analyst to turn raw data into actionable insights for product and go-to-market teams.
+
+Responsibilities
+- Write clean SQL to query warehouse tables
+- Build dashboards in Tableau or Power BI
+- Partner with stakeholders to define metrics
+- Perform exploratory analysis in Python
+- Communicate findings clearly in meetings
+
+Requirements
+- Strong SQL and analytical thinking
+- Experience with Python (Pandas) preferred
+- Dashboarding experience
+- Ability to explain insights to non-technical partners
+- Comfortable in interviews discussing past projects honestly
+
+Nice to have
+- A/B testing experience
+- Familiarity with experimentation platforms

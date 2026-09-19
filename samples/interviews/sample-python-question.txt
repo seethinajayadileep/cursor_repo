@@ -1,0 +1,4 @@
+# SAMPLE DATA — Python Coding Question
+
+Write a Python function to reverse a singly linked list.
+Discuss time and space complexity and edge cases (empty list, single node).

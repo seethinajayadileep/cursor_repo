@@ -1,0 +1,36 @@
+{
+  "name": "interviewpilot-ai",
+  "version": "1.0.0",
+  "private": true,
+  "description": "InterviewPilot AI — real-time AI copilot for interviews, meetings and technical conversations",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"npm run dev -w @interviewpilot/api\" \"npm run dev -w @interviewpilot/web\"",
+    "dev:api": "npm run dev -w @interviewpilot/api",
+    "dev:web": "npm run dev -w @interviewpilot/web",
+    "dev:desktop": "npm run dev -w @interviewpilot/desktop",
+    "build": "npm run build -w @interviewpilot/shared && npm run build -w @interviewpilot/config && npm run build -w @interviewpilot/database && npm run build -w @interviewpilot/documents && npm run build -w @interviewpilot/ai && npm run build -w @interviewpilot/speech && npm run build -w @interviewpilot/ui && npm run build -w @interviewpilot/api && npm run build -w @interviewpilot/web && npm run build -w @interviewpilot/desktop",
+    "build:web": "npm run build -w @interviewpilot/web",
+    "build:api": "npm run build -w @interviewpilot/api",
+    "build:desktop": "npm run build -w @interviewpilot/desktop",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --ext .ts,.tsx --max-warnings 50 || true",
+    "typecheck": "tsc -b --pretty false",
+    "db:migrate": "npm run db:migrate -w @interviewpilot/api",
+    "db:seed": "npm run db:seed -w @interviewpilot/api"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.10",
+    "concurrently": "^9.1.2",
+    "typescript": "^5.8.2",
+    "vitest": "^3.0.8",
+    "eslint": "^9.22.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

@@ -1,0 +1,7 @@
+# SAMPLE DATA — Technical Interview Questions
+
+1. What is normalization in SQL?
+2. Explain the difference between INNER JOIN and LEFT JOIN.
+3. How do you handle missing values in a dataset?
+4. What is the difference between WHERE and HAVING?
+5. Walk me through how you would validate a dashboard metric.
