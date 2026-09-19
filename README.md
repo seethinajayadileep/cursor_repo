@@ -1,47 +1,130 @@
-# PII Redaction Tool
+# InterviewPilot AI
 
-Python tool that reads the attached KSH International Red Herring Prospectus (or any PDF / ticket-log text file), finds personally identifiable information, replaces each value with a **stable fake stand-in**, and writes a redacted `.docx`.
+**Your real-time AI copilot for interviews, meetings and technical conversations.**
 
-## Approach
+InterviewPilot AI is an original desktop + web product for interview preparation, live conversation assistance, coding support, mock interviews, document-aware answers (RAG), and meeting notes.
 
-Hybrid **regex + gazetteer**, not a neural NER model.
+> Practice and productivity tool — not a guarantee of interview success or 100% accuracy. Some interviews prohibit AI assistance. Obtain consent before recording.
 
-| PII type | How it is found |
+## Features
+
+- Real-time speech transcription (demo / browser / cloud abstractions)
+- Real-time AI answer suggestions with streaming UI
+- Resume-aware and job-description-aware answers (no invented experience)
+- Document upload + RAG (PDF, DOCX, TXT)
+- Question detection (rules + classification)
+- Coding / HR / behavioral / system-design modes
+- Mock interviews with practice feedback
+- Meeting summaries, action items, session history
+- Multilingual architecture (English, Hindi, Telugu initially)
+- Electron desktop app (tray, shortcuts, always-on-top option)
+- **DEMO MODE** — fully usable without paid API keys
+
+## Architecture
+
+Monorepo:
+
+```
+apps/
+  web/       React + TypeScript + Vite + Tailwind
+  api/       Express + SQLite API
+  desktop/   Electron (secure preload bridge)
+packages/
+  shared/ ai/ speech/ documents/ database/ config/ ui/
+```
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Requirements
+
+- Node.js 20+
+- npm 10+
+- Optional: OpenAI / Anthropic / Google API keys for live AI
+- Windows 10/11 for native installer artifacts (electron-builder)
+
+## Installation
+
+```bash
+cp .env.example .env
+npm install
+npm run build -w @interviewpilot/shared
+npm run db:migrate -w @interviewpilot/api
+npm run db:seed -w @interviewpilot/api
+```
+
+## Development
+
+```bash
+npm run dev
+```
+
+- Web: http://localhost:5173
+- API: http://localhost:8787/api/health
+
+Demo user (after seed): `demo@interviewpilot.ai` / `demo12345`
+
+Desktop (with web+api running):
+
+```bash
+npm run build -w @interviewpilot/desktop
+npm run dev -w @interviewpilot/desktop
+```
+
+## Environment variables
+
+See [.env.example](.env.example). Important:
+
+| Variable | Purpose |
 |---|---|
-| Email, phone, SSN, credit card, IP, DOB | Regular expressions (Luhn check on cards; DOB only next to “DOB” / “born”) |
-| Person names | Gazetteer of people in this prospectus, plus `Contact Person:` lines |
-| Company / trust names | Gazetteer plus `Limited` / `LLP` / `Family Trust` patterns, with stopwords so headings like “Book Built Offer” are not swallowed |
-| Addresses | Gazetteer of known offices plus PIN / street patterns |
+| `AI_PROVIDER` | `demo` / `openai` / `anthropic` / `google` / `local` |
+| `OPENAI_API_KEY` | Optional cloud AI |
+| `STT_PROVIDER` | `demo` / `browser` / `local` / `cloud` |
+| `DATABASE_URL` | SQLite `file:...` or Postgres URL |
+| `AUTH_SECRET` | JWT signing secret |
+| `DEMO_MODE` | Force demo providers |
 
-The same real string always maps to the same fake value (`Faker` seeded from a hash of the original). CIN, PAN, DIN, rupee amounts, share counts, page numbers, and statute names are **not** treated as PII.
+Never commit a filled `.env`.
 
-## Tradeoffs
-
-- High precision on structured types; names/companies need the gazetteer for this legal PDF because generic Title-Case matching false-positives on “Fresh Issue” and “Equity Shares”.
-- A new person who is not in `data/gazetteer.json` and not on a `Contact Person:` line can be missed (false negative).
-- Address regexes can run long or short vs the gold span; evaluation allows containment matches of 10+ characters.
-- SSN / card / DOB / IP do not appear in the RHP; they are scored on a synthetic ticket-log snippet.
-
-## Run
+## Testing
 
 ```bash
-pip install -r requirements.txt
-python main.py samples/Red_Herring_Prospectus.pdf -o output/KSH_RHP_redacted.docx --evaluate
+npm test
 ```
 
-UI (optional wrapper around the same engine):
+Automated tests use mocks/demo providers — no paid APIs required.
+
+## Building Windows app
+
+On a Windows host (or CI with Windows):
 
 ```bash
-uvicorn app:app --host 0.0.0.0 --port 8000
+npm run build -w @interviewpilot/desktop
+npm run pack -w @interviewpilot/desktop
 ```
 
-Open `http://127.0.0.1:8000`, upload the PDF, download the `.docx` and evaluation report.
+Expected outputs under `apps/desktop/release/`:
 
-## Layout
+- `InterviewPilot-AI-Setup.exe` (NSIS installer via `makensis` / `scripts/build-windows.sh`)
+- `InterviewPilot-AI-Portable.exe` (electron-builder portable)
 
-- `redact/` — extract, detect, replace, write, evaluate
-- `data/gazetteer.json` — names, companies, addresses for this document
-- `data/gold_labels.json` — hand labels for pages 1, 5, 6, 39 plus a synthetic ticket
-- `evaluation_report.md` — precision, recall, accuracy
+```bash
+bash scripts/build-windows.sh
+```
 
-To add a PII type: write a detector in `detectors.py`, a fake generator in `replacements.py`, and gold examples in `gold_labels.json`.
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+
+## Documentation
+
+- [ARCHITECTURE](docs/ARCHITECTURE.md)
+- [INSTALLATION](docs/INSTALLATION.md)
+- [DEVELOPMENT](docs/DEVELOPMENT.md)
+- [AI_PIPELINE](docs/AI_PIPELINE.md)
+- [AUDIO](docs/AUDIO.md)
+- [DOCUMENTS](docs/DOCUMENTS.md)
+- [SECURITY](docs/SECURITY.md)
+- [DEPLOYMENT](docs/DEPLOYMENT.md)
+- [TROUBLESHOOTING](docs/TROUBLESHOOTING.md)
+
+## Legal / ethical notice
+
+Users are responsible for complying with interview and meeting rules. The product does not implement proctoring evasion, hidden capture, or secret recording. Screenshot/image context requires explicit user action.

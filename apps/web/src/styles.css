@@ -1,0 +1,66 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --bg: #0b1220;
+  --panel: #121a2b;
+  --line: #243049;
+  --accent: #3ddc97;
+  --text: #e8eef7;
+}
+
+html, body, #root {
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(76, 141, 255, 0.18), transparent 55%),
+    radial-gradient(900px 500px at 90% 0%, rgba(61, 220, 151, 0.12), transparent 50%),
+    linear-gradient(180deg, #0b1220 0%, #0a101a 100%);
+  background-attachment: fixed;
+}
+
+.light body, body.light {
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(76, 141, 255, 0.12), transparent 55%),
+    radial-gradient(900px 500px at 90% 0%, rgba(61, 220, 151, 0.10), transparent 50%),
+    linear-gradient(180deg, #f4f7fb 0%, #e8eef7 100%);
+}
+
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/70 disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply btn bg-accent text-ink hover:brightness-110;
+  }
+  .btn-secondary {
+    @apply btn border border-line bg-panel/70 text-foam hover:border-accent/40;
+  }
+  .btn-ghost {
+    @apply btn text-mist hover:text-foam hover:bg-white/5;
+  }
+  .input {
+    @apply w-full rounded-lg border border-line bg-ink/60 px-3 py-2.5 text-sm text-foam placeholder:text-mist/70 focus:border-accent/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40;
+  }
+  .label {
+    @apply mb-1.5 block text-xs font-medium uppercase tracking-wide text-mist;
+  }
+  .panel {
+    @apply rounded-xl border border-line bg-panel/80;
+  }
+  .chip {
+    @apply inline-flex items-center rounded-md border border-line px-2 py-0.5 text-xs text-mist;
+  }
+}
+
+/* Prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

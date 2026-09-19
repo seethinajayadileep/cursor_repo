@@ -1,0 +1,40 @@
+# SAMPLE DATA — Data Analyst Resume
+# Clearly labeled sample content for InterviewPilot AI demos.
+
+Alex Rivera
+alex.rivera@example.com | +1-555-0100 | Remote / Hybrid
+
+Summary
+Data Analyst with experience in SQL, Python, dashboarding, and stakeholder reporting. Focused on clear insights and reproducible analysis.
+
+Skills
+SQL, Python, Pandas, NumPy, Tableau, Power BI, Excel, A/B testing, data cleaning, ETL basics, statistics, Git
+
+Experience
+Data Analyst — Northwind Analytics
+- Built SQL pipelines to clean and model sales data for weekly executive reviews
+- Created Tableau dashboards tracking conversion and retention
+- Partnered with product managers to define metrics and experiment readouts
+
+Analytics Intern — Lakeside Retail
+- Automated Excel reporting with Python scripts
+- Documented KPI definitions for marketing campaigns
+
+Projects
+Customer Churn Insights
+- Analyzed subscription churn drivers using SQL and Python; presented recommendations to reduce voluntary churn
+
+Sales Funnel Dashboard
+- Designed a Power BI dashboard for funnel stages and weekly targets
+
+Education
+B.S. Statistics — State University
+
+Certifications
+Google Data Analytics Certificate
+
+Achievements
+Improved reporting cycle time by standardizing SQL templates for recurring analyses
+
+Languages
+English, Spanish

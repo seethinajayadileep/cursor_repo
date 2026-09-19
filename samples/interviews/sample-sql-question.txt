@@ -1,0 +1,5 @@
+# SAMPLE DATA — SQL Question
+
+Write a SQL query that returns each department and its average salary,
+only for departments with average salary greater than 70000,
+ordered by average salary descending.

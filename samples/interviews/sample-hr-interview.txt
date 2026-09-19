@@ -1,0 +1,7 @@
+# SAMPLE DATA — HR Interview Questions
+
+1. Tell me about yourself.
+2. Why do you want this role?
+3. What are your strengths and weaknesses?
+4. Where do you see yourself in a few years?
+5. Do you have questions for us?

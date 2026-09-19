@@ -1,0 +1,58 @@
+{
+  "name": "@interviewpilot/desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "InterviewPilot AI desktop application",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "tsc -p tsconfig.electron.json && electron .",
+    "build": "tsc -p tsconfig.electron.json",
+    "pack": "npm run build && electron-builder --win --x64",
+    "pack:dir": "npm run build && electron-builder --win --x64 --dir"
+  },
+  "dependencies": {
+    "electron-store": "^8.2.0"
+  },
+  "devDependencies": {
+    "electron": "34.3.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^5.8.2"
+  },
+  "build": {
+    "appId": "ai.interviewpilot.desktop",
+    "productName": "InterviewPilot AI",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist-electron/**/*",
+      "assets/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "portable",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "InterviewPilot-AI-${os}-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "InterviewPilot-AI-Setup.${ext}"
+    },
+    "portable": {
+      "artifactName": "InterviewPilot-AI-Portable.${ext}"
+    }
+  },
+  "author": "InterviewPilot AI"
+}
