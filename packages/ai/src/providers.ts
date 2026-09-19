@@ -86,8 +86,9 @@ export class DemoAIProvider implements AIProvider {
       concise =
         "I'd start from requirements and constraints, propose a simple architecture, call out bottlenecks, and discuss trade-offs around consistency, latency, and cost.";
     } else {
+      const roleBit = role && role.length < 60 && !/skills|summary|focused/i.test(role) ? ` as a ${role}` : "";
       concise = project
-        ? `Based on my work on ${project}${role ? ` as a ${role}` : ""}, I'd answer with a clear definition, a short example, and how I've applied the concept in practice.`
+        ? `Based on my work on ${project}${roleBit}, I'd answer with a clear definition, a short example, and how I've applied the concept in practice.`
         : `I'd give a direct definition, a short practical example, and relate it to ${skills} where relevant — without inventing experience I don't have.`;
     }
 

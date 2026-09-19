@@ -104,10 +104,14 @@ npm run pack -w @interviewpilot/desktop
 
 Expected outputs under `apps/desktop/release/`:
 
-- `InterviewPilot-AI-Setup.exe`
-- `InterviewPilot-AI-Portable.exe`
+- `InterviewPilot-AI-Setup.exe` (NSIS installer via `makensis` / `scripts/build-windows.sh`)
+- `InterviewPilot-AI-Portable.exe` (electron-builder portable)
 
-On Linux CI this environment can compile Electron main/preload and prepare builder config; generating `.exe` may require Wine or a Windows runner. See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
+```bash
+bash scripts/build-windows.sh
+```
+
+See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
 
 ## Documentation
 
