@@ -108,7 +108,17 @@ export function NewSessionPage() {
         ))}
       </div>
 
-      <form className="panel mt-6 space-y-4 p-6" onSubmit={createSession}>
+      <form
+        className="panel mt-6 space-y-4 p-6"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (step < steps.length - 1) {
+            setStep((s) => s + 1);
+            return;
+          }
+          void createSession();
+        }}
+      >
         {step === 0 && (
           <div className="grid gap-2 sm:grid-cols-2">
             {SESSION_TYPES.map((t) => (
@@ -236,12 +246,25 @@ export function NewSessionPage() {
         {error && <p className="text-sm text-danger" role="alert">{error}</p>}
 
         <div className="flex justify-between gap-3 pt-2">
-          <button type="button" className="btn-ghost" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>Back</button>
-          {step < steps.length - 1 ? (
-            <button type="button" className="btn-primary" onClick={() => setStep((s) => s + 1)}>Continue</button>
-          ) : (
-            <button type="submit" className="btn-primary" disabled={busy}>{busy ? "Starting…" : "Start Session"}</button>
-          )}
+          <button type="button" className="btn-ghost" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>
+            Back
+          </button>
+          <div className="flex gap-2">
+            {step < steps.length - 1 && (
+              <button type="button" className="btn-ghost" onClick={() => setStep(steps.length - 1)}>
+                Skip to end
+              </button>
+            )}
+            {step < steps.length - 1 ? (
+              <button type="button" className="btn-primary" onClick={() => setStep((s) => Math.min(steps.length - 1, s + 1))}>
+                Continue
+              </button>
+            ) : (
+              <button type="submit" className="btn-primary" disabled={busy}>
+                {busy ? "Starting…" : "Start Session"}
+              </button>
+            )}
+          </div>
         </div>
       </form>
     </div>

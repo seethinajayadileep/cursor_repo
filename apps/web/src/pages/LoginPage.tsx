@@ -39,7 +39,7 @@ export function LoginPage() {
           <input id="password" className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required autoComplete="current-password" />
         </div>
         {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-        <button className="btn-primary w-full" disabled={loading}>{loading ? "Signing in…" : "Log in"}</button>
+        <button className="btn-primary w-full" type="submit" disabled={loading}>{loading ? "Signing in…" : "Log in"}</button>
       </form>
       <p className="mt-4 text-sm text-mist">
         No account? <Link className="text-accent" to="/signup">Sign up</Link>
@@ -90,7 +90,7 @@ export function SignupPage() {
           <input id="password" className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} minLength={8} required />
         </div>
         {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-        <button className="btn-primary w-full" disabled={loading}>{loading ? "Creating…" : "Create account"}</button>
+        <button className="btn-primary w-full" type="submit" disabled={loading}>{loading ? "Creating…" : "Create account"}</button>
       </form>
       <p className="mt-4 text-sm text-mist">
         Already have an account? <Link className="text-accent" to="/login">Log in</Link>
