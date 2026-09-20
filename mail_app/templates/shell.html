@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ account.email }} — Inbox</title>
+  <link rel="stylesheet" href="/static/mail.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="col side">
+      <div class="brand">Mailboxes</div>
+      <p class="muted">Signed in as {{ user.email }}</p>
+      <ul class="accounts">
+        {% for acc in accounts %}
+        <li>
+          <a class="{% if acc.id == account.id %}active{% endif %}" href="/a/{{ acc.id }}">
+            {{ acc.name }}
+            <div class="uid">{{ acc.email }}</div>
+            <div class="uid">ID {{ acc.id }}</div>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      <p class="muted uid">Host URL<br>{{ account_url(account.id) }}</p>
+      <div class="row-actions">
+        <a class="btn" href="/login">Connect another account</a>
+        <a class="btn ghost" href="/logout">Sign out</a>
+      </div>
+      <form class="inline" method="post" action="/a/{{ account.id }}/disconnect" onsubmit="return confirm('Disconnect this mailbox from the site?');">
+        <button class="link" type="submit">Disconnect this mailbox</button>
+      </form>
+      <p class="muted uid">This URL only works after you sign in to the host. It does not open the mailbox for anyone else.</p>
+    </aside>
+    <section class="col">
+      <div class="toolbar">
+        <strong>{{ account.email }}</strong>
+      </div>
+      <ul class="folders">
+        {% for key, label in folders %}
+        <li><a class="{% if folder == key %}active{% endif %}" href="/a/{{ account.id }}?folder={{ key }}">{{ label }}</a></li>
+        {% endfor %}
+      </ul>
+      {% if error %}<p class="error" style="padding:0 16px">{{ error }}</p>{% endif %}
+      <ul class="list">
+        {% for m in messages %}
+        <li class="item {% if not m.isRead %}unread{% endif %}">
+          <a href="{{ mail_href(account.id, m, folder) }}">
+            <div class="subject">{{ m.subject or "(no subject)" }}</div>
+            <div class="meta">{{ sender_name(m) }} · {{ m.receivedDateTime|when }}</div>
+            <div class="meta">{{ m.bodyPreview }}</div>
+          </a>
+        </li>
+        {% else %}
+        <li class="empty">No messages in this folder.</li>
+        {% endfor %}
+      </ul>
+    </section>
+    <article class="col read">
+      {% if message %}
+      <h1>{{ message.subject or "(no subject)" }}</h1>
+      <p class="muted">From {{ sender_name(message) }} · {{ message.receivedDateTime|when }}</p>
+      <div class="body">{{ body_html | safe }}</div>
+      {% else %}
+      <p class="empty">Select a message to read it in this pane.</p>
+      {% endif %}
+    </article>
+  </div>
+</body>
+</html>

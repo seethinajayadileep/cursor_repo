@@ -6,20 +6,18 @@
   <title>Sign in — Private inbox</title>
   <link rel="stylesheet" href="/static/mail.css">
 </head>
-<body>
-  <div class="wrap">
-    <div class="card">
-      <h1>Private Outlook inbox</h1>
-      <p class="muted">Sign in with Microsoft. This app only shows the mailbox of the signed-in user, in a private browser session. There are no public share links.</p>
-      {% if not configured %}
-      <p class="error">Set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and SESSION_SECRET before signing in. See mail_app/README.md.</p>
-      {% else %}
-      <a class="btn" href="/login">Sign in with Microsoft</a>
-      {% endif %}
-      {% if request.query_params.get("error") %}
-      <p class="error">Sign-in did not complete. Try again.</p>
-      {% endif %}
-    </div>
+<body class="login-body">
+  <div class="card">
+    <h1>Private Outlook inbox</h1>
+    <p class="muted">Sign in with Microsoft on this website. Each connected mailbox gets a unique ID on <strong>{{ public_base_url }}</strong>. You can open that mailbox later without repeating Microsoft consent, but you must still be signed in to this site. Unique IDs are not public share links.</p>
+    {% if not configured %}
+    <p class="error">Set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and SESSION_SECRET. See mail_app/README.md.</p>
+    {% else %}
+    <a class="btn" href="/login">Sign in with Microsoft</a>
+    {% endif %}
+    {% if request.query_params.get("error") %}
+    <p class="error">Sign-in did not complete. For personal Outlook use AZURE_TENANT_ID=common. Try again.</p>
+    {% endif %}
   </div>
 </body>
 </html>

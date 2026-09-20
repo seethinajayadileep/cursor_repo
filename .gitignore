@@ -7,3 +7,4 @@ uploads/
 .DS_Store
 .env
 mail_app/.env
+mail_app/data/

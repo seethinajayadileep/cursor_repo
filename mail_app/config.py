@@ -11,6 +11,8 @@ class Settings:
     tenant_id: str
     redirect_uri: str
     session_secret: str
+    public_base_url: str
+    https_only: bool
     scopes: tuple[str, ...] = (
         "User.Read",
         "Mail.Read",
@@ -26,12 +28,15 @@ class Settings:
 
 
 def load_settings() -> Settings:
+    https_only = os.getenv("HTTPS_ONLY", "").lower() in {"1", "true", "yes"}
+    public = os.getenv("PUBLIC_BASE_URL", "http://localhost:8001").rstrip("/")
+    redirect = os.getenv("REDIRECT_URI", f"{public}/auth/callback")
     return Settings(
         client_id=os.getenv("AZURE_CLIENT_ID", ""),
         client_secret=os.getenv("AZURE_CLIENT_SECRET", ""),
         tenant_id=os.getenv("AZURE_TENANT_ID", "common"),
-        redirect_uri=os.getenv(
-            "REDIRECT_URI", "http://localhost:8001/auth/callback"
-        ),
+        redirect_uri=redirect,
         session_secret=os.getenv("SESSION_SECRET", ""),
+        public_base_url=public,
+        https_only=https_only,
     )

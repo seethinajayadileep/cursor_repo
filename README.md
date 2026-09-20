@@ -48,4 +48,4 @@ To add a PII type: write a detector in `detectors.py`, a fake generator in `repl
 
 ## Private Outlook inbox
 
-A separate app in `mail_app/` signs a user in with **Microsoft OAuth** and shows **only that user’s** Inbox in a private cookie session. See [mail_app/README.md](mail_app/README.md).
+A separate app in `mail_app/` signs a user in with **Microsoft OAuth**, shows a large mailbox UI, and keeps connected accounts under unique `/a/<id>` URLs that still require a host sign-in. See [mail_app/README.md](mail_app/README.md).

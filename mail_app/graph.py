@@ -28,10 +28,10 @@ async def get_me(access_token: str) -> dict:
     return await graph_get(access_token, "/me")
 
 
-async def list_inbox(access_token: str, top: int = 50) -> list[dict]:
+async def list_messages(access_token: str, folder: str = "inbox", top: int = 80) -> list[dict]:
     data = await graph_get(
         access_token,
-        "/me/mailFolders/inbox/messages",
+        f"/me/mailFolders/{folder}/messages",
         params={
             "$top": str(top),
             "$orderby": "receivedDateTime DESC",
@@ -39,6 +39,10 @@ async def list_inbox(access_token: str, top: int = 50) -> list[dict]:
         },
     )
     return data.get("value") or []
+
+
+async def list_inbox(access_token: str, top: int = 50) -> list[dict]:
+    return await list_messages(access_token, "inbox", top)
 
 
 async def get_message(access_token: str, message_id: str) -> dict:
