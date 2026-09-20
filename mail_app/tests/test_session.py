@@ -132,3 +132,89 @@ def test_sanitize_strips_script() -> None:
     cleaned = sanitize_html("<p>ok</p><script>alert(1)</script>")
     assert "script" not in cleaned.lower()
     assert "ok" in cleaned
+
+
+def test_admin_redirects_when_logged_out() -> None:
+    client = TestClient(app, follow_redirects=False)
+    response = client.get("/admin")
+    assert response.status_code == 302
+    assert response.headers["location"] == "/"
+
+
+def test_admin_password_lists_all_mailbox_links(monkeypatch) -> None:
+    monkeypatch.setenv("ADMIN_PASSWORD", "openseasame")
+    first = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="pat@example.com",
+        name="Pat",
+        refresh_token="refresh-token",
+    )
+    store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="other@example.com",
+        email="second@example.com",
+        name="Second",
+        refresh_token="refresh-token",
+    )
+    client = TestClient(app, follow_redirects=False)
+    locked = client.get("/admin")
+    assert locked.status_code == 302
+    assert locked.headers["location"] == "/admin/login"
+
+    denied = client.post("/admin/login", data={"password": "wrong"})
+    assert denied.status_code == 401
+    assert "not correct" in denied.text
+
+    accepted = client.post("/admin/login", data={"password": "openseasame"})
+    assert accepted.status_code == 302
+    assert accepted.headers["location"] == "/admin"
+
+    page = client.get("/admin")
+    assert page.status_code == 200
+    assert "pat@example.com" in page.text
+    assert "second@example.com" in page.text
+    assert f"/a/{first.id}" in page.text
+    assert "Copy link" in page.text
+
+
+def test_signed_in_operator_sees_only_own_admin_rows(monkeypatch) -> None:
+    monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
+    mine = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="pat@example.com",
+        name="Pat",
+        refresh_token="refresh-token",
+    )
+    store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="other@example.com",
+        email="hidden@example.com",
+        name="Hidden",
+        refresh_token="refresh-token",
+    )
+    monkeypatch.setattr(
+        "mail_app.app._session_user",
+        lambda _request: {"name": "Pat", "email": "pat@example.com"},
+    )
+    monkeypatch.setattr("mail_app.app._owner_email", lambda _request: "pat@example.com")
+    client = TestClient(app)
+    page = client.get("/admin")
+    assert page.status_code == 200
+    assert "pat@example.com" in page.text
+    assert f"/a/{mine.id}" in page.text
+    assert "hidden@example.com" not in page.text
+
+
+def test_host_session_cannot_bypass_admin_password(monkeypatch) -> None:
+    monkeypatch.setenv("ADMIN_PASSWORD", "only-this")
+    monkeypatch.setattr(
+        "mail_app.app._session_user",
+        lambda _request: {"name": "Pat", "email": "pat@example.com"},
+    )
+    monkeypatch.setattr("mail_app.app._owner_email", lambda _request: "pat@example.com")
+    client = TestClient(app, follow_redirects=False)
+    response = client.get("/admin")
+    assert response.status_code == 302
+    assert response.headers["location"] == "/admin/login"

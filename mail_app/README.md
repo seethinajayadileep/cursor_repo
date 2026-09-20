@@ -65,6 +65,7 @@ AZURE_CLIENT_ID=
 AZURE_CLIENT_SECRET=
 AZURE_TENANT_ID=common
 SESSION_SECRET=          # long random, generate once
+ADMIN_PASSWORD=          # required to open /admin for every mailbox
 PUBLIC_BASE_URL=https://your-app.up.railway.app
 REDIRECT_URI=https://your-app.up.railway.app/auth/callback
 HTTPS_ONLY=1
@@ -77,6 +78,14 @@ MAIL_DB_PATH=/data/accounts.sqlite
 Render: use `render.yaml`, paid instance, **persistent disk** at `/data`, same env vars. Do not use a sleeping free web service.
 
 Keep `SESSION_SECRET` stable after the first deploy. Changing it invalidates stored mailbox tokens.
+
+## Admin directory
+
+`/admin` lists mailbox addresses and their private `/a/<id>` access links.
+
+- Set `ADMIN_PASSWORD` in Railway. Then open `/admin`, enter that password, and you see **every** connected mailbox.
+- If `ADMIN_PASSWORD` is not set, only a Microsoft-signed-in operator can open `/admin`, and only **their** mailboxes are listed.
+- Unique mailbox links (`/a/<id>`) never unlock this page. Wrong passwords do not reveal whether a mailbox exists.
 
 ## Tests
 

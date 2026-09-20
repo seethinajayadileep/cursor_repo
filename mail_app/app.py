@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import hmac
+import os
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Form, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
@@ -57,6 +59,26 @@ def _can_open(request: Request, account: store.Account) -> bool:
     if not owner or not user:
         return False
     return account.owner_email == owner or account.email == (user.get("email") or "").lower()
+
+
+def _admin_password() -> str:
+    return os.getenv("ADMIN_PASSWORD", "").strip()
+
+
+def _admin_session(request: Request) -> bool:
+    return bool(request.session.get("admin"))
+
+
+def _admin_mailboxes(request: Request) -> list[store.MailboxRef] | None:
+    expected = _admin_password()
+    if expected:
+        if _admin_session(request):
+            return store.list_mailbox_refs()
+        return None
+    owner = _owner_email(request)
+    if _session_user(request) and owner:
+        return store.list_mailbox_refs(owner)
+    return None
 
 
 async def _token_for_account(account: store.Account) -> str | None:
@@ -228,6 +250,61 @@ async def callback(request: Request):
 async def logout(request: Request):
     request.session.clear()
     return RedirectResponse("/", status_code=302)
+
+
+@app.get("/admin/login", response_class=HTMLResponse)
+async def admin_login_page(request: Request):
+    if not _admin_password():
+        return RedirectResponse("/", status_code=302)
+    if _admin_session(request):
+        return RedirectResponse("/admin", status_code=302)
+    return templates.TemplateResponse(
+        request,
+        "admin_login.html",
+        {"error": False},
+    )
+
+
+@app.post("/admin/login")
+async def admin_login(request: Request, password: str = Form("")):
+    expected = _admin_password()
+    if not expected:
+        return RedirectResponse("/", status_code=302)
+    given = (password or "").encode("utf-8")
+    ok = hmac.compare_digest(given, expected.encode("utf-8"))
+    if not ok:
+        return templates.TemplateResponse(
+            request,
+            "admin_login.html",
+            {"error": True},
+            status_code=401,
+        )
+    request.session["admin"] = True
+    return RedirectResponse("/admin", status_code=302)
+
+
+@app.post("/admin/logout")
+async def admin_logout(request: Request):
+    request.session.pop("admin", None)
+    return RedirectResponse("/admin/login" if _admin_password() else "/", status_code=302)
+
+
+@app.get("/admin", response_class=HTMLResponse)
+async def admin_directory(request: Request):
+    mailboxes = _admin_mailboxes(request)
+    if mailboxes is None:
+        if _admin_password():
+            return RedirectResponse("/admin/login", status_code=302)
+        return RedirectResponse("/", status_code=302)
+    return templates.TemplateResponse(
+        request,
+        "admin.html",
+        {
+            "mailboxes": mailboxes,
+            "full_directory": bool(_admin_session(request)),
+            "password_login": bool(_admin_password()),
+        },
+    )
 
 
 @app.get("/inbox")

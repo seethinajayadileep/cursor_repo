@@ -61,6 +61,15 @@ class Account:
     created_at: str
 
 
+@dataclass(frozen=True)
+class MailboxRef:
+    id: str
+    owner_email: str
+    email: str
+    name: str
+    created_at: str
+
+
 def upsert_account(
     *,
     secret: str,
@@ -112,6 +121,36 @@ def list_accounts(owner_email: str, secret: str) -> list[Account]:
             (owner_email.lower(),),
         ).fetchall()
     return [_row_to_account(row, secret) for row in rows]
+
+
+def _ref_from_row(row: sqlite3.Row) -> MailboxRef:
+    return MailboxRef(
+        id=row["id"],
+        owner_email=row["owner_email"],
+        email=row["email"],
+        name=row["name"] or row["email"],
+        created_at=row["created_at"],
+    )
+
+
+def list_mailbox_refs(owner_email: str | None = None) -> list[MailboxRef]:
+    with _connect() as conn:
+        if owner_email:
+            rows = conn.execute(
+                """
+                SELECT id, owner_email, email, name, created_at
+                FROM accounts WHERE owner_email = ? ORDER BY email
+                """,
+                (owner_email.lower(),),
+            ).fetchall()
+        else:
+            rows = conn.execute(
+                """
+                SELECT id, owner_email, email, name, created_at
+                FROM accounts ORDER BY email
+                """
+            ).fetchall()
+    return [_ref_from_row(row) for row in rows]
 
 
 def update_refresh(account_id: str, refresh_token: str, secret: str) -> None:

@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin directory — Host inbox</title>
+  <link rel="stylesheet" href="/static/mail.css">
+</head>
+<body>
+  <div class="shell admin-shell">
+    <header class="topbar">
+      <div class="topbar-left">
+        <div class="mark">AD</div>
+        <div>
+          <div class="topbar-title">Mailbox directory</div>
+          <div class="uid">{% if full_directory %}All connected mailboxes{% else %}Mailboxes for your signed-in operator account{% endif %}</div>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <a class="btn ghost" href="/">Inbox</a>
+        {% if password_login and full_directory %}
+        <form class="inline" method="post" action="/admin/logout">
+          <button class="btn ghost" type="submit">Lock admin</button>
+        </form>
+        {% endif %}
+      </div>
+    </header>
+    <div class="admin-wrap">
+      <div class="list-head">
+        <h2>{{ mailboxes|length }} mailbox{% if mailboxes|length != 1 %}es{% endif %}</h2>
+        <div class="uid">Keep these access links private. Anyone with a link can read that mailbox.</div>
+      </div>
+      {% if not mailboxes %}
+      <p class="empty">No mailboxes yet. Connect an account from the home page after signing in with Microsoft.</p>
+      {% else %}
+      <div class="table-wrap">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Mail ID</th>
+              <th>Name</th>
+              {% if full_directory %}<th>Operator</th>{% endif %}
+              <th>Access link</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for box in mailboxes %}
+            <tr>
+              <td>
+                <div class="acct-name">{{ box.email }}</div>
+                <div class="uid">{{ box.id }}</div>
+              </td>
+              <td>{{ box.name }}</td>
+              {% if full_directory %}<td class="uid">{{ box.owner_email }}</td>{% endif %}
+              <td class="link-cell"><a href="{{ account_url(box.id) }}">{{ account_url(box.id) }}</a></td>
+              <td>
+                <button class="btn ghost copy-link" type="button" data-link="{{ account_url(box.id) }}">Copy link</button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  <script>
+    document.querySelectorAll(".copy-link").forEach(function (button) {
+      button.addEventListener("click", async function () {
+        const link = button.getAttribute("data-link") || "";
+        try {
+          await navigator.clipboard.writeText(link);
+          button.textContent = "Copied";
+          setTimeout(function () { button.textContent = "Copy link"; }, 1600);
+        } catch (err) {
+          button.textContent = "Copy failed";
+        }
+      });
+    });
+  </script>
+</body>
+</html>

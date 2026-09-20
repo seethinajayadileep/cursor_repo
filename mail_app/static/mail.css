@@ -216,6 +216,41 @@ button.link {
   .workspace { grid-template-columns: 230px 1fr; }
   .col.read { grid-column: 1 / -1; min-height: 48vh; }
 }
+.admin-form { margin-top: 20px; }
+.admin-form .label { display: block; margin: 0 0 8px; }
+.admin-form input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: rgba(0, 0, 0, 0.25);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: inherit;
+}
+.admin-shell { grid-template-rows: 72px 1fr; }
+.admin-wrap { padding: 8px 28px 48px; overflow: auto; }
+.table-wrap { overflow: auto; padding: 0 4px 24px; }
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.95rem;
+}
+.admin-table th {
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+}
+.admin-table td {
+  padding: 16px 14px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.link-cell a { word-break: break-all; }
+.admin-table .btn { margin-top: 0; padding: 8px 12px; font-size: 0.85rem; }
 @media (max-width: 720px) {
   .card { padding: 32px 22px; }
   .features { grid-template-columns: 1fr; }
