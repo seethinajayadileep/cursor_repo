@@ -14,7 +14,6 @@ class Settings:
     scopes: tuple[str, ...] = (
         "User.Read",
         "Mail.Read",
-        "offline_access",
     )
 
     @property
