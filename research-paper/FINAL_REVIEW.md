@@ -10,6 +10,7 @@
 - Rebuilt TikZ figures with solid (implemented) vs dashed (planned) borders and a legend.
 - Removed empty metric tables from the compiled paper. Templates remain in `tables/evaluation_tables.tex`.
 - Compiled with `pdflatex` → `bibtex` → `pdflatex` → `pdflatex` and verified the PDF.
+- Reduced the bibliography from 33 entries to 17 core sources (user request: 15--18).
 
 # Implemented Features Described
 
@@ -69,4 +70,4 @@ Edit the macros `\WSDept`, `\WSUniv`, `\WSCity`, `\WSCountry`, and `\WSEmail` at
 - Unresolved cross-references: 0
 - Visible PDF tokens checked: no `[?]`, `??`, `INSERT`, `RESULT REQUIRED`, `TODO`, `TBD`, or `XXX`
 - Major overfull boxes: none after the author-block wrap
-- Bibliography entries in the PDF: 33 (all cited; numbered by IEEEtran/BibTeX)
+- Bibliography entries in the PDF: 17 (trimmed from 33 at the authors' request; all remaining entries are cited)
