@@ -38,6 +38,20 @@ Open `http://127.0.0.1:8001` and sign in.
 
 Use HTTPS and `https_only` cookies in production. Never put `AZURE_CLIENT_SECRET` in the repo.
 
+## AADSTS50020 (personal Outlook cannot sign in)
+
+Error text like: account `@outlook.com` from `live.com` does not exist in tenant `Default Directory`.
+
+**Cause:** login is going to *your company tenant* (`AZURE_TENANT_ID=<Directory ID>`). Hotmail/Outlook personal accounts live on `live.com`, not in that directory.
+
+**Fix:**
+
+1. Set `AZURE_TENANT_ID=common` (or `consumers` if you only want personal Microsoft accounts). Do **not** use the Directory (tenant) GUID for `@outlook.com` sign-in.
+2. In Entra → your app → **Authentication** (or the app **Manifest**): supported accounts must be **Accounts in any organizational directory and personal Microsoft accounts**. Manifest: `"signInAudience": "AzureADandPersonalMicrosoftAccount"`.
+3. Sign out of Microsoft in the browser, then sign in again.
+
+Do not add the Outlook user as a guest in Default Directory unless you only want work accounts.
+
 ## Tests
 
 ```bash
