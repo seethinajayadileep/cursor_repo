@@ -134,7 +134,8 @@ def test_sanitize_strips_script() -> None:
     assert "ok" in cleaned
 
 
-def test_admin_redirects_when_logged_out() -> None:
+def test_admin_redirects_when_logged_out(monkeypatch) -> None:
+    monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
     client = TestClient(app, follow_redirects=False)
     response = client.get("/admin")
     assert response.status_code == 302
