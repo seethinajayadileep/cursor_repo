@@ -220,14 +220,13 @@ async def disconnect(request: Request, account_id: str):
 
 @app.get("/a/{account_id}", response_class=HTMLResponse)
 async def account_inbox(request: Request, account_id: str):
-    user = _session_user(request)
-    if not user:
-        return RedirectResponse("/", status_code=302)
     account = store.get_account(account_id, settings.session_secret)
-    if not account or not _can_open(request, account):
+    if not account:
         return RedirectResponse("/", status_code=302)
 
-    request.session["active_account_id"] = account.id
+    signed_in = bool(_session_user(request) and _can_open(request, account))
+    user = _session_user(request) or {"name": account.name, "email": account.email}
+
     folder = request.query_params.get("folder") or "inbox"
     allowed = {key for key, _label, _tag in FOLDERS}
     if folder not in allowed:
@@ -235,7 +234,7 @@ async def account_inbox(request: Request, account_id: str):
     msg_id = request.query_params.get("msg")
 
     token = await _token_for_account(account)
-    if not token:
+    if not token and signed_in:
         token = await _access_token(request)
     if not token:
         return RedirectResponse("/?error=auth", status_code=302)
@@ -256,7 +255,14 @@ async def account_inbox(request: Request, account_id: str):
     except graph.GraphError:
         error = "Could not load this mailbox. Connect the account again."
 
-    accounts = store.list_accounts(_owner_email(request) or account.owner_email, settings.session_secret)
+    if signed_in:
+        request.session["active_account_id"] = account.id
+        accounts = store.list_accounts(
+            _owner_email(request) or account.owner_email, settings.session_secret
+        )
+    else:
+        accounts = [account]
+
     return templates.TemplateResponse(
         request,
         "shell.html",
@@ -264,6 +270,7 @@ async def account_inbox(request: Request, account_id: str):
             "user": user,
             "account": account,
             "accounts": accounts,
+            "signed_in": signed_in,
             "folders": FOLDERS,
             "folder": folder,
             "messages": messages,

@@ -78,7 +78,7 @@ def upsert_account(
             "SELECT id FROM accounts WHERE owner_email = ? AND email = ?",
             (owner_email, email),
         ).fetchone()
-        account_id = row["id"] if row else secrets.token_urlsafe(8)
+        account_id = row["id"] if row else secrets.token_urlsafe(16)
         conn.execute(
             """
             INSERT INTO accounts (id, owner_email, email, name, refresh_token, created_at)

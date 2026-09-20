@@ -10,12 +10,12 @@
   <div class="card">
     <div class="mark">IN</div>
     <h1>Your mail, on your host</h1>
-    <p class="muted">Sign in with Microsoft. Each connected mailbox gets a private ID on this website so you can open it again without repeating consent. You still need to be signed in here — IDs are not public links.</p>
+    <p class="muted">Sign in with Microsoft once per mailbox. You get a private link for that inbox. On a new phone or laptop, open that link — you do not need to connect Microsoft again. This site is for one operator. The home page does not list every mailbox; only the exact link opens that box. Anyone who has the link can read that mailbox, so keep it to yourself.</p>
     <div class="features">
       <div class="feature"><strong>Microsoft sign-in</strong>Official OAuth. No stored Outlook passwords.</div>
       <div class="feature"><strong>Unique mailbox ID</strong>Saved on {{ public_base_url }} after you connect.</div>
       <div class="feature"><strong>Large reading layout</strong>Mailboxes, folders, and message pane.</div>
-      <div class="feature"><strong>Private session</strong>Unique mailbox URLs work only in your signed-in browser.</div>
+      <div class="feature"><strong>New device</strong>Paste the mailbox URL. No extra Microsoft connect.</div>
     </div>
     {% if not configured %}
     <p class="error">Set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and SESSION_SECRET. See mail_app/README.md.</p>

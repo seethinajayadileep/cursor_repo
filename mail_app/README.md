@@ -1,14 +1,14 @@
 # Private Outlook inbox (Microsoft OAuth)
 
-Web app that signs **you** in with Microsoft and shows **your** mailboxes. Each connected account gets a unique host URL such as `https://your-domain/a/<id>`. Opening that URL still requires being signed in to this website. It is not a public share link.
+Web app that signs **you** in with Microsoft and shows **your** mailboxes. Each connected account gets a unique host URL such as `https://your-domain/a/<id>`. Open that link on a new device to see that inbox without connecting Microsoft again. Keep the link private. The home page does not list all mailboxes.
 
 ## What it does
 
 1. **Sign in with Microsoft** (OAuth). No app-stored Outlook passwords.
 2. After a successful connect, the mailbox is saved (encrypted refresh token) and gets a unique ID.
 3. **Connect another account** to add more mailboxes under the same signed-in operator.
-4. Later visits: sign in to the host once, then open `/a/<id>` without repeating Microsoft consent (until Microsoft revokes the refresh token).
-5. Large three-pane UI: mailboxes / folder list / reading pane.
+4. Later visits / new device: open `https://your-domain/a/<id>` to see that mailbox. Microsoft consent is not required again until the token is revoked.
+5. Large three-pane UI: mailboxes / folder list / reading pane. Sign in on `/` only to connect or list all of *your* boxes.
 
 ## Azure app registration
 

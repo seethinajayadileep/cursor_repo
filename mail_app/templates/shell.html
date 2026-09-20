@@ -13,12 +13,16 @@
         <div class="mark">IN</div>
         <div>
           <div class="topbar-title">Host inbox</div>
-          <div class="uid">{{ user.email }}</div>
+          <div class="uid">{% if signed_in %}{{ user.email }}{% else %}Private mailbox link{% endif %}</div>
         </div>
       </div>
       <div class="topbar-actions">
+        {% if signed_in %}
         <a class="btn ghost" href="/login">Connect account</a>
         <a class="btn ghost" href="/logout">Sign out</a>
+        {% else %}
+        <a class="btn ghost" href="/login">Sign in to manage</a>
+        {% endif %}
       </div>
     </header>
     <div class="workspace">
@@ -39,9 +43,13 @@
           <div class="label" style="margin-top:0">Mailbox URL</div>
           <div class="uid">{{ account_url(account.id) }}</div>
         </div>
+        {% if signed_in %}
         <form class="inline" method="post" action="/a/{{ account.id }}/disconnect" onsubmit="return confirm('Disconnect this mailbox from the site?');">
           <button class="link" type="submit">Disconnect mailbox</button>
         </form>
+        {% else %}
+        <p class="uid">Open this same link on any device. Do not share it — it shows this mailbox.</p>
+        {% endif %}
       </aside>
       <section class="col">
         <div class="list-head">
