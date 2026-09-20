@@ -5,3 +5,5 @@ venv/
 .pytest_cache/
 uploads/
 .DS_Store
+.env
+mail_app/.env

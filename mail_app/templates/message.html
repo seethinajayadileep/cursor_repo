@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ message.subject if message else "Message" }}</title>
+  <link rel="stylesheet" href="/static/mail.css">
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <a href="/inbox">← Inbox</a>
+      <a href="/logout">Sign out</a>
+    </div>
+    {% if error %}
+    <p class="error">{{ error }}</p>
+    {% elif message %}
+    <h1>{{ message.subject or "(no subject)" }}</h1>
+    <p class="muted">From {{ sender_name(message) }} · {{ message.receivedDateTime|when }}</p>
+    <p class="muted">Signed in as {{ user.email }}</p>
+    <div class="body">{{ body_html | safe }}</div>
+    {% endif %}
+  </div>
+</body>
+</html>
