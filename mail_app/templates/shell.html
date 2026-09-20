@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ account.email }} — Inbox</title>
-  <link rel="stylesheet" href="/static/mail.css?v=paper">
+  <link rel="stylesheet" href="/static/mail.css?v=modern">
 </head>
 <body>
   <div class="shell">
@@ -12,11 +12,12 @@
       <div class="topbar-left">
         <div class="mark">IN</div>
         <div>
-          <div class="topbar-title">Host inbox</div>
-          <div class="uid">{% if signed_in %}{{ user.email }}{% else %}Private mailbox link{% endif %}</div>
+          <div class="topbar-title">{{ account.email }}</div>
+          <div class="uid">{% if signed_in %}Signed in as {{ user.email }}{% else %}Private mailbox link{% endif %}</div>
         </div>
       </div>
       <div class="topbar-actions">
+        <button class="btn" type="button" data-link="{{ account_url(account.id) }}" id="copy-live">Copy live link</button>
         {% if signed_in %}
         <a class="btn ghost" href="/admin">Admin</a>
         <a class="btn ghost" href="/login">Connect account</a>
@@ -35,37 +36,31 @@
             <a class="{% if acc.id == account.id %}active{% endif %}" href="/a/{{ acc.id }}">
               <div class="acct-name">{{ acc.name }}</div>
               <div class="uid">{{ acc.email }}</div>
-              <div class="uid">ID {{ acc.id }}</div>
             </a>
           </li>
           {% endfor %}
         </ul>
         <div class="host-box">
-          <div class="label" style="margin-top:0">Mailbox URL</div>
-          <div class="uid">{{ account_url(account.id) }}</div>
+          <div class="label" style="margin-top:0">Live link</div>
+          <p class="live-url" id="live-url">{{ account_url(account.id) }}</p>
+          <button class="btn full copy-link" type="button" data-link="{{ account_url(account.id) }}">Copy this link</button>
+          <p class="uid">Anyone with this URL can read this mailbox. Keep it private.</p>
         </div>
         {% if signed_in %}
         <form class="inline" method="post" action="/a/{{ account.id }}/disconnect" onsubmit="return confirm('Disconnect this mailbox from the site?');">
           <button class="link" type="submit">Disconnect mailbox</button>
         </form>
-        {% else %}
-        <p class="uid">Open this same link on any device. Do not share it — it shows this mailbox.</p>
         {% endif %}
       </aside>
-      <section class="col">
+      <section class="col list-col">
         <div class="list-head">
-          <h2>{{ account.email }}</h2>
-          <div class="uid">{{ messages|length }} messages</div>
+          <h2>{{ messages|length }} messages</h2>
+          <nav class="folder-bar">
+            {% for key, label, tag in folders %}
+            <a class="folder-pill {% if folder == key %}active{% endif %}" href="/a/{{ account.id }}?folder={{ key }}">{{ label }}</a>
+            {% endfor %}
+          </nav>
         </div>
-        <ul class="folders">
-          {% for key, label, tag in folders %}
-          <li>
-            <a class="{% if folder == key %}active{% endif %}" href="/a/{{ account.id }}?folder={{ key }}">
-              <span>{{ label }}</span><span class="tag">{{ tag }}</span>
-            </a>
-          </li>
-          {% endfor %}
-        </ul>
         {% if error %}<p class="error" style="margin:12px">{{ error }}</p>{% endif %}
         <ul class="list">
           {% for m in messages %}
@@ -103,5 +98,20 @@
       </article>
     </div>
   </div>
+  <script>
+    function copyLink(button) {
+      const link = button.getAttribute("data-link") || "";
+      const original = button.textContent;
+      navigator.clipboard.writeText(link).then(function () {
+        button.textContent = "Copied";
+        setTimeout(function () { button.textContent = original; }, 1600);
+      }).catch(function () {
+        button.textContent = "Copy failed";
+      });
+    }
+    document.querySelectorAll(".copy-link, #copy-live").forEach(function (button) {
+      button.addEventListener("click", function () { copyLink(button); });
+    });
+  </script>
 </body>
 </html>
