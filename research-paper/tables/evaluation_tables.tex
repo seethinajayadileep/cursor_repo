@@ -1,0 +1,148 @@
+% Evaluation table templates for WebSentinel.
+% These tables are NOT included in the compiled paper until real
+% measurements exist. Do not invent accuracy, timing, or pass/fail counts.
+% After experiments, copy a filled table into main.tex and delete the
+% placeholder markers.
+
+% ---------------------------------------------------------------------------
+% Table: conceptual comparison (no fabricated experimental numbers)
+% ---------------------------------------------------------------------------
+\begin{table*}[!t]
+\centering
+\caption{Conceptual comparison of WebSentinel with representative prior approaches.}
+\label{tab:comparison}
+\begin{tabular}{lcccccccc}
+\toprule
+Approach & URL & DNS & SSL & Domain age & Threat intel. & ML & Explain. & Unified score \\
+\midrule
+CANTINA~\cite{zhang2007cantina} & P & -- & -- & P & Search & -- & Limited & -- \\
+CANTINA+~\cite{xiang2011cantinaplus} & Y & P & -- & P & Search / 3rd & Y & Limited & -- \\
+PhishStorm~\cite{marchal2014phishstorm} & Y & -- & -- & -- & Search & Y & Rating & P \\
+URL ML systems~\cite{sahingoz2019ml,rao2019catchphish} & Y & -- & -- & -- & -- & Y & Limited & -- \\
+Hybrid ML~\cite{rao2019detection} & Y & P & P & P & P & Y & Limited & -- \\
+Browser / Safe Browsing~\cite{whittaker2010large} & Y & -- & -- & -- & Blacklist & Y & Opaque & -- \\
+Visual systems~\cite{lin2021phishpedia,abdelnabi2020visualphishnet} & -- & -- & -- & -- & -- & Y & Brand / logo & -- \\
+WebSentinel prototype & P & -- & Y & Y & -- & -- & Rule reasons & Y \\
+WebSentinel proposed & Y & Y & Y & Y & Y & Y & Rules + SHAP & Y \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\footnotesize
+\item Y = present; P = partial; -- = not a primary contribution of that work.
+\item ``WebSentinel prototype'' reflects inspected code. ``Proposed'' is the remaining capstone design.
+\end{tablenotes}
+\end{table*}
+
+% ---------------------------------------------------------------------------
+% Table: security features
+% ---------------------------------------------------------------------------
+\begin{table*}[!t]
+\centering
+\caption{Security features used or planned by WebSentinel.}
+\label{tab:features}
+\begin{tabular}{p{3.2cm}p{3.4cm}p{4.4cm}p{3.4cm}}
+\toprule
+Feature & Data source & Security meaning & Status / risk role \\
+\midrule
+HTTPS usage & URL scheme & Absence of TLS in transit & Implemented; +20 if HTTP \\
+TLS validity / expiry & Certificate on port 443 & Invalid or soon-expiring cert & Implemented; +20 / +3 \\
+Domain age & WHOIS scrape (RDAP planned) & Newly registered hosts & Implemented; +8 to +35 \\
+WHOIS recency & Same registration record & Recent record changes & Implemented; +6 / +10 \\
+DNSSEC hint & WHOIS field & Signed zone may reduce risk & Implemented; $-3$ if signed and HTTPS \\
+DNS records & Planned \texttt{dnspython} & Missing MX/NS, odd TTLs & Planned \\
+Redirect chain & Planned HTTP client & Excessive or cross-site hops & Planned \\
+IP / hosting / geo & Planned RDAP / geo & Bulletproof or mismatched host & Planned \\
+Technology / CMS & Planned HTML headers & Suspicious stacks or login kits & Planned \\
+Reputation hit & Planned approved API & Known-bad indicator & Planned \\
+URL lexical cues & Planned feature extractor & IP hosts, long URLs, many dots & Planned \\
+ML probability & Planned scikit-learn model & Soft phishing score & Planned \\
+SHAP reasons & Planned SHAP & Feature attributions & Planned \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+% ---------------------------------------------------------------------------
+% PLACEHOLDER: do not fill with invented numbers
+% ---------------------------------------------------------------------------
+\begin{table}[!t]
+\centering
+\caption{Phishing classification performance.
+Insert measured values only after a trained model exists.}
+\label{tab:ml-results}
+\begin{tabular}{lccccc}
+\toprule
+Model & Accuracy & Precision & Recall & F1-score & ROC-AUC \\
+\midrule
+Logistic Regression & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Decision Tree & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Random Forest & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Gradient boosting & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Selected model & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[!t]
+\centering
+\caption{Security-module functional test results.
+Replace counts after executing the planned suite.}
+\label{tab:module-tests}
+\begin{tabular}{lcccc}
+\toprule
+Module & Test cases & Passed & Failed & Success rate \\
+\midrule
+URL validation & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+HTTP / protocol & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+TLS inspection & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Domain / WHOIS & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Risk scoring & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+SSRF controls (planned) & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+API / popup & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[!t]
+\centering
+\caption{Scan-time performance.
+Measure wall-clock latency of \texttt{POST /check} or the future scan API.}
+\label{tab:scan-perf}
+\begin{tabular}{lccc}
+\toprule
+Website type & Average scan time & Minimum & Maximum \\
+\midrule
+Established HTTPS site & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+HTTP-only site & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Newly registered domain & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Invalid / expired TLS & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Timeout / DNS failure & [RESULT REQUIRED] & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table*}[!t]
+\centering
+\caption{Planned functional test matrix.
+Observed Result and Status remain empty until tests are executed.}
+\label{tab:functional}
+\begin{tabular}{p{3.6cm}p{4.2cm}p{4.2cm}l}
+\toprule
+Test scenario & Expected result & Observed result & Status \\
+\midrule
+Valid HTTPS website & Score computed; reasons listed & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+HTTP website & HTTPS penalty applied & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Invalid URL / bad scheme & HTTP 400 or local reject & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Expired / invalid TLS & Certificate warning & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Long redirect chain & Planned: redirect warning & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Recently registered domain & Domain-age penalty & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Suspicious lexical URL & Planned: URL-feature warning & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Known phishing URL (approved set) & Elevated score or ML flag & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+DNS failure & Degraded scan, no crash & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Collector timeout & Partial result, user message & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Private IP URL & Planned: blocked as SSRF & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+localhost / loopback URL & Planned: blocked as SSRF & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Cloud metadata address & Planned: blocked as SSRF & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+Oversized response & Planned: size-limit abort & [RESULT REQUIRED] & [RESULT REQUIRED] \\
+\bottomrule
+\end{tabular}
+\end{table*}

@@ -1,0 +1,578 @@
+\documentclass[conference]{IEEEtran}
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{url}
+\usepackage{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,fit,calc}
+
+\hyphenation{Web-Sen-ti-nel Fast-API Post-gre-SQL}
+
+%----------------------------------------------------------------------
+% Affiliation tokens --- edit before camera-ready. Do not invent values.
+% Leave empty to use the generic affiliation sentence in the author block.
+%----------------------------------------------------------------------
+\newcommand{\WSDept}{}
+\newcommand{\WSUniv}{}
+\newcommand{\WSCity}{}
+\newcommand{\WSCountry}{}
+\newcommand{\WSEmail}{jayadileepseethina@gmail.com}
+
+\begin{document}
+
+\title{WebSentinel: An Explainable Website Security Assessment Framework for Phishing Risk Analysis}
+
+%----------------------------------------------------------------------
+% OPTION A (default): full project team
+% OPTION B: research-paper authors only
+%   Ruthwik Kakumani, Somineni Venumadhava, Seethina Jaya Dileep
+% Uncomment Option B and comment Option A if the venue requires a
+% shorter author list.
+%----------------------------------------------------------------------
+
+% OPTION A
+\author{
+\IEEEauthorblockN{Seethina Jaya Dileep\IEEEauthorrefmark{1},
+Ganesh Maheshwaram\IEEEauthorrefmark{1}, and
+N V Sai Gokul\IEEEauthorrefmark{1}}
+\IEEEauthorblockA{}
+\IEEEauthorblockN{Somineni Venumadhava\IEEEauthorrefmark{1},
+Ruthwik Kakumani\IEEEauthorrefmark{1}, and
+Ganta Sai Mani Chand\IEEEauthorrefmark{1}}
+\IEEEauthorblockA{\IEEEauthorrefmark{1}Department and university affiliation to be completed for the camera-ready version.\\
+Corresponding author: \WSEmail}
+}
+
+% OPTION B
+% \author{
+% \IEEEauthorblockN{Ruthwik Kakumani\IEEEauthorrefmark{1},
+% Somineni Venumadhava\IEEEauthorrefmark{1}, and
+% Seethina Jaya Dileep\IEEEauthorrefmark{1}}
+% \IEEEauthorblockA{\IEEEauthorrefmark{1}Department and university affiliation to be completed for the camera-ready version.\\
+% Corresponding author: \WSEmail}
+% }
+
+\maketitle
+
+\begin{abstract}
+Non-technical users regularly receive website addresses through electronic mail, messaging applications, advertisements, QR codes, and social media, yet they generally cannot determine whether a destination is legitimate, newly registered, misconfigured, or associated with phishing. Publicly observable evidence---domain age, certificate status, DNS configuration, redirect behavior, and reputation---exists, but it is fragmented across services and is rarely returned as an accountable assessment. HTTPS alone does not establish trustworthiness, because impersonation sites frequently obtain valid certificates. This paper presents WebSentinel, an explainable multi-signal framework for website security and phishing-risk assessment. The proposed architecture aggregates passive public indicators, explains each fired warning, and maps them to an advisory score. The implemented prototype is a browser extension and REST service that transmits only the site origin, inspects HTTPS and TLS, estimates domain age from registration data, and applies a documented rule-based score. Proposed extensions include DNS, RDAP, redirect and technology collectors, approved reputation sources, and an optional machine-learning probability with feature attributions. A further contribution is a scanner threat model: user-controlled URL fetches can become server-side request-forgery paths into private or cloud-metadata networks. No trained-classifier metrics or large-scale scan statistics are reported, because those experiments have not yet been executed. The paper therefore contributes a specified, ethically constrained assessment architecture, a working rule-based prototype, and a reproducible evaluation protocol.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Phishing risk assessment, website security, cybersecurity, explainable artificial intelligence, URL analysis, threat intelligence, server-side request forgery, web security.
+\end{IEEEkeywords}
+
+\section{Introduction}
+\label{sec:intro}
+Phishing remains one of the most effective social-engineering attacks on the public web. Attackers impersonate banks, payment processors, cloud consoles, and social-network login pages in order to harvest credentials or payment data~\cite{dhamija2006why,apwg2024q4}. The Anti-Phishing Working Group continues to document large quarterly volumes of phishing activity, and the lifetime of many campaigns is short enough that purely reactive blacklists lag behind newly registered hosts~\cite{apwg2024q4,marchal2014phishstorm}. Browser security indicators help some users, but a substantial fraction of people do not inspect the address bar or certificate interface, and visual deception can still succeed~\cite{dhamija2006why}.
+
+\subsection{Background}
+Public information about a website is abundant. The URL encodes scheme, hostname, and path; HTTP describes status codes and redirects; and DNS associates names with addresses. Registration data---historically WHOIS and increasingly RDAP---expose creation dates, registrars, and nameservers~\cite{rfc7480}. TLS certificates describe issuer, validity interval, and subject binding~\cite{rfc8446}. Threat-intelligence services maintain reputation for known-bad hosts. Each of these channels has been used, separately, in prior anti-phishing research~\cite{zhang2007cantina,ma2009beyond,xiang2011cantinaplus,rao2019detection}. Ordinary users, however, cannot query and interpret these sources under time pressure.
+
+\subsection{Problem Statement}
+The operational problem is therefore not the absence of security signals. It is the combination of (i)~fragmented evidence, (ii)~a user population that cannot interpret raw WHOIS or certificate fields, and (iii)~phishing sites that imitate legitimate brands and often present a padlock icon. A URL received in SMS, email, or a QR code may be a look-alike domain, a newly registered host, an open redirect, or a page served over HTTPS from otherwise suspicious infrastructure. Existing commercial toolbars and Safe Browsing-style classifiers are effective at scale~\cite{whittaker2010large} but typically return an opaque block-or-allow decision. Academic detectors that rely only on lexical URL features, only on page content, or only on search-engine queries each miss complementary evidence~\cite{sahingoz2019ml,hannousse2021benchmark}.
+
+WebSentinel addresses this gap by aggregating several publicly observable indicators into one assessment and by explaining \emph{why} a site appears comparatively safe or comparatively risky. The system is intended as an advisory assistant. A low score is not a proof of safety; a high score is a request for caution.
+
+\subsection{Research Motivation}
+University-capstone and small-organization settings rarely operate a full security-operations pipeline, yet their users still click unknown links. A system that performs only passive or otherwise approved checks against public information---and that refuses to exploit, credential-harvest, or attack the target---is an appropriate response. The same URL-fetching capability can become a vulnerability if the scanner is induced to contact loopback, RFC~1918, or cloud-metadata addresses~\cite{rfc1918,owaspssrf}. Designing the scanner so that it cannot be turned into an internal probe is therefore part of the research problem, not an afterthought.
+
+\subsection{Objectives}
+The work pursues the following objectives.
+\begin{enumerate}
+  \item Aggregate important website-security information in a single system.
+  \item Identify common phishing and suspicious-website indicators.
+  \item Analyze HTTP, DNS, RDAP or domain-registration, IP, TLS, redirect, and technology signals, to the extent each collector is implemented.
+  \item Generate an explainable advisory score and explain individual warnings in language suitable for non-technical users.
+  \item Specify, but not prematurely claim, later support for scan history, downloadable reports, machine-learning prediction, approved threat-intelligence sources, and change monitoring.
+  \item Maintain safe and ethical assessment practices, including SSRF-aware URL handling.
+\end{enumerate}
+
+\subsection{Main Contributions}
+This paper makes five contributions.
+\begin{enumerate}
+  \item An explainable multi-signal architecture for website security and phishing-risk assessment.
+  \item A rule-based prototype that integrates HTTPS, TLS, and domain-age indicators and returns human-readable reasons.
+  \item A scanner threat model that treats SSRF as a first-class risk of user-controlled URL fetching~\cite{owaspssrf,owasp2021top10}.
+  \item An extension architecture for DNS, RDAP, reputation, and an optional machine-learning probability.
+  \item A reproducible evaluation protocol that can be executed once licensed datasets and tests exist; no fabricated numerical results are reported.
+\end{enumerate}
+
+The remainder of the paper is organized as follows. Section~\ref{sec:related} reviews related work. Section~\ref{sec:threat} states requirements and the threat model. Section~\ref{sec:arch} describes the proposed architecture and the implemented subset. Section~\ref{sec:method} presents the methodology. Section~\ref{sec:impl} discusses implementation choices. Section~\ref{sec:eval} specifies the evaluation protocol. Section~\ref{sec:results} reports observations supported by source inspection. Sections~\ref{sec:privacy}--\ref{sec:future} address privacy, limitations, and future work. Section~\ref{sec:concl} concludes.
+
+\section{Related Work}
+\label{sec:related}
+Phishing detection research has evolved from content heuristics and blacklists toward lexical learning, hybrid feature models, visual brand matching, and explainable decision support. This section reviews those lines and positions WebSentinel conceptually against them. Table~\ref{tab:comparison} summarizes the comparison.
+
+\subsection{User Studies and the Limits of Browser Cues}
+Dhamija \emph{et al.} showed that many users ignore certificate and address-bar cues and that visual spoofing remains effective even against comparatively sophisticated participants~\cite{dhamija2006why}. That finding motivates systems that translate technical evidence into short reasons rather than assuming that a padlock icon is sufficient.
+
+\subsection{Content-Based and Search-Based Detectors}
+CANTINA applied TF--IDF robust hyperlinks to decide whether page terms are consistent with a legitimate site, optionally combined with heuristics~\cite{zhang2007cantina}. CANTINA+ expanded the feature set with DOM, search-engine, and third-party attributes and added filters for near-duplicate phishing pages and login-form absence~\cite{xiang2011cantinaplus}. PhishStorm computed intra-URL relatedness from search-query data and produced a phishingness rating suitable for streaming deployment~\cite{marchal2014phishstorm}. These systems demonstrated that content and search context can catch pages that lexical rules miss, at the cost of search-API dependence and page-download overhead. WebSentinel's prototype does not fetch page HTML for classification; content and technology analysis remain planned.
+
+\subsection{URL and Host Feature Learning}
+Ma \emph{et al.} showed that lexical and host features can classify malicious URLs without downloading page bodies~\cite{ma2009beyond}. Subsequent work engineered richer URL tokenizations and NLP-style features. Sahingoz \emph{et al.} compared seven classifiers on a large URL corpus and reported strong Random Forest performance with language-independent NLP features~\cite{sahingoz2019ml}. Hybrid models combine address-bar features with hyperlink or third-party attributes~\cite{rao2019detection}. Hannousse and Yahiouche argued for reproducible feature-rich benchmarks and released a balanced dataset with URL, content, and external-service features~\cite{hannousse2021benchmark}.
+
+These studies consistently find that accuracy alone is an incomplete metric: false negatives expose users to credential theft, while false positives erode trust. They also show that external features (registration age, DNS, reputation) are often highly discriminative but introduce latency and third-party failure modes~\cite{hannousse2021benchmark}. WebSentinel follows that hybrid philosophy while insisting that every fired indicator be explainable to a non-expert.
+
+\subsection{Reputation, Blacklists, and Browser Protection}
+Industry detectors such as the large-scale classifier described by Whittaker \emph{et al.} combine crawling, content features, and continually updated labels~\cite{whittaker2010large}. Blacklists are effective for known campaigns and weak against zero-hour hosts~\cite{marchal2014phishstorm,apwg2024q4}. WebSentinel treats approved reputation lookups as an optional planned signal, not as the sole decision source.
+
+\subsection{Visual Similarity and Brand Impersonation}
+Phishpedia identifies brand logos and matches them to claimed identities, producing an explanation in the form of a target brand~\cite{lin2021phishpedia}. Visual brand matching is complementary to WebSentinel's current host-and-certificate focus and is listed as future work rather than an implemented module.
+
+\subsection{Explainable Machine Learning in Security}
+SHAP assigns consistent additive feature attributions grounded in Shapley values~\cite{lundberg2017shap}. Phishing tools that emit only a probability leave users unable to judge whether HTTPS, domain age, or a lexical oddity dominated the decision. The proposed design therefore treats SHAP, or an equivalent attribution method, as the explanation layer for any later learned model. The current prototype explains decisions with deterministic rule texts, which are a form of inherent interpretability.
+
+\subsection{Standards Relevant to Collectors and Scanner Safety}
+TLS~1.3 constrains what a passive scanner may observe on port 443~\cite{rfc8446}. RDAP specifies HTTP/JSON access to registration data as a successor to WHOIS~\cite{rfc7480}. The private-address registry enumerates destinations that a URL scanner must not fetch~\cite{rfc1918}. OWASP documents SSRF as a systemic web risk and publishes a prevention cheat sheet~\cite{owasp2021top10,owaspssrf}.
+
+\subsection{Positioning}
+Relative to prior work, WebSentinel is not a new deep classifier and does not claim visual brand matching. Its intended niche is a unified, user-explainable assessment that (i)~already ships a conservative rule engine on HTTPS, certificates, and domain age, and (ii)~is specified to grow toward DNS, redirects, technologies, reputation, and a documented learning pipeline without converting the scanner into an attack tool. Table~\ref{tab:comparison} separates the inspected prototype from the proposed system.
+
+\begin{table*}[!t]
+\centering
+\caption{Conceptual comparison of WebSentinel with representative prior approaches. Y: primary; P: partial; L: limited; --: not a primary contribution. TI: threat intelligence; Age: domain age; XAI: explanation; Score: unified advisory score. Prototype versus proposed rows reflect inspected code.}
+\label{tab:comparison}
+\renewcommand{\arraystretch}{1.12}
+\begin{tabular}{>{\raggedright\arraybackslash}p{2.55cm}cccccccc}
+\toprule
+Approach & URL & DNS & TLS & Age & TI & ML & XAI & Score \\
+\midrule
+CANTINA~\cite{zhang2007cantina} & P & -- & -- & P & P & -- & L & -- \\
+CANTINA+~\cite{xiang2011cantinaplus} & Y & P & -- & P & Y & Y & L & -- \\
+PhishStorm~\cite{marchal2014phishstorm} & Y & -- & -- & -- & P & Y & P & P \\
+URL ML~\cite{sahingoz2019ml} & Y & -- & -- & -- & -- & Y & L & -- \\
+Hybrid ML~\cite{rao2019detection} & Y & P & P & P & P & Y & L & -- \\
+Safe Browsing-style~\cite{whittaker2010large} & Y & -- & -- & -- & Y & Y & -- & -- \\
+Visual~\cite{lin2021phishpedia} & -- & -- & -- & -- & -- & Y & P & -- \\
+WebSentinel prototype & P & -- & Y & Y & -- & -- & Y & Y \\
+WebSentinel proposed & Y & Y & Y & Y & Y & Y & Y & Y \\
+\bottomrule
+\end{tabular}
+\end{table*}
+
+\section{System Requirements and Threat Model}
+\label{sec:threat}
+
+\subsection{Intended Users}
+The primary user is a non-expert who received a link and wants a short, reasoned caution level before entering credentials. Secondary users are student analysts and small-team operators who may later need stored assessments and a downloadable report. The system is not a penetration-testing platform and is not authorized to assess systems that the user does not have a legitimate reason to inspect as a public client.
+
+\subsection{Assets}
+Protected assets are (i)~the user's credentials and session tokens, which must never be requested or stored; (ii)~the confidentiality of the submitted URL, of which the prototype already minimizes path and query; and (iii)~the scanner host itself, including any cloud-metadata credentials reachable via SSRF.
+
+\subsection{Attacker Model}
+The external attacker crafts URLs and websites intended to impersonate trusted brands. The attacker may register a young domain, obtain a valid publicly trusted certificate, use many subdomains, employ redirects, copy HTML and logos, and rotate hosting. The attacker may also try to cause false negatives by presenting HTTPS and a plausible brand, or false positives against WebSentinel by mimicking aged, well-configured infrastructure. A second adversary is a user of the scanner---or a page that tricks a user into scanning a URL---who attempts to make the backend fetch internal resources. That adversary is modeled as an SSRF attacker~\cite{owaspssrf}.
+
+\subsection{Phishing and Malicious-URL Threat}
+Phishing pages seek credentials, session cookies, cryptocurrency, or malware delivery. They are often short-lived~\cite{hannousse2021benchmark,apwg2024q4}. Malicious URLs more broadly include drive-by exploit hosts and spam landing pages~\cite{ma2009beyond}. WebSentinel's current rules target \emph{suspiciousness indicators} correlated with phishing and poor operational hygiene; they do not prove criminal intent.
+
+\subsection{Ethical Scanning Boundaries}
+The system must not steal credentials, attempt exploitation, perform destructive testing, bypass authentication, or conduct unauthorized attacks. Collectors are restricted to information a normal web client or public directory service can observe: scheme, certificate on port 443, and registration records. Future HTML fetches, if enabled, must remain unauthenticated GET requests with strict timeouts and size limits. Approved threat-intelligence APIs may be queried only under their terms of use.
+
+\subsection{System Limitations as Requirements}
+The service cannot see authenticated application state, cannot execute a full browser DOM without a planned headless client, and cannot guarantee completeness of WHOIS or RDAP fields. Those limits are accepted: the output is advisory.
+
+\subsection{SSRF Threat Against the Scanner}
+If a user can supply \texttt{http://127.0.0.1/}, \texttt{http://169.254.169.254/}, an RFC~1918 literal, a DNS name that resolves to such an address, or a redirect that later targets one, the scanner becomes an internal HTTP proxy~\cite{rfc1918,owaspssrf}. Cloud instance-metadata endpoints are a documented high-value target. The control set is specified in Section~\ref{sec:ssrf}. The inspected prototype validates scheme and strips path, but it does not yet enforce private-address denial after DNS resolution. That gap is treated as implementation debt, not as a completed control.
+
+\section{Proposed System Architecture}
+\label{sec:arch}
+Fig.~\ref{fig:arch} depicts the proposed architecture. Solid boxes are present in the inspected prototype. Dashed boxes are planned. The current system occupies a strict subset of the figure: a Manifest~V3 Chrome popup, an Express.js API, and three collectors (protocol, TLS, and WHOIS).
+
+\begin{figure*}[!t]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize,
+  impl/.style={draw, solid, rounded corners=1.5pt, align=center, inner sep=3pt, minimum height=7.2mm},
+  plan/.style={draw, dashed, rounded corners=1.5pt, align=center, inner sep=3pt, minimum height=7.2mm},
+  arr/.style={-{Latex}, thick}
+]
+\node[impl] (user) {User};
+\node[impl, right=4mm of user] (ui) {Chrome extension\\(React dashboard planned)};
+\node[impl, right=4mm of ui] (api) {API layer\\Express now / FastAPI planned};
+\node[impl, right=4mm of api] (val) {URL validation};
+\node[plan, right=4mm of val] (ssrf) {SSRF guard};
+\node[impl, below=8mm of val] (orch) {Collector orchestrator};
+\node[impl, below=8mm of orch, xshift=-46mm] (http) {HTTP/HTTPS};
+\node[impl, right=2.5mm of http] (tls) {TLS};
+\node[impl, right=2.5mm of tls] (whois) {WHOIS age};
+\node[plan, right=2.5mm of whois] (dns) {DNS};
+\node[plan, right=2.5mm of dns] (rdap) {RDAP};
+\node[plan, right=2.5mm of rdap] (red) {Redirect};
+\node[plan, right=2.5mm of red] (tech) {Tech / TI};
+\node[impl, below=8mm of whois] (fe) {Feature extraction};
+\node[impl, below=8mm of fe, xshift=-18mm] (rule) {Rule engine};
+\node[plan, below=8mm of fe, xshift=18mm] (ml) {ML model};
+\node[impl, below=8mm of rule] (xai) {Explainability};
+\node[impl, below=8mm of ml] (score) {Risk score};
+\node[plan, below=8mm of xai, xshift=18mm] (db) {Database / report};
+\draw[arr] (user) -- (ui);
+\draw[arr] (ui) -- (api);
+\draw[arr] (api) -- (val);
+\draw[arr] (val) -- (ssrf);
+\draw[arr] (val) -- (orch);
+\draw[arr] (ssrf.south) |- (orch);
+\draw[arr] (orch) -- (http.north);
+\draw[arr] (orch) -- (tls.north);
+\draw[arr] (orch) -- (whois.north);
+\draw[arr] (orch) -- (dns.north);
+\draw[arr] (orch) -- (rdap.north);
+\draw[arr] (orch) -- (red.north);
+\draw[arr] (orch) -- (tech.north);
+\draw[arr] (http.south) |- (fe);
+\draw[arr] (tls) -- (fe);
+\draw[arr] (whois) -- (fe);
+\draw[arr] (dns.south) |- (fe);
+\draw[arr] (rdap.south) |- (fe);
+\draw[arr] (red.south) |- (fe);
+\draw[arr] (tech.south) |- (fe);
+\draw[arr] (fe) -- (rule);
+\draw[arr] (fe) -- (ml);
+\draw[arr] (rule) -- (xai);
+\draw[arr] (ml) -- (score);
+\draw[arr] (xai) -- (score);
+\draw[arr] (score) -- (db);
+\node[below=2mm of db, font=\scriptsize, align=left] {Legend: solid~=~implemented prototype; dashed~=~proposed/planned.};
+\end{tikzpicture}
+\caption{WebSentinel system architecture. Solid borders denote modules verified in the inspected prototype. Dashed borders denote planned collectors, learning, storage, and SSRF hardening.}
+\label{fig:arch}
+\end{figure*}
+
+\subsection{Frontend}
+The proposed user interface is a React, TypeScript, and Tailwind CSS dashboard with URL entry, scan history, and report download. The implemented interface is a Chrome extension popup that reads the active tab, rejects non-HTTP(S) schemes locally, posts only the origin, and renders a verdict (\texttt{Safe}, \texttt{Suspicious}, or \texttt{High risk}), a numeric score, and a reason list. The extension requests \texttt{activeTab} and a single API host permission.
+
+\subsection{Backend}
+The proposed backend is an asynchronous FastAPI service that orchestrates collectors and the risk engine. The implemented backend is Express.js exposing \texttt{GET /health} and \texttt{POST /check}, with an 8~kB JSON body limit and CORS enabled. Local listening is bound to \texttt{127.0.0.1} unless deployed on Vercel.
+
+\subsection{Data-Collection Modules}
+Proposed collectors cover HTTP responses, DNS, RDAP, TLS, redirects, IP/hosting/geolocation, HTML technology fingerprints, and optional reputation APIs. Implemented collectors are scheme inspection, TLS inspection via \texttt{ssl-checker}, and domain-registration scraping of a public WHOIS HTML endpoint. A file \texttt{rdap.js} exists but is empty; RDAP is therefore planned, not implemented.
+
+\subsection{Database and Background Processing}
+The proposed schema includes users, scans, websites, domain records, DNS records, TLS records, redirects, technologies, risk findings, ML predictions, reports, and monitoring configurations. The inspected prototype persists nothing: each check is stateless. No PostgreSQL models were found. Celery or RQ with Redis is specified for long scans and monitoring. The prototype performs collectors inline with an 8~s per-collector timeout.
+
+\subsection{Machine-Learning Module and Reports}
+A scikit-learn classifier with optional SHAP explanations is planned. No model artifact, training notebook, or feature-store code was found. Downloadable reports and a React report view are planned. Approved breach or reputation APIs are planned and are not called in the inspected code.
+
+\section{Methodology}
+\label{sec:method}
+
+\subsection{URL Validation}
+\label{sec:urlval}
+Let $u$ be the raw input. The prototype parses $u$ with the WHATWG URL parser, optionally prefixing \texttt{https://}. A request is rejected if the scheme is not \texttt{http} or \texttt{https}, or if it matches an unsupported family such as \texttt{chrome}, \texttt{edge}, \texttt{about}, \texttt{devtools}, \texttt{file}, \texttt{data}, or \texttt{blob}. The API then discards path, query, and fragment and retains only
+\begin{equation}
+\mathrm{origin}(u)=\mathrm{scheme}(u)\,||\,\texttt{://}\,||\,\mathrm{host}(u).
+\label{eq:origin}
+\end{equation}
+This is a privacy control as well as a validation step: secrets encoded in query strings never leave the browser. Planned validation additionally resolves $\mathrm{host}(u)$ and refuses private, loopback, link-local, and metadata addresses (Section~\ref{sec:ssrf}).
+
+\subsection{HTTP, DNS, Domain, and TLS Analysis}
+The prototype does not issue a full HTTP GET to the target for header or body analysis. It only tests whether the scheme is HTTPS. Planned HTTP analysis will record status code, selected security headers, and a size-limited title, still without authentication.
+
+Independent DNS collection is planned. A resolver would collect A, AAAA, MX, NS, and TXT records. The prototype currently surfaces nameservers only when the WHOIS scrape includes them.
+
+RDAP is the standards-based successor to WHOIS~\cite{rfc7480}. The prototype instead HTTP-GETs a third-party WHOIS presentation page and parses embedded JSON. Extracted fields include registrar, creation, update, and expiration dates, nameservers, and a DNSSEC string. Domain age is computed from the creation timestamp. This collector is a functional stand-in for RDAP and inherits HTML-structure brittleness.
+
+The prototype connects to port 443 with an 8~s timeout and records validity, validity interval, days remaining, and issuer~\cite{rfc8446}. An exception is treated as an invalid certificate. HTTPS remains insufficient as a trust signal~\cite{dhamija2006why,apwg2024q4}.
+
+\subsection{Redirect, Technology, and Reputation Analysis}
+Redirect analysis, technology detection, and reputation lookups are planned. A bounded client should follow at most $N$ redirects, re-validate each hop against the SSRF policy, and flag cross-registrable-domain hops. Header and HTML signatures would be collected with a size-capped parser. Reputation may be queried only through approved APIs; a positive hit is an indicator, not a legal determination.
+
+\subsection{Feature Extraction}
+Let $\mathbf{x}$ be the feature vector. The prototype uses a small discrete set: HTTPS flag, certificate validity, days-to-expiry, domain-age bucket, WHOIS-update recency, and a DNSSEC string. The proposed vector additionally includes URL length, dot and subdomain counts, digit and special-character counts, IP-literal host, redirect count, lexical keywords, login-form cues, and reputation. Features should be computed from already-collected artifacts to avoid extra network risk.
+
+\subsection{Rule-Based Risk Scoring}
+\label{sec:score}
+Two scoring presentations are distinguished: the implemented integer $S$ and a future normalized score $R$.
+
+\paragraph{Implemented prototype.}
+Let $S$ be an integer initialized to $0$. Penalties observed in the prototype scoring module are
+\begin{align}
+S &\mathrel{+}= 20 && \text{if the scheme is not HTTPS,} \nonumber\\
+S &\mathrel{+}= 20 && \text{if the certificate is missing or invalid,} \nonumber\\
+S &\mathrel{+}= 3 && \text{if } 0 \le d_{\mathrm{exp}} < 7, \nonumber\\
+S &\mathrel{+}= a(y,m,d) && \text{age bucket,} \nonumber\\
+S &\mathrel{+}= u(\Delta) && \text{WHOIS update recency,} \nonumber\\
+S &\mathrel{-}= 3 && \text{if HTTPS and DNSSEC is signed.} \nonumber
+\end{align}
+The age function $a$ is mutually exclusive:
+\begin{equation}
+a=
+\begin{cases}
+35, & y=m=0,\ d<7,\\
+25, & y=0,\ m<1,\\
+15, & y=0,\ m<6,\\
+8, & y<1,\\
+0, & \text{otherwise.}
+\end{cases}
+\label{eq:age}
+\end{equation}
+Update recency $u(\Delta)$ is $10$ if $\Delta<7$ days, $6$ if $\Delta<30$, else $0$. The implementation then applies $S \leftarrow \max(S,0)$. Verdicts are
+\begin{equation}
+\begin{cases}
+\text{Safe,} & S<24,\\
+\text{Suspicious,} & 24\le S<59,\\
+\text{High risk,} & S\ge 59.
+\end{cases}
+\label{eq:verdict}
+\end{equation}
+These weights and thresholds are implementation design choices and have not yet been statistically calibrated against a labelled phishing corpus.
+
+The user interface presents $S$ on a 0--100 scale. Under the current mutually exclusive age buckets, the theoretical maximum is $20+20+35+10=85$ (HTTP, invalid TLS, age under 7~days, and a WHOIS update under 7~days). The displayed denominator 100 is therefore a presentation scale, not a reachable sum of the current rule set. The prototype does not implement min--max normalization.
+
+\paragraph{Proposed normalized model.}
+For a planned multi-signal engine, let $f_i\in[0,1]$ be a normalized risk contribution of indicator $i$ and $w_i\ge 0$ its weight. An optional learned probability $p\in[0,1]$ may be included with weight $\lambda$:
+\begin{equation}
+R_{\mathrm{raw}}=\sum_{i=1}^{n} w_i f_i + \lambda p,
+\label{eq:raw}
+\end{equation}
+\begin{equation}
+R = \mathrm{clip}_{[0,100]}\!\left(100\cdot\frac{R_{\mathrm{raw}}}{\sum_i w_i + \lambda}\right).
+\label{eq:norm}
+\end{equation}
+The current prototype score $S$ and the future normalized $R$ are distinct. Normalization is not implemented unless a later revision of the scoring module proves otherwise. A five-level interpretation of $R$ may later be evaluated; those bands are not the bands running in the prototype and must not be presented as validated.
+
+\subsection{Machine-Learning Classification}
+\label{sec:ml}
+No classifier is trained in the inspected repository. The planned pipeline, shown in Fig.~\ref{fig:ml}, is: obtain an approved dataset such as the Hannousse--Yahiouche benchmark~\cite{hannousse2021benchmark} or a similarly licensed PhishTank/OpenPhish plus legitimate crawl; clean and deduplicate; engineer $\mathbf{x}$; apply a stratified or chronological train/test split; fit candidate models (logistic regression, decision tree, random forest, and gradient boosting) that have been effective on tabular phishing features~\cite{sahingoz2019ml,rao2019detection,hannousse2021benchmark}; and emit $p=\Pr(\mathrm{phish}\mid\mathbf{x})$. Class imbalance, if present, should be handled with class weights or resampling rather than ignored. Accuracy is insufficient because a trivial majority classifier can look strong on skewed data, and because a false negative (phishing labeled legitimate) has a higher user-safety cost than a false positive, which mainly costs convenience~\cite{xiang2011cantinaplus,sahingoz2019ml}. Precision, recall, F1-score, and ROC-AUC are therefore mandatory.
+
+\subsection{Explainability}
+Rule explanations in the prototype are the strings appended when a penalty fires. For a future model $g(\mathbf{x})=p$, SHAP values $\phi_i$ satisfy
+\begin{equation}
+g(\mathbf{x})=\phi_0+\sum_i \phi_i,
+\label{eq:shap}
+\end{equation}
+where $\phi_0$ is the baseline expectation~\cite{lundberg2017shap}. A user-facing explanation would list the largest positive $\phi_i$ (evidence for phishing) and negative $\phi_i$ (evidence against). A valid certificate should be allowed to appear as negative evidence without being described as proof of legitimacy. SHAP is planned; no SHAP values were computed in the inspected project.
+
+\subsection{Safe Website Scanning and SSRF Controls}
+\label{sec:ssrf}
+The scanner is itself a confused deputy~\cite{owaspssrf}. Table~\ref{tab:ssrf} separates controls that exist in the prototype from controls that remain required before any open deployment that fetches arbitrary URLs.
+
+Implemented controls are limited to HTTP/HTTPS allow-listing, rejection of a documented unsupported-scheme family, origin-only forwarding (path and query stripped), an 8~kB JSON body limit, and 8~s collector timeouts. Required or planned controls, aligned with OWASP guidance~\cite{owaspssrf}, include URL normalization with rejection of embedded credentials; DNS resolution of the hostname; denial of loopback, RFC~1918 private space, link-local, multicast, IPv6 unique-local, and well-known cloud-metadata addresses~\cite{rfc1918}; defense against DNS rebinding by checking the resolved address at connect time; re-validation of every redirect hop; response-size and redirect-count limits; and API rate limiting. The prototype must not be described as SSRF-safe until those controls exist and have been tested.
+
+\begin{table}[!t]
+\centering
+\caption{SSRF-related controls. Implemented items were verified in source. Required items are specified, not claimed as complete.}
+\label{tab:ssrf}
+\renewcommand{\arraystretch}{1.08}
+\begin{tabular}{>{\raggedright\arraybackslash}p{4.15cm}>{\raggedright\arraybackslash}p{3.55cm}}
+\toprule
+Control & Status \\
+\midrule
+HTTP/HTTPS allow-list & Implemented \\
+Unsupported-scheme reject & Implemented \\
+Origin-only transmission & Implemented \\
+API body-size limit (8~kB) & Implemented \\
+Collector timeouts (8~s) & Implemented \\
+Reject embedded credentials & Required / planned \\
+Resolve then deny private/loopback & Required / planned \\
+Deny link-local and unique-local & Required / planned \\
+Deny cloud-metadata addresses & Required / planned \\
+DNS-rebinding check at connect & Required / planned \\
+Redirect-hop revalidation & Required / planned \\
+Response-size and redirect caps & Required / planned \\
+API rate limiting & Required / planned \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Implementation}
+\label{sec:impl}
+
+\subsection{Implementation Status}
+Table~\ref{tab:status} records what the inspected repository \texttt{seethinajayadileep/WebSentinel} (commit \texttt{7d8822f}, 29~August~2026) actually contains. The workspace that hosts this paper is a different project and does not include WebSentinel application code. Capstone documentation describes a two-semester plan; later items are not claimed as built.
+
+\begin{table}[!t]
+\centering
+\caption{Implementation status of WebSentinel components, verified against inspected source.}
+\label{tab:status}
+\renewcommand{\arraystretch}{1.08}
+\begin{tabular}{>{\raggedright\arraybackslash}p{3.4cm}>{\raggedright\arraybackslash}p{4.4cm}}
+\toprule
+Component & Status \\
+\midrule
+Chrome extension UI & Implemented (Manifest V3) \\
+Express \texttt{/check} API & Implemented \\
+HTTPS / TLS / WHOIS age & Implemented \\
+Rule scoring & Implemented \\
+Human-readable reasons & Implemented \\
+Origin-only URL transmission & Implemented \\
+Vercel deployment config & Implemented \\
+RDAP client & Planned (empty file) \\
+FastAPI / React dashboard & Planned \\
+PostgreSQL models & Planned \\
+Redis / Celery / RQ & Planned \\
+DNS, redirects, technology, IP & Planned \\
+Threat-intelligence APIs & Planned \\
+Machine learning / SHAP & Planned \\
+Authentication, history, reports & Planned \\
+Monitoring / change alerts & Planned \\
+pytest / Vitest / Playwright / ZAP & Planned (one Node assertion) \\
+Docker / Nginx / CI & Planned \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Why the Prototype Stack Was Used}
+The shipped prototype favors a small JavaScript surface that can be reviewed for a browser-store privacy policy. Express provides a minimal JSON API that the popup can call. \texttt{ssl-checker} isolates TLS metadata collection. Axios and Cheerio exist only to parse the WHOIS HTML provider. These choices are expedient for a first-semester demonstrator; they are not an argument against the planned Python stack.
+
+\subsection{Why the Proposed Stack Is Specified}
+FastAPI is specified for a later backend because collectors, feature extraction, and scikit-learn inference share a Python process model and async HTTP clients. PostgreSQL fits relational scan trees. Redis plus a worker is appropriate once scans exceed request timeouts. React and TypeScript support a typed dashboard. Docker and Nginx support reproducible deployment. GitHub Actions would run the planned pytest, Vitest, Playwright, and ZAP jobs. pandas and scikit-learn are the conventional tabular-learning toolchain used in comparable studies~\cite{sahingoz2019ml,hannousse2021benchmark}. SHAP is specified because additive attributions map naturally onto a reason list~\cite{lundberg2017shap}.
+
+\subsection{Prototype Workflow}
+Fig.~\ref{fig:flow} summarizes the implemented path. Opening the toolbar icon queries the active tab, parses the tab URL, and either shows a local rejection or posts the origin to the check endpoint. The server re-parses the origin, runs TLS and WHOIS lookups in parallel, computes $S$, and returns hostname, score, message, and conditions. The popup maps the message to a visual tone and lists reasons. The popup copy states that a low score is not a guarantee of safety.
+
+\begin{figure}[!t]
+\centering
+\begin{tikzpicture}[
+  font=\scriptsize,
+  impl/.style={draw, solid, rounded corners=1pt, align=center, inner sep=2.6pt, minimum width=2.55cm},
+  arr/.style={-{Latex}, thick}
+]
+\node[impl] (a) {Tab URL};
+\node[impl, below=2.8mm of a] (b) {URL parsing};
+\node[impl, below=2.8mm of b] (c) {Origin stripping};
+\node[impl, below=2.8mm of c] (d) {\texttt{POST /check}};
+\node[impl, below=2.8mm of d] (e) {TLS + WHOIS};
+\node[impl, below=2.8mm of e] (f) {Rule score $S$};
+\node[impl, below=2.8mm of f] (g) {Reason generation};
+\node[impl, below=2.8mm of g] (h) {Verdict};
+\foreach \x/\y in {a/b,b/c,c/d,d/e,e/f,f/g,g/h} {\draw[arr] (\x) -- (\y);}
+\end{tikzpicture}
+\caption{Implemented prototype workflow. Path and query never leave the device.}
+\label{fig:flow}
+\end{figure}
+
+\subsection{Scoring Pipeline}
+Fig.~\ref{fig:risk} shows how indicators enter $S$. Machine-learning fusion via~\eqref{eq:raw}--\eqref{eq:norm} is drawn as a planned input.
+
+\begin{figure}[!t]
+\centering
+\begin{tikzpicture}[
+  font=\scriptsize,
+  impl/.style={draw, solid, rounded corners=1pt, align=center, inner sep=2.4pt},
+  plan/.style={draw, dashed, rounded corners=1pt, align=center, inner sep=2.4pt},
+  arr/.style={-{Latex}, thick}
+]
+\node[impl] (h) {HTTPS};
+\node[impl, right=2mm of h] (t) {TLS};
+\node[impl, right=2mm of t] (g) {Age};
+\node[impl, below=6mm of t] (s) {$S=\sum$ penalties};
+\node[plan, right=3mm of s] (p) {$\lambda p$ planned};
+\node[impl, below=6mm of s] (v) {Safe / Suspicious / High risk};
+\draw[arr] (h) -- (s);
+\draw[arr] (t) -- (s);
+\draw[arr] (g) -- (s);
+\draw[arr] (p) -- (s);
+\draw[arr] (s) -- (v);
+\end{tikzpicture}
+\caption{Risk-score pipeline. Prototype bands are given in~\eqref{eq:verdict}. The dashed input is not implemented.}
+\label{fig:risk}
+\end{figure}
+
+\subsection{Planned Learning Pipeline}
+Fig.~\ref{fig:ml} records the intended learning workflow. It is a design, not an executed experiment.
+
+\begin{figure}[!t]
+\centering
+\begin{tikzpicture}[
+  font=\scriptsize,
+  plan/.style={draw, dashed, rounded corners=1pt, align=center, inner sep=2.2pt, minimum width=1.72cm},
+  arr/.style={-{Latex}, thick}
+]
+\node[plan] (d) {Dataset};
+\node[plan, right=1.8mm of d] (c) {Clean};
+\node[plan, right=1.8mm of c] (f) {Features};
+\node[plan, below=5mm of f] (s) {Split};
+\node[plan, left=1.8mm of s] (m) {Train};
+\node[plan, left=1.8mm of m] (e) {Evaluate};
+\node[plan, below=5mm of m] (p) {$p$};
+\node[plan, right=1.8mm of p] (x) {Explain};
+\node[plan, right=1.8mm of x] (r) {Risk};
+\draw[arr] (d) -- (c);
+\draw[arr] (c) -- (f);
+\draw[arr] (f) -- (s);
+\draw[arr] (s) -- (m);
+\draw[arr] (m) -- (e);
+\draw[arr] (e) -- (p);
+\draw[arr] (p) -- (x);
+\draw[arr] (x) -- (r);
+\end{tikzpicture}
+\caption{Planned machine-learning pipeline. No trained weights exist in the inspected repository.}
+\label{fig:ml}
+\end{figure}
+
+\section{Evaluation Protocol}
+\label{sec:eval}
+This section specifies how evaluation should be conducted. It is not a report of completed experiments. Measured hardware descriptions, dataset cardinalities, classifier metrics, and scan latencies were not found in the inspected materials (no notebooks, metric dumps, or executed test suites accompanied a completed study). Quantitative results are therefore not reported in this version.
+
+\subsection{Software Environment Under Test}
+The prototype runtime declared by the inspected backend manifest is Node.js with Express, axios, cheerio, and \texttt{ssl-checker}. The popup targets a Chromium-based browser using Manifest V3. A later evaluation of the proposed stack would additionally name Python, FastAPI, PostgreSQL, Redis, and React/TypeScript once those components exist. Hardware used for future timing runs should be recorded at execution time rather than guessed here.
+
+\subsection{Rule-Based Assessment Protocol}
+The implemented engine can be evaluated without a trained model by scoring a licensed, labelled URL set and mapping the three-level verdict in~\eqref{eq:verdict} onto phishing versus legitimate labels after a documented decision rule. Candidate sources include the Hannousse--Yahiouche web-page phishing set~\cite{hannousse2021benchmark} or a freshly sampled PhishTank/OpenPhish corpus plus a documented legitimate crawl. Metrics shall include accuracy, precision, recall, F1-score, and a confusion matrix, with explicit review of false negatives. Class counts, collection dates, and the train/hold-out policy must be taken from the chosen licensed source at experiment time.
+
+\subsection{Performance Protocol}
+Wall-clock latency of \texttt{POST /check} should be recorded for established HTTPS sites, HTTP-only sites, newly registered domains, invalid-TLS hosts, and timeout or DNS-failure cases. Report mean, median, minimum, maximum, timeout rate, and collector error rate. Collector timeouts of 8~s bound worst-case latency in the prototype; measured averages remain part of the planned evaluation and are therefore not reported in this version.
+
+\subsection{Security Protocol}
+Security testing should combine (i)~unit tests for URL and address-policy functions, (ii)~negative tests that attempt loopback, RFC~1918, link-local, unique-local, and metadata targets, (iii)~redirect-to-private and DNS-rebinding cases, and (iv)~an OWASP ZAP baseline against the WebSentinel application itself---not against third-party scanned sites~\cite{owasp2021top10}. The prototype must not be described as SSRF-safe until those tests exist.
+
+\subsection{Functional Protocol}
+A complete program would include unit, integration, API, frontend, end-to-end, security, performance, and---once a model exists---learning evaluation. The inspected backend defines a single assertion: an unsupported \texttt{chrome://} target must be rejected. Planned functional cases include valid HTTPS, HTTP-only, malformed URL, unsupported scheme, invalid TLS, newly registered domain, collector timeout, and DNS failure. Observed pass/fail counts are not reported because that suite has not been executed.
+
+\subsection{Learning-Evaluation Protocol}
+Once a model exists, evaluate logistic regression, a decision tree, random forest, and gradient boosting with cross-validation or a chronological split to reduce leakage from near-duplicate campaigns~\cite{xiang2011cantinaplus,hannousse2021benchmark}. Report accuracy, precision, recall, F1-score, and ROC-AUC. Analyze false negatives individually: a missed banking clone is more severe than a missed generic spam page.
+
+\section{Source-Inspection Observations}
+\label{sec:results}
+No experimental campaign, labelled-score spreadsheet, or learning-metric file was available. This section therefore reports only qualitative observations that follow directly from source inspection. These observations are not experimental results.
+
+The prototype returns a numeric $S$, a three-level message, and zero or more reason strings. Domain youth is the heaviest implemented penalty, which is consistent with literature that treats registration age as a strong external feature~\cite{ma2009beyond,hannousse2021benchmark}. Invalid TLS and missing HTTPS are each weighted equally, so an HTTP site with a failed certificate check can already reach the Suspicious band without being young. DNSSEC can reduce $S$ by a small bonus that cannot cancel a new-domain penalty. As noted in Section~\ref{sec:score}, the current rule maximum differs from the 0--100 presentation scale.
+
+Origin-only processing improves privacy: path, query, and fragment never leave the device. The same design, however, prevents the prototype from using lexical path features that URL-only classifiers exploit~\cite{sahingoz2019ml}. Dependence on a scraped WHOIS page is a reliability risk; RDAP would be the standards-compliant replacement~\cite{rfc7480}. The implemented reason list operationalizes the finding that users need more than a padlock~\cite{dhamija2006why}, but the same list can over-warn on legitimate new businesses and under-warn on aged, certificated clones---a known limitation of host-feature systems~\cite{xiang2011cantinaplus,lin2021phishpedia}.
+
+Claims of detection rate, latency, or test-pass percentage are unwarranted until the protocol in Section~\ref{sec:eval} is executed. Empty metric templates are therefore omitted from this version; they are retained as commented source and in the accompanying evaluation-table file for later use.
+
+\section{Security and Privacy Considerations}
+\label{sec:privacy}
+
+\subsection{Safe Scanning}
+Collectors must behave as unauthenticated public clients. The design forbids exploit payloads, credential posting, authentication bypass, and authenticated crawling.
+
+\subsection{SSRF and Abuse}
+Section~\ref{sec:ssrf} is the primary technical control discussion. Rate limiting, authentication of the API, and refusing to become an open relay are required before wide deployment. The prototype's open CORS policy is convenient for a demonstration and overly permissive for production.
+
+\subsection{Privacy and Storage Minimization}
+The extension's privacy policy states that only the origin is transmitted, that path and query remain on device, and that names, passwords, payment details, accounts, and cross-tab history are not collected. That policy matches the popup implementation. Planned databases should store the assessed origin, collector outputs, and reasons---not page cookies or form bodies. A formal retention policy must be established before persistent scan storage is deployed.
+
+\subsection{API-Key and Third-Party Security}
+Future reputation or breach APIs must keep keys in server-side secrets, never in the extension. The current WHOIS HTML provider is an implicit third party and should be replaced or contractually documented.
+
+\subsection{Input Validation and Ethics}
+JSON body size is already capped at 8~kB. Further validation should constrain hostname length and character set after IDN decoding. Advisory language in the UI already declines to guarantee safety. Published papers and demonstrations should use owned or publicly documented URLs and licensed phishing datasets, not live credential-harvesting sites for interactive login tests.
+
+\section{Limitations}
+\label{sec:limit}
+The following limitations are inherent or presently observed: dependence on third-party WHOIS presentation HTML and, later, on threat-intelligence quotas; incomplete RDAP coverage and redacted registration fields; false positives on young legitimate domains and false negatives on aged, well-certificated phishing; rapid campaign turnover and dataset drift~\cite{hannousse2021benchmark,apwg2024q4}; no JavaScript execution or DOM analysis in the prototype, so CAPTCHAs and heavily client-rendered pages will defeat naive HTML fetches; CDN and anycast hosting that obscure geolocation even when IP lookup is added; the fact that HTTPS does not imply legitimacy; the absence of a trained learning model and therefore of measured generalization or SHAP study; adversarial manipulation of lexical features and freely obtained certificates; external-API latency and timeouts; incomplete SSRF controls for resolved private addresses; and the absence of persistent history, authentication, monitoring, or a report pipeline in the inspected code.
+
+\section{Future Work}
+\label{sec:future}
+Planned work, none of which is claimed as implemented, includes replacing WHOIS scraping with RDAP; DNS, redirect, technology, and IP/hosting collectors; approved reputation and breach APIs; a documented tabular model such as random forest or gradient boosting~\cite{hannousse2021benchmark,rao2019detection}; SHAP explanations~\cite{lundberg2017shap}; PostgreSQL-backed history; downloadable reports; authenticated users; monitoring with change alerts; stronger brand-impersonation checks, including visual or logo methods in the spirit of Phishpedia~\cite{lin2021phishpedia}; DOM and login-form analysis; NLP on URL tokens~\cite{sahingoz2019ml}; graph-based domain infrastructure features; a production SSRF resolver guard; email-gateway or browser integration; and cloud deployment with HTTPS, logs, and backups. These additions will be evaluated; they may improve detection performance, but that outcome is not assumed.
+
+\section{Conclusion}
+\label{sec:concl}
+Users cannot reasonably assemble protocol, certificate, and registration evidence every time they receive a link, and HTTPS does not resolve that problem. This work demonstrates the feasibility of combining publicly observable domain, protocol, and TLS indicators into an explainable website-risk assessment while explicitly considering the security risks introduced by URL-scanning services. The implemented prototype is a browser extension and REST service that returns an advisory score, a three-level verdict, and a reason list; it does not constitute a completed machine-learning phishing detector. Scanner-side SSRF remains only partly controlled. Current limitations include third-party WHOIS dependence, uncalibrated rule weights, and the absence of measured detection performance. Planned empirical validation---on a licensed labelled corpus, with the security and latency protocols in Section~\ref{sec:eval}---is required before any claim of detection performance can be made.
+
+% TODO BEFORE SUBMISSION: Insert supervisor or institution acknowledgment
+% if the venue requires one. Do not invent funding or affiliation text.
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
