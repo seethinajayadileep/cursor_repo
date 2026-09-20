@@ -5,10 +5,11 @@ from pathlib import Path
 from urllib.parse import quote
 
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from starlette.middleware.sessions import SessionMiddleware
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 
 from mail_app import auth, graph, store
 from mail_app.config import load_settings
@@ -24,7 +25,7 @@ FOLDERS = (
     ("deleteditems", "Deleted", "DL"),
 )
 
-app = FastAPI(title="Private Outlook Inbox")
+app = FastAPI(title="Host Inbox", docs_url=None, redoc_url=None)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret or "dev-only-change-me",
@@ -33,6 +34,7 @@ app.add_middleware(
     https_only=settings.https_only,
     max_age=60 * 60 * 24 * 30,
 )
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
 templates = Jinja2Templates(directory=str(ROOT / "templates"))
 
@@ -122,6 +124,26 @@ templates.env.globals["sender_initials"] = sender_initials
 templates.env.globals["account_url"] = account_url
 templates.env.globals["mail_href"] = mail_href
 templates.env.globals["public_base_url"] = settings.public_base_url
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["Referrer-Policy"] = "same-origin"
+    response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
+    return response
+
+
+@app.get("/healthz")
+async def healthz():
+    return JSONResponse({"ok": True})
+
+
+@app.get("/robots.txt")
+async def robots():
+    return Response("User-agent: *\nDisallow: /\n", media_type="text/plain")
 
 
 @app.get("/", response_class=HTMLResponse)

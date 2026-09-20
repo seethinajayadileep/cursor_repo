@@ -54,12 +54,26 @@ Error text like: account `@outlook.com` from `live.com` does not exist in tenant
 
 Do not add the Outlook user as a guest in Default Directory unless you only want work accounts.
 
-## Deploy to your host
+## Deploy (Railway recommended)
 
-1. Put the app on Render, Railway, Fly, or any Docker host using the repo `Dockerfile` / `Procfile`.
-2. Set env vars: `AZURE_CLIENT_ID`, `AZURE_CLIENT_SECRET`, `AZURE_TENANT_ID=common`, `SESSION_SECRET` (long random), `PUBLIC_BASE_URL=https://your-domain`, `REDIRECT_URI=https://your-domain/auth/callback`, `HTTPS_ONLY=1`.
-3. In Entra add the production redirect URI: `https://your-domain/auth/callback` (Web).
-4. Open `https://your-domain`, sign in, then use **Connect another account** for each mailbox. Copy the unique `/a/<id>` URL from the left pane.
+1. Create a Railway project from this repo. Attach a **volume** at `/data`.
+2. Set env vars (do not change `SESSION_SECRET` later):
+
+```
+AZURE_CLIENT_ID=
+AZURE_CLIENT_SECRET=
+AZURE_TENANT_ID=common
+SESSION_SECRET=          # long random, generate once
+PUBLIC_BASE_URL=https://your-app.up.railway.app
+REDIRECT_URI=https://your-app.up.railway.app/auth/callback
+HTTPS_ONLY=1
+MAIL_DB_PATH=/data/accounts.sqlite
+```
+
+3. Entra → app → Authentication → add Web redirect `https://your-app.up.railway.app/auth/callback`.
+4. Health check: `GET /healthz`.
+
+Render: use `render.yaml`, paid instance, **persistent disk** at `/data`, same env vars. Do not use a sleeping free web service.
 
 Keep `SESSION_SECRET` stable after the first deploy. Changing it invalidates stored mailbox tokens.
 

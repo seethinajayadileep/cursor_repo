@@ -28,8 +28,10 @@ class Settings:
 
 
 def load_settings() -> Settings:
-    https_only = os.getenv("HTTPS_ONLY", "").lower() in {"1", "true", "yes"}
     public = os.getenv("PUBLIC_BASE_URL", "http://localhost:8001").rstrip("/")
+    https_only = os.getenv("HTTPS_ONLY", "").lower() in {"1", "true", "yes"}
+    if public.startswith("https://"):
+        https_only = True
     redirect = os.getenv("REDIRECT_URI", f"{public}/auth/callback")
     return Settings(
         client_id=os.getenv("AZURE_CLIENT_ID", ""),
