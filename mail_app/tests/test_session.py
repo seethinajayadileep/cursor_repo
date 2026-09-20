@@ -69,6 +69,14 @@ def test_signed_in_unique_inbox(monkeypatch) -> None:
     assert account.id in response.text
 
 
+def test_pending_flow_survives_without_session_cookie() -> None:
+    flow = {"state": "st-1", "auth_uri": "https://example.test"}
+    store.save_flow("st-1", flow, "test-secret-value-not-for-production")
+    loaded = store.pop_flow("st-1", "test-secret-value-not-for-production")
+    assert loaded == flow
+    assert store.pop_flow("st-1", "test-secret-value-not-for-production") is None
+
+
 def test_sanitize_strips_script() -> None:
     cleaned = sanitize_html("<p>ok</p><script>alert(1)</script>")
     assert "script" not in cleaned.lower()

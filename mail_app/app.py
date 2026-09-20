@@ -132,16 +132,28 @@ async def login(request: Request):
         return RedirectResponse("/?error=not_configured", status_code=302)
     flow = auth.start_login(settings)
     request.session["auth_flow"] = flow
+    state = flow.get("state")
+    if state:
+        store.save_flow(str(state), flow, settings.session_secret)
     return RedirectResponse(flow["auth_uri"], status_code=302)
 
 
-@app.get("/auth/callback")
+@app.api_route("/auth/callback", methods=["GET", "POST"])
 async def callback(request: Request):
+    if request.method == "POST":
+        params = dict(await request.form())
+    else:
+        params = dict(request.query_params)
+    if params.get("error"):
+        return RedirectResponse("/?error=microsoft", status_code=302)
+    state = str(params.get("state") or "")
     flow = request.session.pop("auth_flow", None)
+    if not flow:
+        flow = store.pop_flow(state, settings.session_secret)
     if not flow:
         return RedirectResponse("/?error=session", status_code=302)
     try:
-        result = auth.finish_login(settings, flow, dict(request.query_params))
+        result = auth.finish_login(settings, flow, params)
     except Exception:
         return RedirectResponse("/?error=login", status_code=302)
 

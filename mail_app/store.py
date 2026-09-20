@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import json
 import os
 import secrets
 import sqlite3
@@ -34,6 +35,15 @@ def _connect() -> sqlite3.Connection:
             refresh_token TEXT NOT NULL,
             created_at TEXT NOT NULL,
             UNIQUE(owner_email, email)
+        )
+        """
+    )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS pending_flows (
+            state TEXT PRIMARY KEY,
+            payload TEXT NOT NULL,
+            created_at TEXT NOT NULL
         )
         """
     )
@@ -136,3 +146,32 @@ def _row_to_account(row: sqlite3.Row, secret: str) -> Account:
         refresh_token=refresh,
         created_at=row["created_at"],
     )
+
+
+def save_flow(state: str, flow: dict, secret: str) -> None:
+    payload = _fernet(secret).encrypt(json.dumps(flow).encode("utf-8")).decode("ascii")
+    now = datetime.now(timezone.utc).isoformat()
+    with _connect() as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO pending_flows (state, payload, created_at) VALUES (?, ?, ?)",
+            (state, payload, now),
+        )
+        conn.commit()
+
+
+def pop_flow(state: str, secret: str) -> dict | None:
+    if not state:
+        return None
+    with _connect() as conn:
+        row = conn.execute(
+            "SELECT payload FROM pending_flows WHERE state = ?", (state,)
+        ).fetchone()
+        if not row:
+            return None
+        conn.execute("DELETE FROM pending_flows WHERE state = ?", (state,))
+        conn.commit()
+    try:
+        raw = _fernet(secret).decrypt(row["payload"].encode("ascii"))
+    except InvalidToken:
+        return None
+    return json.loads(raw.decode("utf-8"))
