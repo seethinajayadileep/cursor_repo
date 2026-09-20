@@ -62,3 +62,5 @@ cd cursor_repo/research-paper
 ```
 
 Open `main.pdf`, or recompile as above.
+
+Word soft copy (editable): `WebSentinel_Research_Paper.docx`
