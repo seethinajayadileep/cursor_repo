@@ -146,6 +146,15 @@ async def robots():
     return Response("User-agent: *\nDisallow: /\n", media_type="text/plain")
 
 
+@app.get("/.well-known/microsoft-identity-association.json")
+async def microsoft_identity_association():
+    path = ROOT / "static" / ".well-known" / "microsoft-identity-association.json"
+    return Response(
+        path.read_text(encoding="utf-8"),
+        media_type="application/json",
+    )
+
+
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     if _session_user(request) and request.session.get("active_account_id"):

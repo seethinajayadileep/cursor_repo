@@ -16,8 +16,9 @@ Web app that signs **you** in with Microsoft and shows **your** mailboxes. Each 
 2. Name: `Private Outlook Inbox`.
 3. Supported accounts: **Accounts in any organizational directory and personal Microsoft accounts**.
 4. Redirect URI: **Web** → `http://localhost:8001/auth/callback` (add your HTTPS URL in production).
-5. Create a **client secret** and copy the value.
-6. **API permissions**: Microsoft Graph delegated `User.Read` and `Mail.Read`. Grant admin consent if your tenant requires it.
+5. To verify a **publisher domain**, Entra looks for `/.well-known/microsoft-identity-association.json`. This app serves that file. DNS for the custom domain must already point at the deployed app before you click **Verify and save domain**.
+6. Create a **client secret** and copy the value.
+7. **API permissions**: Microsoft Graph delegated `User.Read` and `Mail.Read`. Grant admin consent if your tenant requires it.
 
 ## Run
 

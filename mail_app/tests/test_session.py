@@ -14,6 +14,17 @@ def test_healthz() -> None:
     assert response.json() == {"ok": True}
 
 
+def test_publisher_domain_association() -> None:
+    client = TestClient(app)
+    response = client.get("/.well-known/microsoft-identity-association.json")
+    assert response.status_code == 200
+    assert "application/json" in response.headers["content-type"]
+    body = response.json()
+    assert body["associatedApplications"][0]["applicationId"] == (
+        "88fce97a-105c-4085-9e0b-1b9ce3be3080"
+    )
+
+
 def test_inbox_requires_session() -> None:
     client = TestClient(app, follow_redirects=False)
     response = client.get("/inbox")
