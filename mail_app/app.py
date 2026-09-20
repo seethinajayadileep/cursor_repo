@@ -17,11 +17,11 @@ from mail_app.sanitize import sanitize_html
 ROOT = Path(__file__).resolve().parent
 settings = load_settings()
 FOLDERS = (
-    ("inbox", "Inbox"),
-    ("sentitems", "Sent"),
-    ("drafts", "Drafts"),
-    ("junkemail", "Junk"),
-    ("deleteditems", "Deleted"),
+    ("inbox", "Inbox", "IN"),
+    ("sentitems", "Sent", "SN"),
+    ("drafts", "Drafts", "DR"),
+    ("junkemail", "Junk", "JK"),
+    ("deleteditems", "Deleted", "DL"),
 )
 
 app = FastAPI(title="Private Outlook Inbox")
@@ -87,7 +87,7 @@ def _format_when(value: str | None) -> str:
         return ""
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return dt.strftime("%Y-%m-%d %H:%M")
+        return dt.strftime("%d %b · %H:%M")
     except ValueError:
         return value
 
@@ -95,6 +95,16 @@ def _format_when(value: str | None) -> str:
 def sender_name(message: dict) -> str:
     from_ = (message.get("from") or {}).get("emailAddress") or {}
     return from_.get("name") or from_.get("address") or "(unknown)"
+
+
+def sender_initials(message: dict) -> str:
+    name = sender_name(message)
+    parts = [p for p in name.replace("(", " ").split() if p.isalpha() or p[:1].isalpha()]
+    if not parts:
+        return "?"
+    if len(parts) == 1:
+        return parts[0][:2].upper()
+    return (parts[0][:1] + parts[-1][:1]).upper()
 
 
 def account_url(account_id: str) -> str:
@@ -108,6 +118,7 @@ def mail_href(account_id: str, message: dict, folder: str) -> str:
 
 templates.env.filters["when"] = _format_when
 templates.env.globals["sender_name"] = sender_name
+templates.env.globals["sender_initials"] = sender_initials
 templates.env.globals["account_url"] = account_url
 templates.env.globals["mail_href"] = mail_href
 templates.env.globals["public_base_url"] = settings.public_base_url
@@ -218,7 +229,7 @@ async def account_inbox(request: Request, account_id: str):
 
     request.session["active_account_id"] = account.id
     folder = request.query_params.get("folder") or "inbox"
-    allowed = {key for key, _ in FOLDERS}
+    allowed = {key for key, _label, _tag in FOLDERS}
     if folder not in allowed:
         folder = "inbox"
     msg_id = request.query_params.get("msg")
@@ -257,6 +268,7 @@ async def account_inbox(request: Request, account_id: str):
             "folder": folder,
             "messages": messages,
             "message": message,
+            "msg_id": msg_id,
             "body_html": body_html,
             "error": error,
         },

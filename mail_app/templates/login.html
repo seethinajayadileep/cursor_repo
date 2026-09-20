@@ -3,20 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Sign in — Private inbox</title>
+  <title>Sign in — Host inbox</title>
   <link rel="stylesheet" href="/static/mail.css">
 </head>
 <body class="login-body">
   <div class="card">
-    <h1>Private Outlook inbox</h1>
-    <p class="muted">Sign in with Microsoft on this website. Each connected mailbox gets a unique ID on <strong>{{ public_base_url }}</strong>. You can open that mailbox later without repeating Microsoft consent, but you must still be signed in to this site. Unique IDs are not public share links.</p>
+    <div class="mark">IN</div>
+    <h1>Your mail, on your host</h1>
+    <p class="muted">Sign in with Microsoft. Each connected mailbox gets a private ID on this website so you can open it again without repeating consent. You still need to be signed in here — IDs are not public links.</p>
+    <div class="features">
+      <div class="feature"><strong>Microsoft sign-in</strong>Official OAuth. No stored Outlook passwords.</div>
+      <div class="feature"><strong>Unique mailbox ID</strong>Saved on {{ public_base_url }} after you connect.</div>
+      <div class="feature"><strong>Large reading layout</strong>Mailboxes, folders, and message pane.</div>
+      <div class="feature"><strong>Private session</strong>Unique mailbox URLs work only in your signed-in browser.</div>
+    </div>
     {% if not configured %}
     <p class="error">Set AZURE_CLIENT_ID, AZURE_CLIENT_SECRET, and SESSION_SECRET. See mail_app/README.md.</p>
     {% else %}
-    <a class="btn" href="/login">Sign in with Microsoft</a>
+    <a class="btn" href="/login">Continue with Microsoft</a>
     {% endif %}
     {% if request.query_params.get("error") == "session" %}
-    <p class="error">Sign-in lost the browser cookie. Open the site using the same address as the redirect URI (if Entra is <code>http://localhost:8001</code>, use localhost, not 127.0.0.1). Then try Sign in again.</p>
+    <p class="error">Sign-in lost the browser cookie. Use the same address as the Entra redirect URI (localhost, not 127.0.0.1, if that is what you registered). Then try again.</p>
     {% elif request.query_params.get("error") == "microsoft" %}
     <p class="error">Microsoft rejected the sign-in. Use AZURE_TENANT_ID=common for Outlook.com, and match the redirect URI in Entra.</p>
     {% elif request.query_params.get("error") %}
