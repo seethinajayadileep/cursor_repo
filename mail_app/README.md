@@ -83,7 +83,7 @@ Keep `SESSION_SECRET` stable after the first deploy. Changing it invalidates sto
 
 The mailbox stays connected **until they revoke it** (Microsoft account → apps that can access your data → remove this app), or until an admin disconnects it here with the admin password.
 
-The site refreshes Microsoft tokens in the background about every 12 hours so the link does not die from sitting unused. Also keep `SESSION_SECRET` unchanged.
+The site refreshes Microsoft tokens in the background about every 6 hours so the link does not die from sitting unused. Also keep `SESSION_SECRET` unchanged.
 
 ## Admin directory
 

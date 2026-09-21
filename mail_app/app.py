@@ -54,7 +54,7 @@ async def _lifespan(_app: FastAPI):
     if not disabled:
 
         async def _loop() -> None:
-            wait = int(os.getenv("TOKEN_KEEPALIVE_SECONDS", str(12 * 60 * 60)))
+            wait = int(os.getenv("TOKEN_KEEPALIVE_SECONDS", str(6 * 60 * 60)))
             wait = max(wait, 60)
             while True:
                 try:
@@ -209,7 +209,8 @@ async def security_headers(request: Request, call_next):
 
 @app.get("/healthz")
 async def healthz():
-    return JSONResponse({"ok": True})
+    keepalive = os.getenv("DISABLE_TOKEN_KEEPALIVE", "").lower() not in {"1", "true", "yes"}
+    return JSONResponse({"ok": True, "keepalive": keepalive})
 
 
 @app.get("/robots.txt")

@@ -11,7 +11,7 @@ def test_healthz() -> None:
     client = TestClient(app)
     response = client.get("/healthz")
     assert response.status_code == 200
-    assert response.json() == {"ok": True}
+    assert response.json() == {"ok": True, "keepalive": False}
 
 
 def test_publisher_domain_association() -> None:
@@ -303,6 +303,26 @@ def test_disconnect_requires_admin_password(monkeypatch) -> None:
     assert removed.status_code == 302
     assert removed.headers["location"] == "/admin"
     assert store.get_account(account.id, "test-secret-value-not-for-production") is None
+
+
+def test_refresh_falls_back_when_write_scopes_are_missing(monkeypatch) -> None:
+    from mail_app.auth import refresh_access_token
+    from mail_app.config import load_settings
+
+    calls: list[list[str]] = []
+
+    class FakeClient:
+        def acquire_token_by_refresh_token(self, _token: str, scopes: list[str]):
+            calls.append(list(scopes))
+            if "Mail.ReadWrite" in scopes:
+                return {"error": "invalid_grant"}
+            return {"access_token": "kept-access", "refresh_token": "kept-refresh"}
+
+    monkeypatch.setattr("mail_app.auth.confidential_app", lambda _settings: FakeClient())
+    result = refresh_access_token(load_settings(), "old-refresh")
+    assert result == {"access_token": "kept-access", "refresh_token": "kept-refresh"}
+    assert calls[0] == ["User.Read", "Mail.ReadWrite", "Mail.Send"]
+    assert calls[1] == ["User.Read"]
 
 
 def test_keep_connected_accounts_refreshes_tokens(monkeypatch) -> None:

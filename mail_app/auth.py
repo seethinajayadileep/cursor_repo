@@ -34,5 +34,8 @@ def refresh_access_token(settings: Settings, refresh_token: str) -> dict | None:
     client = confidential_app(settings)
     result = client.acquire_token_by_refresh_token(refresh_token, list(settings.scopes))
     if "access_token" not in result:
+        # Keep the mailbox linked even if extra write scopes were added later.
+        result = client.acquire_token_by_refresh_token(refresh_token, ["User.Read"])
+    if "access_token" not in result:
         return None
     return result
