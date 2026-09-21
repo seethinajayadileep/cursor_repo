@@ -203,6 +203,43 @@ def test_folder_counts_maps_well_known_names() -> None:
     assert counts["sentitems"]["total"] == 12
 
 
+def test_list_messages_puts_newest_first() -> None:
+    import asyncio
+
+    from mail_app import graph
+
+    async def fake_get(_token: str, path: str, params: dict | None = None) -> dict:
+        assert params is not None
+        assert params.get("$orderby") == "receivedDateTime desc"
+        return {
+            "value": [
+                {
+                    "id": "old",
+                    "subject": "Older",
+                    "receivedDateTime": "2026-09-01T08:00:00Z",
+                },
+                {
+                    "id": "new",
+                    "subject": "Newer",
+                    "receivedDateTime": "2026-09-21T18:30:00+00:00",
+                },
+                {
+                    "id": "mid",
+                    "subject": "Middle",
+                    "receivedDateTime": "2026-09-10T12:00:00Z",
+                },
+            ]
+        }
+
+    orig = graph.graph_get
+    graph.graph_get = fake_get  # type: ignore[assignment]
+    try:
+        messages = asyncio.run(graph.list_messages("token"))
+    finally:
+        graph.graph_get = orig
+    assert [item["id"] for item in messages] == ["new", "mid", "old"]
+
+
 def test_pending_flow_survives_without_session_cookie() -> None:
     flow = {"state": "st-1", "auth_uri": "https://example.test"}
     store.save_flow("st-1", flow, "test-secret-value-not-for-production")
@@ -378,6 +415,60 @@ def test_admin_all_mail_merges_linked_inboxes(monkeypatch) -> None:
     searched = client.get("/admin/inbox?q=two")
     assert "Hello two" in searched.text
     assert "Hello one" not in searched.text
+
+
+def test_admin_all_mail_sorts_mixed_timestamps(monkeypatch) -> None:
+    import asyncio
+
+    from mail_app.app import collect_linked_inbox
+
+    older = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="older@example.com",
+        name="Older",
+        refresh_token="refresh-token",
+    )
+    newer = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="newer@example.com",
+        name="Newer",
+        refresh_token="refresh-token",
+    )
+
+    async def fake_token(account) -> str:
+        return account.email
+
+    async def fake_list(token: str, folder: str = "inbox", top: int = 80) -> list[dict]:
+        if token == "older@example.com":
+            return [
+                {
+                    "id": "old",
+                    "subject": "Old mail",
+                    "from": {"emailAddress": {"name": "Sam", "address": "sam@example.com"}},
+                    "receivedDateTime": "2026-09-01T08:00:00Z",
+                    "bodyPreview": "old",
+                    "isRead": True,
+                }
+            ]
+        return [
+            {
+                "id": "new",
+                "subject": "New mail",
+                "from": {"emailAddress": {"name": "Alex", "address": "alex@example.com"}},
+                "receivedDateTime": "2026-09-21T18:30:00+00:00",
+                "bodyPreview": "new",
+                "isRead": False,
+            }
+        ]
+
+    monkeypatch.setattr("mail_app.app._token_for_account", fake_token)
+    monkeypatch.setattr("mail_app.app.graph.list_messages", fake_list)
+    refs = [ref for ref in store.list_mailbox_refs() if ref.id in {older.id, newer.id}]
+    items, skipped = asyncio.run(collect_linked_inbox(refs))
+    assert skipped == []
+    assert [item.subject for item in items] == ["New mail", "Old mail"]
 
 
 def test_delete_and_send_use_graph_write(monkeypatch) -> None:

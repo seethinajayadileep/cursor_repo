@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from urllib.parse import quote
 
 import httpx
@@ -43,17 +44,42 @@ async def get_me(access_token: str) -> dict:
     return await graph_get(access_token, "/me")
 
 
+def parse_graph_time(value: str | None) -> datetime:
+    if not value:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return datetime.min.replace(tzinfo=timezone.utc)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def message_sort_time(message: dict) -> datetime:
+    for key in ("receivedDateTime", "sentDateTime", "createdDateTime"):
+        if message.get(key):
+            return parse_graph_time(str(message.get(key)))
+    return parse_graph_time(None)
+
+
+def sort_newest_first(messages: list[dict]) -> list[dict]:
+    return sorted(messages, key=message_sort_time, reverse=True)
+
+
 async def list_messages(access_token: str, folder: str = "inbox", top: int = 80) -> list[dict]:
-    data = await graph_get(
-        access_token,
-        f"/me/mailFolders/{folder}/messages",
-        params={
-            "$top": str(top),
-            "$orderby": "receivedDateTime DESC",
-            "$select": "id,subject,from,receivedDateTime,bodyPreview,isRead,hasAttachments",
-        },
-    )
-    return data.get("value") or []
+    path = f"/me/mailFolders/{folder}/messages"
+    params = {
+        "$top": str(top),
+        "$orderby": "receivedDateTime desc",
+        "$select": "id,subject,from,receivedDateTime,sentDateTime,bodyPreview,isRead,hasAttachments",
+    }
+    try:
+        data = await graph_get(access_token, path, params=params)
+    except GraphError:
+        params.pop("$orderby", None)
+        data = await graph_get(access_token, path, params=params)
+    return sort_newest_first(data.get("value") or [])
 
 
 async def list_inbox(access_token: str, top: int = 50) -> list[dict]:

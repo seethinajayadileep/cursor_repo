@@ -5,7 +5,7 @@ import hmac
 import os
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import quote
 
@@ -198,7 +198,7 @@ async def collect_linked_inbox(
         items.extend(rows)
         if err:
             skipped.append(err)
-    items.sort(key=lambda item: item.received, reverse=True)
+    items.sort(key=lambda item: graph.parse_graph_time(item.received), reverse=True)
     needle = query.strip().lower()
     if needle:
         items = [
@@ -249,6 +249,10 @@ def _format_when_short(value: str | None) -> str:
         return ""
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        if dt.date() == datetime.now(timezone.utc).date():
+            return dt.strftime("%H:%M")
         return dt.strftime("%d %b")
     except ValueError:
         return value
