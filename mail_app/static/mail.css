@@ -465,9 +465,15 @@ h1, h2, .rail-title, .topbar-title, .court-brand h1 {
 .from-meta { min-width: 0; }
 .from-meta .uid { overflow-wrap: anywhere; }
 .from-row .avatar { width: 40px; height: 40px; }
-.body { line-height: 1.7; overflow-wrap: anywhere; font-size: 0.98rem; }
+.body { line-height: 1.55; overflow-wrap: anywhere; font-size: 0.98rem; }
 .body a { color: var(--accent-2); }
-.body img { max-width: 100%; border-radius: 8px; }
+.body img {
+  max-width: 100%;
+  height: auto;
+  border: 0;
+  vertical-align: middle;
+}
+.body table { max-width: 100%; border-collapse: collapse; }
 .read-empty {
   margin: auto;
   text-align: center;

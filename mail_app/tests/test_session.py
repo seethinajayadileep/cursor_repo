@@ -305,6 +305,21 @@ def test_sanitize_strips_script() -> None:
     assert "ok" in cleaned
 
 
+def test_sanitize_keeps_email_image_size() -> None:
+    cleaned = sanitize_html(
+        '<img src="https://cdn.example/logo.png" alt="Logo" width="18" height="18" '
+        'style="width:18px;height:18px;display:block;background-image:url(javascript:alert(1))">'
+    )
+    assert 'src="https://cdn.example/logo.png"' in cleaned
+    assert 'width="18"' in cleaned
+    assert 'height="18"' in cleaned
+    assert "width:18px" in cleaned
+    assert "height:18px" in cleaned
+    assert "display:block" in cleaned
+    assert "javascript" not in cleaned.lower()
+    assert "url(" not in cleaned.lower()
+
+
 def test_admin_redirects_when_logged_out(monkeypatch) -> None:
     monkeypatch.delenv("ADMIN_PASSWORD", raising=False)
     client = TestClient(app, follow_redirects=False)

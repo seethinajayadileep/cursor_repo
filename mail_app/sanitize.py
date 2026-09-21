@@ -1,22 +1,27 @@
 from __future__ import annotations
 
-import bleach
+from bleach import clean
+from bleach.css_sanitizer import CSSSanitizer
 
 ALLOWED_TAGS = [
     "a",
     "b",
     "blockquote",
     "br",
+    "center",
     "div",
     "em",
     "h1",
     "h2",
     "h3",
+    "h4",
+    "hr",
     "i",
     "img",
     "li",
     "ol",
     "p",
+    "pre",
     "span",
     "strong",
     "table",
@@ -29,16 +34,93 @@ ALLOWED_TAGS = [
     "ul",
 ]
 ALLOWED_ATTRS = {
+    "*": [
+        "align",
+        "bgcolor",
+        "border",
+        "cellpadding",
+        "cellspacing",
+        "colspan",
+        "height",
+        "rowspan",
+        "style",
+        "valign",
+        "width",
+    ],
     "a": ["href", "title"],
-    "img": ["src", "alt"],
+    "img": ["alt", "height", "src", "title", "width"],
+    "td": ["colspan", "rowspan"],
+    "th": ["colspan", "rowspan"],
 }
+ALLOWED_CSS = [
+    "background-color",
+    "border",
+    "border-bottom",
+    "border-collapse",
+    "border-color",
+    "border-left",
+    "border-radius",
+    "border-right",
+    "border-spacing",
+    "border-style",
+    "border-top",
+    "border-width",
+    "color",
+    "display",
+    "float",
+    "font-family",
+    "font-size",
+    "font-style",
+    "font-weight",
+    "height",
+    "letter-spacing",
+    "line-height",
+    "margin",
+    "margin-bottom",
+    "margin-left",
+    "margin-right",
+    "margin-top",
+    "max-height",
+    "max-width",
+    "min-width",
+    "padding",
+    "padding-bottom",
+    "padding-left",
+    "padding-right",
+    "padding-top",
+    "text-align",
+    "text-decoration",
+    "vertical-align",
+    "white-space",
+    "width",
+]
+_BLOCKED_STYLE = ("url(", "expression", "javascript", "behavior", "@import", "binding")
+
+
+class _EmailCSS:
+    def __init__(self) -> None:
+        self._inner = CSSSanitizer(allowed_css_properties=ALLOWED_CSS)
+
+    def sanitize_css(self, style: str) -> str:
+        cleaned = self._inner.sanitize_css(style or "")
+        kept: list[str] = []
+        for part in cleaned.split(";"):
+            item = part.strip()
+            if not item:
+                continue
+            lowered = item.lower()
+            if any(token in lowered for token in _BLOCKED_STYLE):
+                continue
+            kept.append(item)
+        return "; ".join(kept)
 
 
 def sanitize_html(html: str) -> str:
-    return bleach.clean(
+    return clean(
         html or "",
         tags=ALLOWED_TAGS,
         attributes=ALLOWED_ATTRS,
         protocols=["http", "https", "mailto", "cid"],
+        css_sanitizer=_EmailCSS(),
         strip=True,
     )
