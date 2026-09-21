@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>All mail — Host inbox</title>
+  <link rel="stylesheet" href="/static/mail.css?v=allmail">
+</head>
+<body>
+  <div class="admin-shell">
+    <header class="admin-topbar">
+      <div class="topbar-left">
+        <div class="mark">AD</div>
+        <div class="rail-id">
+          <div class="topbar-title">All mail</div>
+          <div class="uid">Incoming mail from every linked mailbox</div>
+        </div>
+      </div>
+      {% include "admin_nav.html" %}
+    </header>
+    <div class="admin-wrap">
+      <div class="admin-intro allmail-intro">
+        <h2>{{ items|length }} message{% if items|length != 1 %}s{% endif %}</h2>
+        <p class="uid">Newest inbox mail across {{ mailboxes|length }} linked mailbox{% if mailboxes|length != 1 %}es{% endif %}. Open a row to read it in that mailbox.</p>
+        <form class="allmail-filters" method="get" action="/admin/inbox">
+          <label class="search">
+            <span class="visually-hidden">Search all mail</span>
+            <input type="search" name="q" value="{{ q }}" placeholder="Search subject, sender, or mailbox">
+          </label>
+          <select name="box" aria-label="Filter by mailbox">
+            <option value="">All mailboxes</option>
+            {% for box in mailboxes %}
+            <option value="{{ box.id }}" {% if box.id == box_id %}selected{% endif %}>{{ box.email }}</option>
+            {% endfor %}
+          </select>
+          <button class="btn" type="submit">Show</button>
+        </form>
+        {% if skipped %}
+        <p class="error">Could not load mail for {{ skipped|join(", ") }}.</p>
+        {% endif %}
+      </div>
+      {% if not items %}
+      <p class="empty">No inbox mail to show for these mailboxes yet.</p>
+      {% else %}
+      <ul class="allmail-list">
+        {% for item in items %}
+        <li class="allmail-item {% if not item.is_read %}unread{% endif %}">
+          <a href="/a/{{ item.account_id }}?folder=inbox&amp;msg={{ item.message_id }}">
+            <span class="unread-pip" aria-hidden="true"></span>
+            <span class="avatar">{{ item.initials }}</span>
+            <span class="item-main">
+              <span class="item-top">
+                <span class="from">{{ item.sender }}</span>
+                <time>{{ item.when }}</time>
+              </span>
+              <span class="subject">{{ item.subject or "(no subject)" }}</span>
+              <span class="preview">{{ item.preview }}</span>
+              <span class="mailbox-chip">To {{ item.mailbox }}</span>
+            </span>
+          </a>
+        </li>
+        {% endfor %}
+      </ul>
+      {% endif %}
+    </div>
+  </div>
+</body>
+</html>

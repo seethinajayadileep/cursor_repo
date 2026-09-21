@@ -1,0 +1,11 @@
+      <div class="topbar-actions">
+        <a class="btn ghost{% if admin_page == 'allmail' %} on{% endif %}" href="/admin/inbox">All mail</a>
+        <a class="btn ghost{% if admin_page == 'directory' %} on{% endif %}" href="/admin">Mailboxes</a>
+        <a class="btn ghost" href="/">Inbox</a>
+        {% if password_login and full_directory %}
+        <form class="signout-form" method="post" action="/admin/signout">
+          <input name="password" type="password" required placeholder="Admin password" autocomplete="current-password" aria-label="Confirm admin password to sign out">
+          <button class="btn ghost" type="submit">Sign out</button>
+        </form>
+        {% endif %}
+      </div>

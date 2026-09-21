@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin directory — Host inbox</title>
-  <link rel="stylesheet" href="/static/mail.css?v=admin">
+  <link rel="stylesheet" href="/static/mail.css?v=allmail">
 </head>
 <body>
   <div class="admin-shell">
@@ -16,15 +16,7 @@
           <div class="uid">{% if full_directory %}All connected mailboxes{% else %}Mailboxes for your signed-in operator account{% endif %}</div>
         </div>
       </div>
-      <div class="topbar-actions">
-        <a class="btn ghost" href="/">Inbox</a>
-        {% if password_login and full_directory %}
-        <form class="signout-form" method="post" action="/admin/signout">
-          <input name="password" type="password" required placeholder="Admin password" autocomplete="current-password" aria-label="Confirm admin password to sign out">
-          <button class="btn ghost" type="submit">Sign out</button>
-        </form>
-        {% endif %}
-      </div>
+      {% include "admin_nav.html" %}
     </header>
     <div class="admin-wrap">
       <div class="admin-intro">

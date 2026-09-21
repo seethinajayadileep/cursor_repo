@@ -306,6 +306,80 @@ def test_host_session_cannot_bypass_admin_password(monkeypatch) -> None:
     assert response.headers["location"] == "/admin/login"
 
 
+def test_admin_all_mail_requires_login(monkeypatch) -> None:
+    monkeypatch.setenv("ADMIN_PASSWORD", "openseasame")
+    client = TestClient(app, follow_redirects=False)
+    response = client.get("/admin/inbox")
+    assert response.status_code == 302
+    assert response.headers["location"] == "/admin/login"
+
+
+def test_admin_all_mail_merges_linked_inboxes(monkeypatch) -> None:
+    monkeypatch.setenv("ADMIN_PASSWORD", "openseasame")
+    first = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="one@example.com",
+        name="One",
+        refresh_token="refresh-token",
+    )
+    store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="other@example.com",
+        email="two@example.com",
+        name="Two",
+        refresh_token="refresh-token",
+    )
+
+    async def fake_token(account) -> str:
+        return account.email
+
+    async def fake_list(token: str, folder: str = "inbox", top: int = 80) -> list[dict]:
+        if token == "one@example.com":
+            return [
+                {
+                    "id": "m1",
+                    "subject": "Hello one",
+                    "from": {"emailAddress": {"name": "Sam", "address": "sam@example.com"}},
+                    "receivedDateTime": "2026-09-21T10:00:00Z",
+                    "bodyPreview": "First box",
+                    "isRead": False,
+                }
+            ]
+        return [
+            {
+                "id": "m2",
+                "subject": "Hello two",
+                "from": {"emailAddress": {"name": "Alex", "address": "alex@example.com"}},
+                "receivedDateTime": "2026-09-21T11:00:00Z",
+                "bodyPreview": "Second box",
+                "isRead": True,
+            }
+        ]
+
+    monkeypatch.setattr("mail_app.app._token_for_account", fake_token)
+    monkeypatch.setattr("mail_app.app.graph.list_messages", fake_list)
+    client = TestClient(app, follow_redirects=False)
+    client.post("/admin/login", data={"password": "openseasame"})
+    directory = client.get("/admin")
+    assert "All mail" in directory.text
+    page = client.get("/admin/inbox")
+    assert page.status_code == 200
+    assert "Hello two" in page.text
+    assert "Hello one" in page.text
+    assert page.text.find("Hello two") < page.text.find("Hello one")
+    assert "To one@example.com" in page.text
+    assert "To two@example.com" in page.text
+    assert first.id in page.text
+    assert "msg=m1" in page.text
+    filtered = client.get(f"/admin/inbox?box={first.id}")
+    assert "Hello one" in filtered.text
+    assert "Hello two" not in filtered.text
+    searched = client.get("/admin/inbox?q=two")
+    assert "Hello two" in searched.text
+    assert "Hello one" not in searched.text
+
+
 def test_delete_and_send_use_graph_write(monkeypatch) -> None:
     account = store.upsert_account(
         secret="test-secret-value-not-for-production",

@@ -4,6 +4,7 @@ import asyncio
 import hmac
 import os
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
@@ -128,6 +129,84 @@ def _admin_mailboxes(request: Request) -> list[store.MailboxRef] | None:
     if _session_user(request) and owner:
         return store.list_mailbox_refs(owner)
     return None
+
+
+@dataclass
+class UnifiedItem:
+    account_id: str
+    mailbox: str
+    message_id: str
+    sender: str
+    initials: str
+    subject: str
+    preview: str
+    when: str
+    received: str
+    is_read: bool
+
+
+async def collect_linked_inbox(
+    refs: list[store.MailboxRef],
+    *,
+    box_id: str = "",
+    query: str = "",
+    per_box: int = 40,
+) -> tuple[list[UnifiedItem], list[str]]:
+    chosen = [ref for ref in refs if not box_id or ref.id == box_id]
+    skipped: list[str] = []
+    items: list[UnifiedItem] = []
+
+    async def one(ref: store.MailboxRef) -> tuple[list[UnifiedItem], str | None]:
+        try:
+            account = store.get_account(ref.id, settings.session_secret)
+        except Exception:
+            return [], ref.email
+        if not account:
+            return [], ref.email
+        token = await _token_for_account(account)
+        if not token:
+            return [], ref.email
+        try:
+            messages = await graph.list_messages(token, "inbox", top=per_box)
+        except graph.GraphError:
+            return [], ref.email
+        rows: list[UnifiedItem] = []
+        for message in messages:
+            received = message.get("receivedDateTime") or ""
+            rows.append(
+                UnifiedItem(
+                    account_id=ref.id,
+                    mailbox=ref.email,
+                    message_id=message.get("id") or "",
+                    sender=sender_name(message),
+                    initials=sender_initials(message),
+                    subject=message.get("subject") or "",
+                    preview=message.get("bodyPreview") or "",
+                    when=_format_when(received),
+                    received=received,
+                    is_read=bool(message.get("isRead")),
+                )
+            )
+        return rows, None
+
+    results = await asyncio.gather(*(one(ref) for ref in chosen), return_exceptions=True)
+    for ref, result in zip(chosen, results):
+        if isinstance(result, Exception):
+            skipped.append(ref.email)
+            continue
+        rows, err = result
+        items.extend(rows)
+        if err:
+            skipped.append(err)
+    items.sort(key=lambda item: item.received, reverse=True)
+    needle = query.strip().lower()
+    if needle:
+        items = [
+            item
+            for item in items
+            if needle in f"{item.subject} {item.sender} {item.mailbox} {item.preview}".lower()
+        ]
+    return items[:200], skipped
 
 
 async def _token_for_account(account: store.Account) -> str | None:
@@ -378,6 +457,7 @@ async def admin_signout(request: Request, password: str = Form("")):
                 "full_directory": True,
                 "password_login": True,
                 "signout_error": True,
+                "admin_page": "directory",
             },
             status_code=401,
         )
@@ -400,6 +480,33 @@ async def admin_directory(request: Request):
             "full_directory": bool(_admin_session(request)),
             "password_login": bool(_admin_password()),
             "signout_error": False,
+            "admin_page": "directory",
+        },
+    )
+
+
+@app.get("/admin/inbox", response_class=HTMLResponse)
+async def admin_all_mail(request: Request):
+    mailboxes = _admin_mailboxes(request)
+    if mailboxes is None:
+        if _admin_password():
+            return RedirectResponse("/admin/login", status_code=302)
+        return RedirectResponse("/", status_code=302)
+    box_id = (request.query_params.get("box") or "").strip()
+    query = request.query_params.get("q") or ""
+    items, skipped = await collect_linked_inbox(mailboxes, box_id=box_id, query=query)
+    return templates.TemplateResponse(
+        request,
+        "admin_inbox.html",
+        {
+            "mailboxes": mailboxes,
+            "items": items,
+            "skipped": skipped,
+            "q": query,
+            "box_id": box_id,
+            "full_directory": bool(_admin_session(request)),
+            "password_login": bool(_admin_password()),
+            "admin_page": "allmail",
         },
     )
 
