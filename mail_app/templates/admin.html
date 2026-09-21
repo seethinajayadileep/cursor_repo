@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin directory — Host inbox</title>
-  <link rel="stylesheet" href="/static/mail.css?v=allmail">
+  <link rel="stylesheet" href="/static/mail.css?v=regent">
 </head>
 <body>
   <div class="admin-shell">
     <header class="admin-topbar">
       <div class="topbar-left">
-        <div class="mark">AD</div>
+        <div class="mark" aria-hidden="true"><span class="crest"></span></div>
         <div class="rail-id">
           <div class="topbar-title">Mailbox directory</div>
           <div class="uid">{% if full_directory %}All connected mailboxes{% else %}Mailboxes for your signed-in operator account{% endif %}</div>
@@ -21,7 +21,7 @@
     <div class="admin-wrap">
       <div class="admin-intro">
         <h2>{{ mailboxes|length }} mailbox{% if mailboxes|length != 1 %}es{% endif %}</h2>
-        <p class="uid">Keep these access links private. Anyone with a link can read and write that mailbox. Only admin can sign out, by typing the admin password.</p>
+        <p class="uid">Keep these access links private. Anyone with a link can read and write that mailbox. Reconnecting the same address keeps the same link. Only admin can sign out, by typing the admin password.</p>
         {% if signout_error %}
         <p class="error">That password is not correct. Sign out was cancelled.</p>
         {% endif %}
@@ -40,20 +40,28 @@
         {% for box in mailboxes %}
         <div class="admin-row{% if not full_directory %} no-operator{% endif %}">
           <div class="admin-mail">
+            <span class="field-label">Mailbox</span>
             <div class="acct-name email-clip" title="{{ box.email }}">{{ box.email }}</div>
             <div class="uid email-clip" title="{{ box.id }}">{{ box.id }}</div>
           </div>
-          <div class="admin-name email-clip" title="{{ box.name }}">{{ box.name }}</div>
+          <div class="admin-name">
+            <span class="field-label">Name</span>
+            <div class="email-clip" title="{{ box.name }}">{{ box.name }}</div>
+          </div>
           {% if full_directory %}
-          <div class="uid email-clip" title="{{ box.owner_email }}">{{ box.owner_email }}</div>
+          <div class="admin-operator">
+            <span class="field-label">Operator</span>
+            <div class="uid email-clip" title="{{ box.owner_email }}">{{ box.owner_email }}</div>
+          </div>
           {% endif %}
           <div class="admin-link">
+            <span class="field-label">Access link</span>
             <a class="email-clip" href="{{ account_url(box.id) }}" title="{{ account_url(box.id) }}">{{ account_url(box.id) }}</a>
           </div>
           <div class="admin-actions">
             <button class="btn ghost copy-link" type="button" data-link="{{ account_url(box.id) }}">Copy link</button>
             {% if password_login and full_directory %}
-            <form class="disconnect-form" method="post" action="/a/{{ box.id }}/disconnect">
+            <form class="disconnect-form" method="post" action="/a/{{ box.id }}/disconnect" onsubmit="return confirm('Disconnect this mailbox? The saved link stops working. Mail stays in Microsoft.');">
               <input name="password" type="password" required placeholder="Password" autocomplete="current-password" aria-label="Confirm admin password to disconnect {{ box.email }}">
               <button class="btn ghost danger" type="submit">Disconnect</button>
             </form>

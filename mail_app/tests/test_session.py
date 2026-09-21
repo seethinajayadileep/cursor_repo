@@ -746,3 +746,136 @@ def test_keep_connected_accounts_refreshes_tokens(monkeypatch) -> None:
     updated = store.get_account(account.id, "test-secret-value-not-for-production")
     assert updated is not None
     assert updated.refresh_token == "rotated-old-refresh"
+
+
+def test_reconnect_keeps_the_same_mailbox_link() -> None:
+    first = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="same@example.com",
+        name="Pat",
+        refresh_token="first-token",
+    )
+    again = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="same@example.com",
+        name="Patricia",
+        refresh_token="second-token",
+    )
+    assert again.id == first.id
+    assert again.created_at == first.created_at
+    assert again.refresh_token == "second-token"
+    assert again.name == "Patricia"
+
+
+def test_backup_copies_saved_mailboxes() -> None:
+    account = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="backup@example.com",
+        name="Backup",
+        refresh_token="refresh-token",
+    )
+    copied = store.backup_database()
+    assert copied is not None
+    assert copied.exists()
+    saved = store.get_account(account.id, "test-secret-value-not-for-production")
+    assert saved is not None
+    assert saved.email == "backup@example.com"
+
+
+def test_locked_mailbox_stays_in_the_database() -> None:
+    import sqlite3
+
+    account = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="locked@example.com",
+        name="Locked",
+        refresh_token="refresh-token",
+    )
+    with sqlite3.connect(store.db_path()) as conn:
+        conn.execute(
+            "UPDATE accounts SET refresh_token = ? WHERE id = ?",
+            ("not-a-fernet-token", account.id),
+        )
+        conn.commit()
+    client = TestClient(app)
+    page = client.get(f"/a/{account.id}")
+    assert page.status_code == 503
+    assert "still saved" in page.text
+    assert account.id in page.text
+    assert store.get_mailbox_ref(account.id) is not None
+
+
+def test_keepalive_skips_a_locked_row(monkeypatch) -> None:
+    import asyncio
+    import sqlite3
+
+    from mail_app.app import keep_connected_accounts
+
+    good = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="kept-good@example.com",
+        name="Good",
+        refresh_token="good-refresh",
+    )
+    locked = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="kept-locked@example.com",
+        name="Locked",
+        refresh_token="locked-refresh",
+    )
+    with sqlite3.connect(store.db_path()) as conn:
+        conn.execute(
+            "UPDATE accounts SET refresh_token = ? WHERE id = ?",
+            ("not-a-fernet-token", locked.id),
+        )
+        conn.commit()
+
+    def fake_refresh(_settings, token: str):
+        return {"access_token": "new-access", "refresh_token": f"rotated-{token}"}
+
+    monkeypatch.setattr("mail_app.app.auth.refresh_access_token", fake_refresh)
+    kept = asyncio.run(keep_connected_accounts())
+    assert kept >= 1
+    updated = store.get_account(good.id, "test-secret-value-not-for-production")
+    assert updated is not None
+    assert updated.refresh_token == "rotated-good-refresh"
+    assert store.get_mailbox_ref(locked.id) is not None
+
+
+def test_list_messages_retries_without_other_field() -> None:
+    import asyncio
+
+    from mail_app import graph
+
+    calls: list[str] = []
+
+    async def fake_get(_token: str, path: str, params: dict | None = None) -> dict:
+        select = (params or {}).get("$select") or ""
+        calls.append(select)
+        if "inferenceClassification" in select:
+            raise graph.GraphError(400, "unsupported select")
+        return {
+            "value": [
+                {
+                    "id": "kept",
+                    "subject": "Kept",
+                    "receivedDateTime": "2026-09-21T12:00:00Z",
+                }
+            ]
+        }
+
+    orig = graph.graph_get
+    graph.graph_get = fake_get  # type: ignore[assignment]
+    try:
+        messages = asyncio.run(graph.list_messages("token"))
+    finally:
+        graph.graph_get = orig
+    assert [item["id"] for item in messages] == ["kept"]
+    assert any("inferenceClassification" in select for select in calls)
+    assert any("inferenceClassification" not in select for select in calls)

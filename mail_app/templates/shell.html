@@ -4,13 +4,13 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ folder_label(folder) }} — {{ account.email }}</title>
-  <link rel="stylesheet" href="/static/mail.css?v=othermail">
+  <link rel="stylesheet" href="/static/mail.css?v=regent">
 </head>
 <body>
   <div class="shell">
     <aside class="rail">
       <div class="rail-brand">
-        <div class="mark">IN</div>
+        <div class="mark" aria-hidden="true"><span class="crest"></span></div>
         <div class="rail-id">
           <div class="rail-title">Mail</div>
           <div class="uid email-clip" title="{{ account.email }}">{{ account.email }}</div>
@@ -61,7 +61,7 @@
       <div class="list-head">
         <div>
           <h2>{{ folder_label(folder) }}</h2>
-          <div class="uid">{{ messages|length }} conversation{% if messages|length != 1 %}s{% endif %}</div>
+          <div class="uid">{{ messages|length }} conversation{% if messages|length != 1 %}s{% endif %}{% if messages|length >= list_cap %} · newest {{ list_cap }}, nothing deleted{% endif %}</div>
         </div>
         <label class="search">
           <span class="visually-hidden">Search this folder</span>
@@ -128,7 +128,7 @@
       </div>
       {% else %}
       <div class="read-empty">
-        <div class="mark">IN</div>
+        <div class="mark" aria-hidden="true"><span class="crest"></span></div>
         <h2>Select a message</h2>
         <p class="muted">Choose a conversation on the left, or write a new message. This mailbox stays connected until they revoke the app.</p>
         <button class="btn" type="button" id="empty-compose">New message</button>

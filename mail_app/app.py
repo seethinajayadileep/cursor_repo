@@ -37,7 +37,10 @@ async def keep_connected_accounts() -> int:
         return 0
     kept = 0
     for ref in store.list_mailbox_refs():
-        account = store.get_account(ref.id, settings.session_secret)
+        try:
+            account = store.get_account(ref.id, settings.session_secret)
+        except RuntimeError:
+            continue
         if not account:
             continue
         result = auth.refresh_access_token(settings, account.refresh_token)
@@ -51,6 +54,10 @@ async def keep_connected_accounts() -> int:
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
+    try:
+        store.backup_database()
+    except Exception:
+        pass
     task = None
     disabled = os.getenv("DISABLE_TOKEN_KEEPALIVE", "").lower() in {"1", "true", "yes"}
     if not disabled:
@@ -211,7 +218,7 @@ async def collect_linked_inbox(
             if needle
             in f"{item.subject} {item.sender} {item.mailbox} {item.preview} {item.folder}".lower()
         ]
-    return items[:200], skipped
+    return items[:400], skipped
 
 
 async def _token_for_account(account: store.Account) -> str | None:
@@ -534,7 +541,7 @@ async def disconnect(request: Request, account_id: str, password: str = Form("")
         if _admin_password():
             return RedirectResponse("/admin/login", status_code=302)
         return RedirectResponse("/", status_code=302)
-    account = store.get_account(account_id, settings.session_secret)
+    account = store.get_mailbox_ref(account_id)
     if not account:
         return RedirectResponse("/admin", status_code=302)
     store.delete_account(account_id, account.owner_email)
@@ -544,7 +551,10 @@ async def disconnect(request: Request, account_id: str, password: str = Form("")
 
 
 async def _mailbox_token(request: Request, account_id: str) -> tuple[store.Account, str] | None:
-    account = store.get_account(account_id, settings.session_secret)
+    try:
+        account = store.get_account(account_id, settings.session_secret)
+    except RuntimeError:
+        return None
     if not account:
         return None
     token = await _token_for_account(account)
@@ -624,9 +634,23 @@ async def toggle_read(
     return _back_to_mailbox(account_id, folder, message_id)
 
 
+def _load_saved_account(account_id: str) -> tuple[store.Account | None, bool]:
+    try:
+        return store.get_account(account_id, settings.session_secret), False
+    except RuntimeError:
+        return None, True
+
+
 @app.get("/a/{account_id}", response_class=HTMLResponse)
 async def account_inbox(request: Request, account_id: str):
-    account = store.get_account(account_id, settings.session_secret)
+    account, locked = _load_saved_account(account_id)
+    if locked:
+        return templates.TemplateResponse(
+            request,
+            "locked.html",
+            {"account_id": account_id},
+            status_code=503,
+        )
     if not account:
         return RedirectResponse("/", status_code=302)
 
@@ -656,9 +680,16 @@ async def account_inbox(request: Request, account_id: str):
         counts = {}
     try:
         if folder == "other":
-            messages = await graph.list_other_messages(token)
+            messages = await graph.list_other_messages(token, top=100)
         else:
-            messages = await graph.list_messages(token, folder)
+            messages = await graph.list_messages(token, folder, top=100)
+        if folder == "inbox":
+            other_rows = [item for item in messages if graph.is_other_section(item)]
+            counts = dict(counts)
+            counts["other"] = {
+                "unread": sum(1 for item in other_rows if not item.get("isRead")),
+                "total": len(other_rows),
+            }
         if msg_id:
             message = await graph.get_message(token, msg_id)
             body = (message.get("body") or {}).get("content") or ""
@@ -696,6 +727,7 @@ async def account_inbox(request: Request, account_id: str):
             "counts": counts,
             "unread_here": sum(1 for item in messages if not item.get("isRead")),
             "messages": messages,
+            "list_cap": 100,
             "message": message,
             "msg_id": msg_id,
             "body_html": body_html,

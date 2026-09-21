@@ -83,6 +83,8 @@ Keep `SESSION_SECRET` stable after the first deploy. Changing it invalidates sto
 
 The mailbox stays connected **until they revoke it** (Microsoft account → apps that can access your data → remove this app), or until an admin disconnects it here with the admin password.
 
+Connecting the same address again keeps the same `/a/<id>` link. The database uses SQLite WAL with full sync, and each process start writes `accounts.sqlite.bak` next to the live file. A changed `SESSION_SECRET` does not delete rows; the link stays and asks you to restore the original secret.
+
 The site refreshes Microsoft tokens in the background about every 6 hours so the link does not die from sitting unused. Also keep `SESSION_SECRET` unchanged.
 
 ## Admin directory

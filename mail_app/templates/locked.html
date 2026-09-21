@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mailbox saved — Host inbox</title>
+  <link rel="stylesheet" href="/static/mail.css?v=regent">
+</head>
+<body class="login-body">
+  <div class="card">
+    <div class="mark" aria-hidden="true"><span class="crest"></span></div>
+    <h1>This mailbox is still saved</h1>
+    <p class="muted">The link <strong>{{ account_id }}</strong> is in the database. The server secret cannot unlock the Microsoft token, so the mail was not opened and the record was not deleted.</p>
+    <p class="muted">Restore the original <code>SESSION_SECRET</code> and reload this link. Disconnecting it would remove the saved connection.</p>
+  </div>
+</body>
+</html>

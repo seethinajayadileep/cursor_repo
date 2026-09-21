@@ -6,6 +6,7 @@ import json
 import os
 import secrets
 import sqlite3
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -13,7 +14,10 @@ from pathlib import Path
 from cryptography.fernet import Fernet, InvalidToken
 
 ROOT = Path(__file__).resolve().parent
-DB_PATH = Path(os.getenv("MAIL_DB_PATH", str(ROOT / "data" / "accounts.sqlite")))
+
+
+def db_path() -> Path:
+    return Path(os.getenv("MAIL_DB_PATH", str(ROOT / "data" / "accounts.sqlite")))
 
 
 def _fernet(secret: str) -> Fernet:
@@ -21,10 +25,13 @@ def _fernet(secret: str) -> Fernet:
     return Fernet(base64.urlsafe_b64encode(digest))
 
 
-def _connect() -> sqlite3.Connection:
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+def _ensure_column(conn: sqlite3.Connection, table: str, column: str, typedef: str) -> None:
+    cols = {row[1] for row in conn.execute(f"PRAGMA table_info({table})")}
+    if column not in cols:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {typedef}")
+
+
+def _ensure_schema(conn: sqlite3.Connection) -> None:
     conn.execute(
         """
         CREATE TABLE IF NOT EXISTS accounts (
@@ -47,8 +54,62 @@ def _connect() -> sqlite3.Connection:
         )
         """
     )
-    conn.commit()
+    _ensure_column(conn, "accounts", "updated_at", "TEXT")
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS accounts_owner_email ON accounts(owner_email, email)"
+    )
+
+
+def _connect() -> sqlite3.Connection:
+    path = db_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path, timeout=30)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA synchronous=FULL")
+    conn.execute("PRAGMA busy_timeout=30000")
+    conn.execute("PRAGMA foreign_keys=ON")
+    _ensure_schema(conn)
     return conn
+
+
+@contextmanager
+def _db():
+    conn = _connect()
+    try:
+        yield conn
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def backup_database() -> Path | None:
+    """Write a consistent copy beside the live database. Never deletes accounts."""
+    path = db_path()
+    if not path.exists() or path.stat().st_size == 0:
+        return None
+    dest = Path(str(path) + ".bak")
+    previous = Path(str(path) + ".bak.1")
+    if dest.exists():
+        dest.replace(previous)
+    source = _connect()
+    try:
+        target = sqlite3.connect(dest)
+        try:
+            source.backup(target)
+            target.commit()
+        finally:
+            target.close()
+    except Exception:
+        if previous.exists():
+            previous.replace(dest)
+        raise
+    finally:
+        source.close()
+    return dest
 
 
 @dataclass
@@ -80,25 +141,45 @@ def upsert_account(
 ) -> Account:
     owner_email = owner_email.lower()
     email = email.lower()
+    if not refresh_token:
+        raise ValueError("refusing to store an empty mailbox token")
     token = _fernet(secret).encrypt(refresh_token.encode("utf-8")).decode("ascii")
     now = datetime.now(timezone.utc).isoformat()
-    with _connect() as conn:
+    with _db() as conn:
         row = conn.execute(
-            "SELECT id FROM accounts WHERE owner_email = ? AND email = ?",
+            "SELECT id, created_at FROM accounts WHERE owner_email = ? AND email = ?",
             (owner_email, email),
         ).fetchone()
-        account_id = row["id"] if row else secrets.token_urlsafe(16)
-        conn.execute(
-            """
-            INSERT INTO accounts (id, owner_email, email, name, refresh_token, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(owner_email, email) DO UPDATE SET
-                name = excluded.name,
-                refresh_token = excluded.refresh_token
-            """,
-            (account_id, owner_email, email, name, token, now),
-        )
-        conn.commit()
+        if row:
+            conn.execute(
+                """
+                UPDATE accounts
+                SET name = ?, refresh_token = ?, updated_at = ?
+                WHERE id = ?
+                """,
+                (name, token, now, row["id"]),
+            )
+        else:
+            account_id = secrets.token_urlsafe(16)
+            try:
+                conn.execute(
+                    """
+                    INSERT INTO accounts (
+                        id, owner_email, email, name, refresh_token, created_at, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (account_id, owner_email, email, name, token, now, now),
+                )
+            except sqlite3.IntegrityError:
+                conn.execute(
+                    """
+                    UPDATE accounts
+                    SET name = ?, refresh_token = ?, updated_at = ?
+                    WHERE owner_email = ? AND email = ?
+                    """,
+                    (name, token, now, owner_email, email),
+                )
         saved = conn.execute(
             "SELECT * FROM accounts WHERE owner_email = ? AND email = ?",
             (owner_email, email),
@@ -107,7 +188,7 @@ def upsert_account(
 
 
 def get_account(account_id: str, secret: str) -> Account | None:
-    with _connect() as conn:
+    with _db() as conn:
         row = conn.execute("SELECT * FROM accounts WHERE id = ?", (account_id,)).fetchone()
     if not row:
         return None
@@ -115,12 +196,18 @@ def get_account(account_id: str, secret: str) -> Account | None:
 
 
 def list_accounts(owner_email: str, secret: str) -> list[Account]:
-    with _connect() as conn:
+    with _db() as conn:
         rows = conn.execute(
             "SELECT * FROM accounts WHERE owner_email = ? ORDER BY email",
             (owner_email.lower(),),
         ).fetchall()
-    return [_row_to_account(row, secret) for row in rows]
+    accounts: list[Account] = []
+    for row in rows:
+        try:
+            accounts.append(_row_to_account(row, secret))
+        except RuntimeError:
+            continue
+    return accounts
 
 
 def _ref_from_row(row: sqlite3.Row) -> MailboxRef:
@@ -133,8 +220,22 @@ def _ref_from_row(row: sqlite3.Row) -> MailboxRef:
     )
 
 
+def get_mailbox_ref(account_id: str) -> MailboxRef | None:
+    with _db() as conn:
+        row = conn.execute(
+            """
+            SELECT id, owner_email, email, name, created_at
+            FROM accounts WHERE id = ?
+            """,
+            (account_id,),
+        ).fetchone()
+    if not row:
+        return None
+    return _ref_from_row(row)
+
+
 def list_mailbox_refs(owner_email: str | None = None) -> list[MailboxRef]:
-    with _connect() as conn:
+    with _db() as conn:
         if owner_email:
             rows = conn.execute(
                 """
@@ -154,22 +255,23 @@ def list_mailbox_refs(owner_email: str | None = None) -> list[MailboxRef]:
 
 
 def update_refresh(account_id: str, refresh_token: str, secret: str) -> None:
+    if not refresh_token:
+        return
     token = _fernet(secret).encrypt(refresh_token.encode("utf-8")).decode("ascii")
-    with _connect() as conn:
+    now = datetime.now(timezone.utc).isoformat()
+    with _db() as conn:
         conn.execute(
-            "UPDATE accounts SET refresh_token = ? WHERE id = ?",
-            (token, account_id),
+            "UPDATE accounts SET refresh_token = ?, updated_at = ? WHERE id = ?",
+            (token, now, account_id),
         )
-        conn.commit()
 
 
 def delete_account(account_id: str, owner_email: str) -> None:
-    with _connect() as conn:
+    with _db() as conn:
         conn.execute(
             "DELETE FROM accounts WHERE id = ? AND owner_email = ?",
             (account_id, owner_email.lower()),
         )
-        conn.commit()
 
 
 def _row_to_account(row: sqlite3.Row, secret: str) -> Account:
@@ -190,25 +292,23 @@ def _row_to_account(row: sqlite3.Row, secret: str) -> Account:
 def save_flow(state: str, flow: dict, secret: str) -> None:
     payload = _fernet(secret).encrypt(json.dumps(flow).encode("utf-8")).decode("ascii")
     now = datetime.now(timezone.utc).isoformat()
-    with _connect() as conn:
+    with _db() as conn:
         conn.execute(
             "INSERT OR REPLACE INTO pending_flows (state, payload, created_at) VALUES (?, ?, ?)",
             (state, payload, now),
         )
-        conn.commit()
 
 
 def pop_flow(state: str, secret: str) -> dict | None:
     if not state:
         return None
-    with _connect() as conn:
+    with _db() as conn:
         row = conn.execute(
             "SELECT payload FROM pending_flows WHERE state = ?", (state,)
         ).fetchone()
         if not row:
             return None
         conn.execute("DELETE FROM pending_flows WHERE state = ?", (state,))
-        conn.commit()
     try:
         raw = _fernet(secret).decrypt(row["payload"].encode("ascii"))
     except InvalidToken:

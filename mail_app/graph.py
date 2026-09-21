@@ -67,19 +67,29 @@ def sort_newest_first(messages: list[dict]) -> list[dict]:
     return sorted(messages, key=message_sort_time, reverse=True)
 
 
-async def list_messages(access_token: str, folder: str = "inbox", top: int = 80) -> list[dict]:
+SAFE_SELECT = "id,subject,from,receivedDateTime,sentDateTime,bodyPreview,isRead,hasAttachments"
+FULL_SELECT = SAFE_SELECT + ",inferenceClassification"
+
+
+async def list_messages(access_token: str, folder: str = "inbox", top: int = 100) -> list[dict]:
     path = f"/me/mailFolders/{folder}/messages"
-    params = {
-        "$top": str(top),
-        "$orderby": "receivedDateTime desc",
-        "$select": "id,subject,from,receivedDateTime,sentDateTime,bodyPreview,isRead,hasAttachments,inferenceClassification",
-    }
-    try:
-        data = await graph_get(access_token, path, params=params)
-    except GraphError:
-        params.pop("$orderby", None)
-        data = await graph_get(access_token, path, params=params)
-    return sort_newest_first(data.get("value") or [])
+    attempts = (
+        {"$top": str(top), "$orderby": "receivedDateTime desc", "$select": FULL_SELECT},
+        {"$top": str(top), "$orderby": "receivedDateTime desc", "$select": SAFE_SELECT},
+        {"$top": str(top), "$select": SAFE_SELECT},
+    )
+    last_error: GraphError | None = None
+    for params in attempts:
+        try:
+            data = await graph_get(access_token, path, params=params)
+            return sort_newest_first(data.get("value") or [])
+        except GraphError as exc:
+            last_error = exc
+            if exc.status_code in {401, 403, 404}:
+                raise
+    if last_error:
+        raise last_error
+    return []
 
 
 async def list_inbox(access_token: str, top: int = 50) -> list[dict]:
@@ -122,10 +132,15 @@ async def list_other_messages(access_token: str, top: int = 80) -> list[dict]:
 async def list_incoming_messages(access_token: str, top_per_folder: int = 40) -> list[dict]:
     seen: set[str] = set()
     incoming: list[dict] = []
+    loaded_any = False
+    auth_error: GraphError | None = None
     for folder in INCOMING_FOLDERS:
         try:
             batch = await list_messages(access_token, folder, top=top_per_folder)
-        except GraphError:
+            loaded_any = True
+        except GraphError as exc:
+            if exc.status_code in {401, 403}:
+                auth_error = exc
             continue
         for message in batch:
             mid = message.get("id")
@@ -135,6 +150,8 @@ async def list_incoming_messages(access_token: str, top_per_folder: int = 40) ->
             row = dict(message)
             row["_incoming_folder"] = incoming_section(message, folder)
             incoming.append(row)
+    if auth_error and not loaded_any:
+        raise auth_error
     return sort_newest_first(incoming)
 
 
