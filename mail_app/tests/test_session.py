@@ -85,6 +85,7 @@ def test_signed_in_unique_inbox(monkeypatch) -> None:
     assert "Hello" in response.text
     assert "pat@example.com" in response.text
     assert account.id in response.text
+    assert "Sign out" not in response.text
 
 
 def test_mailbox_link_works_without_session(monkeypatch) -> None:
@@ -117,7 +118,9 @@ def test_mailbox_link_works_without_session(monkeypatch) -> None:
     response = client.get(f"/a/{account.id}")
     assert response.status_code == 200
     assert "Hello" in response.text
-    assert "Sign in to manage" in response.text
+    assert "Connect another mailbox" in response.text
+    assert "Sign out" not in response.text
+    assert "New message" in response.text
 
 
 def test_pending_flow_survives_without_session_cookie() -> None:
@@ -219,3 +222,40 @@ def test_host_session_cannot_bypass_admin_password(monkeypatch) -> None:
     response = client.get("/admin")
     assert response.status_code == 302
     assert response.headers["location"] == "/admin/login"
+
+
+def test_delete_and_send_use_graph_write(monkeypatch) -> None:
+    account = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="pat@example.com",
+        name="Pat",
+        refresh_token="refresh-token",
+    )
+    calls: list[tuple] = []
+
+    async def fake_token(_account) -> str:
+        return "fake-token"
+
+    async def fake_delete(_token: str, message_id: str) -> None:
+        calls.append(("delete", message_id))
+
+    async def fake_send(_token: str, to: str, subject: str, body: str) -> None:
+        calls.append(("send", to, subject, body))
+
+    monkeypatch.setattr("mail_app.app._token_for_account", fake_token)
+    monkeypatch.setattr("mail_app.app.graph.delete_message", fake_delete)
+    monkeypatch.setattr("mail_app.app.graph.send_mail", fake_send)
+    client = TestClient(app, follow_redirects=False)
+    deleted = client.post(
+        f"/a/{account.id}/delete",
+        data={"message_id": "msg-1", "folder": "inbox"},
+    )
+    assert deleted.status_code == 302
+    sent = client.post(
+        f"/a/{account.id}/send",
+        data={"to": "a@example.com", "subject": "Hi", "body": "Hello", "folder": "inbox"},
+    )
+    assert sent.status_code == 302
+    assert sent.headers["location"] == f"/a/{account.id}?folder=sentitems"
+    assert calls == [("delete", "msg-1"), ("send", "a@example.com", "Hi", "Hello")]

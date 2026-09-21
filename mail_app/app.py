@@ -34,7 +34,7 @@ app.add_middleware(
     session_cookie="outlook_inbox_session",
     same_site="lax",
     https_only=settings.https_only,
-    max_age=60 * 60 * 24 * 30,
+    max_age=60 * 60 * 24 * 400,
 )
 app.add_middleware(ProxyHeadersMiddleware, trusted_hosts="*")
 app.mount("/static", StaticFiles(directory=ROOT / "static"), name="static")
@@ -326,6 +326,87 @@ async def disconnect(request: Request, account_id: str):
     return RedirectResponse("/", status_code=302)
 
 
+async def _mailbox_token(request: Request, account_id: str) -> tuple[store.Account, str] | None:
+    account = store.get_account(account_id, settings.session_secret)
+    if not account:
+        return None
+    token = await _token_for_account(account)
+    if not token:
+        signed_in = bool(_session_user(request) and _can_open(request, account))
+        if signed_in:
+            token = await _access_token(request)
+    if not token:
+        return None
+    return account, token
+
+
+def _back_to_mailbox(account_id: str, folder: str, msg: str = "") -> RedirectResponse:
+    url = f"/a/{account_id}?folder={quote(folder, safe='')}"
+    if msg:
+        url += f"&msg={quote(msg, safe='')}"
+    return RedirectResponse(url, status_code=302)
+
+
+@app.post("/a/{account_id}/send")
+async def send_message(
+    request: Request,
+    account_id: str,
+    to: str = Form(""),
+    subject: str = Form(""),
+    body: str = Form(""),
+    folder: str = Form("inbox"),
+):
+    loaded = await _mailbox_token(request, account_id)
+    if not loaded:
+        return RedirectResponse("/?error=auth", status_code=302)
+    _account, token = loaded
+    to_addr = (to or "").strip()
+    if "@" not in to_addr:
+        return _back_to_mailbox(account_id, folder)
+    try:
+        await graph.send_mail(token, to_addr, subject.strip() or "(no subject)", body)
+    except graph.GraphError:
+        return _back_to_mailbox(account_id, folder)
+    return RedirectResponse(f"/a/{account_id}?folder=sentitems", status_code=302)
+
+
+@app.post("/a/{account_id}/delete")
+async def delete_open_message(
+    request: Request,
+    account_id: str,
+    message_id: str = Form(""),
+    folder: str = Form("inbox"),
+):
+    loaded = await _mailbox_token(request, account_id)
+    if not loaded or not message_id:
+        return RedirectResponse("/?error=auth", status_code=302)
+    _account, token = loaded
+    try:
+        await graph.delete_message(token, message_id)
+    except graph.GraphError:
+        return _back_to_mailbox(account_id, folder, message_id)
+    return _back_to_mailbox(account_id, folder)
+
+
+@app.post("/a/{account_id}/read")
+async def toggle_read(
+    request: Request,
+    account_id: str,
+    message_id: str = Form(""),
+    is_read: str = Form("true"),
+    folder: str = Form("inbox"),
+):
+    loaded = await _mailbox_token(request, account_id)
+    if not loaded or not message_id:
+        return RedirectResponse("/?error=auth", status_code=302)
+    _account, token = loaded
+    try:
+        await graph.set_read(token, message_id, is_read.lower() != "false")
+    except graph.GraphError:
+        pass
+    return _back_to_mailbox(account_id, folder, message_id)
+
+
 @app.get("/a/{account_id}", response_class=HTMLResponse)
 async def account_inbox(request: Request, account_id: str):
     account = store.get_account(account_id, settings.session_secret)
@@ -360,6 +441,12 @@ async def account_inbox(request: Request, account_id: str):
                 body_html = sanitize_html(body)
             else:
                 body_html = sanitize_html(f"<pre>{body}</pre>")
+            if message.get("isRead") is False:
+                try:
+                    await graph.set_read(token, msg_id, True)
+                    message["isRead"] = True
+                except graph.GraphError:
+                    pass
     except graph.GraphError:
         error = "Could not load this mailbox. Connect the account again."
 

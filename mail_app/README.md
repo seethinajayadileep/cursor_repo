@@ -18,7 +18,7 @@ Web app that signs **you** in with Microsoft and shows **your** mailboxes. Each 
 4. Redirect URI: **Web** → `http://localhost:8001/auth/callback` (add your HTTPS URL in production).
 5. To verify a **publisher domain**, Entra looks for `/.well-known/microsoft-identity-association.json`. This app serves that file. DNS for the custom domain must already point at the deployed app before you click **Verify and save domain**.
 6. Create a **client secret** and copy the value.
-7. **API permissions**: Microsoft Graph delegated `User.Read` and `Mail.Read`. Grant admin consent if your tenant requires it.
+7. **API permissions**: Microsoft Graph delegated `User.Read`, `Mail.ReadWrite`, and `Mail.Send`. After you add write/send, reconnect each mailbox so Microsoft shows the new consent.
 
 ## Run
 
@@ -78,6 +78,12 @@ MAIL_DB_PATH=/data/accounts.sqlite
 Render: use `render.yaml`, paid instance, **persistent disk** at `/data`, same env vars. Do not use a sleeping free web service.
 
 Keep `SESSION_SECRET` stable after the first deploy. Changing it invalidates stored mailbox tokens.
+
+## How long a connected account stays
+
+Microsoft personal accounts (`@outlook.com`) give a **refresh token** that lasts about **90 days of no use**. Each time someone opens that mailbox live link, the app refreshes the token and the 90-day clock starts again. Used regularly, it can stay connected indefinitely.
+
+It ends sooner if you disconnect the mailbox here, revoke the app in the Microsoft account, or change `SESSION_SECRET`. Browser operator cookies last up to **400 days**. There is no Sign out button; use **Disconnect mailbox** to drop one box.
 
 ## Admin directory
 

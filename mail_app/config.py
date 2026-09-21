@@ -15,7 +15,8 @@ class Settings:
     https_only: bool
     scopes: tuple[str, ...] = (
         "User.Read",
-        "Mail.Read",
+        "Mail.ReadWrite",
+        "Mail.Send",
     )
 
     @property

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ account.email }} — Inbox</title>
-  <link rel="stylesheet" href="/static/mail.css?v=modern">
+  <link rel="stylesheet" href="/static/mail.css?v=write">
 </head>
 <body>
   <div class="shell">
@@ -13,17 +13,17 @@
         <div class="mark">IN</div>
         <div>
           <div class="topbar-title">{{ account.email }}</div>
-          <div class="uid">{% if signed_in %}Signed in as {{ user.email }}{% else %}Private mailbox link{% endif %}</div>
+          <div class="uid">Stays connected while you use the live link · reconnect after 90 unused days</div>
         </div>
       </div>
       <div class="topbar-actions">
         <button class="btn" type="button" data-link="{{ account_url(account.id) }}" id="copy-live">Copy live link</button>
+        <a class="btn ghost" href="#compose">New message</a>
         {% if signed_in %}
         <a class="btn ghost" href="/admin">Admin</a>
         <a class="btn ghost" href="/login">Connect account</a>
-        <a class="btn ghost" href="/logout">Sign out</a>
         {% else %}
-        <a class="btn ghost" href="/login">Sign in to manage</a>
+        <a class="btn ghost" href="/login">Connect another mailbox</a>
         {% endif %}
       </div>
     </header>
@@ -44,7 +44,7 @@
           <div class="label" style="margin-top:0">Live link</div>
           <p class="live-url" id="live-url">{{ account_url(account.id) }}</p>
           <button class="btn full copy-link" type="button" data-link="{{ account_url(account.id) }}">Copy this link</button>
-          <p class="uid">Anyone with this URL can read this mailbox. Keep it private.</p>
+          <p class="uid">This link reads and writes this mailbox. Keep it private.</p>
         </div>
         {% if signed_in %}
         <form class="inline" method="post" action="/a/{{ account.id }}/disconnect" onsubmit="return confirm('Disconnect this mailbox from the site?');">
@@ -80,6 +80,14 @@
         </ul>
       </section>
       <article class="col read">
+        <form class="compose" id="compose" method="post" action="/a/{{ account.id }}/send">
+          <input type="hidden" name="folder" value="{{ folder }}">
+          <div class="label" style="margin-top:0">New message</div>
+          <input name="to" type="email" required placeholder="To">
+          <input name="subject" type="text" placeholder="Subject">
+          <textarea name="body" rows="5" placeholder="Write the message"></textarea>
+          <button class="btn" type="submit">Send</button>
+        </form>
         {% if message %}
         <div class="read-card">
           <h1>{{ message.subject or "(no subject)" }}</h1>
@@ -90,10 +98,23 @@
               <div class="uid">{{ message.receivedDateTime|when }}</div>
             </div>
           </div>
+          <div class="msg-actions">
+            <form class="inline" method="post" action="/a/{{ account.id }}/read">
+              <input type="hidden" name="message_id" value="{{ message.id }}">
+              <input type="hidden" name="folder" value="{{ folder }}">
+              <input type="hidden" name="is_read" value="{% if message.isRead %}false{% else %}true{% endif %}">
+              <button class="btn ghost" type="submit">{% if message.isRead %}Mark unread{% else %}Mark read{% endif %}</button>
+            </form>
+            <form class="inline" method="post" action="/a/{{ account.id }}/delete" onsubmit="return confirm('Delete this message?');">
+              <input type="hidden" name="message_id" value="{{ message.id }}">
+              <input type="hidden" name="folder" value="{{ folder }}">
+              <button class="btn ghost danger" type="submit">Delete</button>
+            </form>
+          </div>
           <div class="body">{{ body_html | safe }}</div>
         </div>
         {% else %}
-        <p class="empty">Select a message to read it here.</p>
+        <p class="empty">Select a message to read it, or send a new one above.</p>
         {% endif %}
       </article>
     </div>

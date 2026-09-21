@@ -199,7 +199,28 @@ button { font-family: inherit; }
 .item.unread .subject { color: var(--text); }
 .item.unread .avatar { box-shadow: 0 0 0 2px var(--accent); }
 .preview { color: var(--muted); font-size: 0.95rem; margin-top: 4px; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.read { padding: 28px 36px 64px; }
+.compose {
+  max-width: 860px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 16px 18px 18px;
+  margin-bottom: 18px;
+}
+.compose input, .compose textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font: inherit;
+  margin-top: 8px;
+}
+.compose .btn { margin-top: 12px; }
+.msg-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 18px; }
+.msg-actions .btn { margin-top: 0; }
+.btn.danger { color: var(--danger); border-color: #f5c2c0; }
 .read-card {
   max-width: 860px;
   background: #fff;
