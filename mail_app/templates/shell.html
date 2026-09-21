@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ folder_label(folder) }} — {{ account.email }}</title>
-  <link rel="stylesheet" href="/static/mail.css?v=mail">
+  <link rel="stylesheet" href="/static/mail.css?v=layout">
 </head>
 <body>
   <div class="shell">
     <aside class="rail">
       <div class="rail-brand">
         <div class="mark">IN</div>
-        <div>
+        <div class="rail-id">
           <div class="rail-title">Mail</div>
-          <div class="uid">{{ account.email }}</div>
+          <div class="uid email-clip" title="{{ account.email }}">{{ account.email }}</div>
         </div>
       </div>
       <button class="btn compose-launch" type="button" id="open-compose">New message</button>
@@ -21,7 +21,7 @@
         {% for key, label, tag in folders %}
         <a class="folder {% if folder == key %}active{% endif %}" href="/a/{{ account.id }}?folder={{ key }}">
           <span class="folder-ico" data-folder="{{ tag }}"></span>
-          <span>{{ label }}</span>
+          <span class="folder-name">{{ label }}</span>
           {% set count = counts.get(key, {}).get('unread', 0) %}
           {% if key == folder %}{% set count = unread_here %}{% endif %}
           {% if count %}
@@ -37,9 +37,9 @@
           <li>
             <a class="{% if acc.id == account.id %}active{% endif %}" href="/a/{{ acc.id }}">
               <span class="dot"></span>
-              <span>
-                <span class="acct-name">{{ acc.name }}</span>
-                <span class="uid">{{ acc.email }}</span>
+              <span class="acct-copy">
+                <span class="acct-name email-clip">{{ acc.name }}</span>
+                <span class="uid email-clip">{{ acc.email }}</span>
               </span>
             </a>
           </li>
@@ -78,7 +78,7 @@
             <span class="item-main">
               <span class="item-top">
                 <span class="from">{{ sender_name(m) }}</span>
-                <time>{{ m.receivedDateTime|when }}</time>
+                <time>{{ m.receivedDateTime|when_short }}</time>
               </span>
               <span class="subject">{{ m.subject or "(no subject)" }}{% if m.hasAttachments %} · 📎{% endif %}</span>
               <span class="preview">{{ m.bodyPreview }}</span>

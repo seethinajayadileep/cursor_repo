@@ -165,6 +165,16 @@ def _format_when(value: str | None) -> str:
         return value
 
 
+def _format_when_short(value: str | None) -> str:
+    if not value:
+        return ""
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return dt.strftime("%d %b")
+    except ValueError:
+        return value
+
+
 def sender_name(message: dict) -> str:
     from_ = (message.get("from") or {}).get("emailAddress") or {}
     return from_.get("name") or from_.get("address") or "(unknown)"
@@ -210,6 +220,7 @@ def mail_href(account_id: str, message: dict, folder: str) -> str:
 
 
 templates.env.filters["when"] = _format_when
+templates.env.filters["when_short"] = _format_when_short
 templates.env.globals["sender_name"] = sender_name
 templates.env.globals["sender_email"] = sender_email
 templates.env.globals["sender_initials"] = sender_initials
