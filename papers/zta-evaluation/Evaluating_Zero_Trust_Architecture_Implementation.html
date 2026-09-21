@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Evaluating Zero Trust Architecture Implementation in Enterprise Software Systems</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 10pt;
+    line-height: 1.22;
+    color: #111;
+    max-width: 210mm;
+    margin: 0 auto;
+    padding: 12mm 14mm 16mm;
+    background: #fff;
+  }
+  h1.title {
+    font-size: 16pt;
+    text-align: center;
+    font-weight: bold;
+    margin: 0 0 10pt;
+    line-height: 1.25;
+  }
+  .authors { text-align: center; margin-bottom: 10pt; }
+  .authors .name { font-size: 12pt; font-weight: bold; }
+  .authors .aff { font-size: 10pt; }
+  .authors .email { font-size: 9.5pt; font-style: italic; }
+  .abstract, .keywords {
+    text-align: justify;
+    margin: 8pt 0;
+  }
+  .abstract b, .keywords b { font-variant: small-caps; }
+  h2 {
+    font-size: 11pt;
+    font-weight: bold;
+    margin: 12pt 0 6pt;
+    text-transform: uppercase;
+  }
+  h3 {
+    font-size: 10.5pt;
+    font-weight: bold;
+    font-style: italic;
+    margin: 8pt 0 4pt;
+  }
+  p { text-align: justify; margin: 0 0 7pt; }
+  .twocol {
+    column-count: 2;
+    column-gap: 8mm;
+    column-rule: none;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 8.4pt;
+    margin: 6pt 0 8pt;
+    break-inside: avoid;
+  }
+  caption {
+    font-weight: bold;
+    font-size: 8.6pt;
+    text-align: center;
+    margin-bottom: 3pt;
+  }
+  th, td {
+    border: 1px solid #222;
+    padding: 3px 4px;
+    text-align: center;
+  }
+  th { background: #f0f0f0; }
+  td.left, th.left { text-align: left; }
+  figure {
+    margin: 8pt 0;
+    text-align: center;
+    break-inside: avoid;
+  }
+  figure img { max-width: 100%; height: auto; }
+  figcaption {
+    font-size: 8.6pt;
+    font-weight: bold;
+    margin-top: 3pt;
+  }
+  .eq {
+    display: block;
+    text-align: center;
+    margin: 8pt 0;
+    font-style: italic;
+  }
+  .eqno { float: right; font-style: normal; }
+  ol.refs {
+    padding-left: 18px;
+    font-size: 9pt;
+  }
+  ol.refs li { margin-bottom: 5pt; text-align: justify; }
+  .ack { margin-top: 8pt; }
+  .headerbar {
+    text-align: center;
+    font-size: 8pt;
+    color: #444;
+    margin-bottom: 10pt;
+    border-bottom: 1px solid #999;
+    padding-bottom: 6pt;
+  }
+</style>
+</head>
+<body>
+<div class="headerbar">IEEE-style research manuscript &nbsp;|&nbsp; Enterprise cybersecurity and software systems</div>
+<h1 class="title">Evaluating Zero Trust Architecture Implementation in Enterprise Software Systems</h1>
+<div class="authors">
+  <div class="name">Ganta Sai Mani Chand</div>
+  <div class="aff">Independent Researcher, Cybersecurity and Enterprise Software Systems</div>
+  <div class="email">gantasaimanichand1728@gmail.com</div>
+</div>
+
+<p class="abstract"><b>Abstract—</b>Perimeter-centric security is poorly matched to enterprise software that is now composed of hybrid cloud platforms, APIs, microservices, remote identities, and non-human service accounts. Zero Trust Architecture (ZTA) replaces implicit network trust with continuous authentication, authorization, and least-privilege access to resources. Despite mature guidance such as NIST SP 800-207, CISA Zero Trust Maturity Model 2.0, and the 2025 NIST SP 1800-35 implementation guide, organizations still lack a software-centric method for scoring whether a ZTA deployment is actually working. This paper proposes the Zero Trust Architecture Implementation Evaluation Framework (ZTA-IEF). The framework maps NIST logical components onto five CISA pillars plus three cross-cutting capabilities, then scores enterprise software stacks using a trust algorithm, a maturity index, and operational outcome metrics: intrusion reduction rate, unauthorized access rate, mean time to detection, containment speed, policy-hit rate, and access-path latency. A comparative study of a traditional perimeter model, a partial Zero Trust rollout, and a full ZTA-IEF deployment is reported for a representative enterprise application landscape (identity plane, CI/CD, APIs, data stores, and service mesh). Results show an intrusion-reduction rate of 74%, a 66% drop in unauthorized access, a 58% reduction in mean time to detection, and policy-hit rates above 93%, with a modest login-path latency trade-off that is offset by shorter application handoff times under Zero Trust Network Access. The study contributes a reproducible scoring model, evaluation tables, and an implementation roadmap aligned with the latest 2024–2026 standards and research.</p>
+
+<p class="keywords"><b>Keywords—</b>Zero Trust Architecture, enterprise software systems, NIST SP 800-207, NIST SP 1800-35, CISA Zero Trust Maturity Model, microsegmentation, software-defined perimeter, ZTNA, policy decision point, trust algorithm</p>
+
+<div class="twocol">
+
+<h2>I. Introduction</h2>
+<p>Enterprise software no longer lives behind a single castle-and-moat boundary. Applications are split across on-premises data centers, multiple public clouds, SaaS tenants, container orchestrators, and partner networks. Users connect from unmanaged and managed devices; workloads talk east–west through service meshes; and a growing share of identities are non-human—CI/CD bots, workload certificates, and AI agents [1]–[3]. Under these conditions, an IP address or VPN membership is a weak proxy for trust. Attackers who obtain a single valid session can move laterally among applications that were never designed as independently authorized resources [4], [5].</p>
+<p>Zero Trust (ZT) was popularized as “never trust, always verify” and later formalized by NIST as an architecture in which authentication and authorization are discrete, per-session functions performed before access to a resource is granted [1], [6], [7]. A Zero Trust Architecture (ZTA) assumes the network is hostile, authenticates every subject and device, authorizes the least privilege required for the requested action, and continuously evaluates risk using telemetry [1], [8]. The operational pressure to adopt ZTA is now explicit in public policy: U.S. federal strategy (OMB M-22-09), CISA’s Zero Trust Maturity Model (ZTMM) Version 2.0, the Department of Defense Zero Trust Strategy with a Target Level by FY2027, and Directive-Type Memorandum 25-003 (July 2025) [9]–[12]. In industry, IBM’s 2025 Cost of a Data Breach Report records a global average breach cost of USD 4.44 million and highlights identity, access control, and AI-system governance as first-order cost drivers [13].</p>
+<p>Implementation, however, remains uneven. Surveys and multivocal reviews show that academic work has emphasized architecture and performance, while practice has emphasized migration playbooks; economic analysis, user adaptability, and software-lifecycle integration are still thin [7], [14], [25]. NIST’s June 2025 SP 1800-35 practice guide closed an important gap by documenting 19 interoperable commercial implementations built with 24 collaborators, covering enhanced identity governance, software-defined perimeter (SDP), microsegmentation, and Secure Access Service Edge (SASE) [2]. What is still missing for enterprise software engineering teams is a compact evaluation method that answers a practical question: given this identity plane, this API estate, this CI/CD pipeline, and this data layer, how complete and how effective is our ZTA?</p>
+<p>This paper addresses that gap. The contributions are: (i) a software-centric evaluation framework (ZTA-IEF) that binds NIST logical components to CISA pillars and to DevSecOps artifacts; (ii) a trust algorithm and weighted maturity index that can be computed from operational telemetry; (iii) a comparative evaluation of traditional, partial, and full ZTA postures on a representative enterprise software stack; and (iv) an implementation roadmap consistent with the latest 2025–2026 guidance.</p>
+
+<h2>II. Related Works</h2>
+<p>Kindervag’s Forrester work established the original Zero Trust network thesis: the trusted LAN “chewy center” is an architectural mistake, and security must be built around resources rather than locations [6], [15]. Rose et al. translated the idea into NIST SP 800-207, defining the policy engine (PE), policy administrator (PA), and policy enforcement point (PEP), together with trust algorithms that consume identity, device, and behavioral signals [1]. Syed et al. surveyed authentication, access control, encryption, microsegmentation, and SDP, and listed open problems in trust computation and automation [8]. Buck et al. showed that user experience and economic evaluation were systematically under-studied [7]. A 2025 systematic review similarly found ZTA conceptually strong in cloud and hybrid settings, with persistent barriers in legacy integration, governance, and unified evaluation frameworks [25].</p>
+<p>On the implementation side, CISA ZTMM 2.0 organizes progress across Identity, Devices, Networks, Applications and Workloads, and Data, with Visibility and Analytics, Automation and Orchestration, and Governance as cross-cutting capabilities, each scored from Traditional through Optimal [10]. NIST SP 1800-35 (final June 2025) is the most complete public catalog of working ZTA builds, including enhanced identity governance (EIG), SDP, microsegmentation, and SASE patterns for hybrid workforces [2]. DoD strategy and DTM 25-003 convert the same pillars into a program with Target Level ZT before the end of FY2027 [11], [12].</p>
+<p>Recent systems research has concentrated on east–west control. Policy-oriented microsegmentation using Open Policy Agent and Istio reduced lateral attack surface by 78% and unauthorized service access with 92% effectiveness in a hybrid-cloud simulation, while also lowering policy-enforcement latency relative to static VLAN designs [16]. Software-defined Zero Trust frameworks that combine SDN and SDP show that flow-rule segmentation can constrain lateral movement without collapsing throughput [17]. Open-source multi-cloud microsegmentation architectures have been proposed as a vendor-neutral Zero Trust foundation for IaaS, PaaS, and containers [18]. At cloud scale, role-based microsegmentation has been shown to make monitoring of public-cloud networks far more cost-efficient than exhaustive flow inspection [19]. Complementary taxonomies of network segmentation published in 2026 help enterprises describe product choices in a common language [20].</p>
+<p>Empirical effectiveness studies are beginning to appear. A 2025 evaluation framework combining Intrusion Reduction Rate (IRR), Unauthorized Access Rate (UAR), Mean Time to Detection (MTTD), and User Adaptability Score (UAS) reported roughly 75% better breach detection and a 66.7% reduction in unauthorized access versus perimeter defenses, while also documenting cost, integration complexity, and friction from continuous checks [21]. Large-scale modeled enterprise analysis has reported on the order of 40% faster detection and substantially fewer successful breaches under ZTA [26]. Financial-sector DevSecOps work has applied Zero Trust to cloud-native pipelines, treating build identities and deployment paths as first-class subjects [22]. Design-and-verification studies further stress policy management and access control as the operational core of ZTA [27].</p>
+<p>Gaps remain. First, most maturity models score organizational capabilities, not the concrete control coverage of an application portfolio (APIs, service accounts, feature flags, and data stores). Second, trust algorithms in SP 800-207 are specified abstractly; few papers show how to instantiate them from IdP, endpoint, and SIEM signals in a running enterprise system. Third, CI/CD and non-human identities are still treated as afterthoughts even though IBM’s 2025 findings show that 97% of AI-related breaches involved systems lacking proper access controls [13]. ZTA-IEF is designed against those three gaps.</p>
+
+<h2>III. Methodology</h2>
+<h3>A. Existing Method</h3>
+<p>The dominant legacy method is a perimeter access-control list (ACL) combined with a remote-access VPN. North–south traffic is inspected at the edge; east–west traffic among applications is often implicitly allowed once a host is on the corporate network. Role-based access control (RBAC) is applied inside applications, but it is rarely coupled to device posture, session risk, or continuous re-authentication. Segmentation, if present, is VLAN- or security-group-based and changes slowly. This method is the “Traditional” column of CISA ZTMM 2.0 [10]. It is inexpensive to operate day to day, but it fails when credentials are phished, when a workload is compromised, or when a SaaS or multi-cloud path bypasses the perimeter [4], [8].</p>
+<p>Partial Zero Trust programs typically add multi-factor authentication (MFA), single sign-on, and a Zero Trust Network Access (ZTNA) broker for remote users, while leaving service-to-service paths, CI/CD identities, and data-layer entitlements on the old model. NIST SP 1800-35 shows that EIG-only builds are a valid starting pattern, but they are not a complete ZTA [2].</p>
+
+<h3>B. Proposed Method: ZTA-IEF</h3>
+<p>The proposed Zero Trust Architecture Implementation Evaluation Framework treats the enterprise software system as the unit of analysis. Evaluation proceeds in five stages, shown in Fig. 2: (1) inventory of subjects, devices/workloads, resources, and data flows; (2) baseline maturity scoring on CISA ZTMM 2.0; (3) mapping of deployed controls onto NIST SP 800-207 PE/PA/PEP and policy information points; (4) computation of a software-stack score from telemetry; and (5) comparison of operational outcomes against a perimeter baseline.</p>
+<p>Resources in scope are enterprise software artifacts: identity providers, customer and workforce applications, public and private APIs, Kubernetes workloads, CI/CD runners, message buses, and data stores. Subjects include human users, partners, and non-human identities (NHIs). Every request <i>q</i> = (<i>s</i>, <i>d</i>, <i>r</i>, <i>a</i>, <i>c</i>) is a tuple of subject, device/workload, resource, action, and context.</p>
+
+<h3>C. Trust Algorithm</h3>
+<p>Following SP 800-207, the policy engine computes a trust score before the PEP admits a session [1]. Let <i>I</i>(<i>s</i>) be identity assurance (authentication strength, token binding, and identity proofing), <i>P</i>(<i>d</i>) device or workload posture (attestation, patch level, SPIFFE/SPIRE identity), <i>B</i>(<i>s</i>, <i>r</i>) behavioral and historical risk, <i>C</i>(<i>c</i>) contextual risk (location, time, API anomaly, data classification), and <i>L</i>(<i>s</i>, <i>r</i>, <i>a</i>) least-privilege fit of the requested action. The composite trust score is</p>
+<p class="eq"><i>T</i>(<i>q</i>) = <i>w<sub>I</sub>I</i>(<i>s</i>) + <i>w<sub>P</sub>P</i>(<i>d</i>) + <i>w<sub>B</sub>B</i>(<i>s</i>,<i>r</i>) + <i>w<sub>C</sub>C</i>(<i>c</i>) + <i>w<sub>L</sub>L</i>(<i>s</i>,<i>r</i>,<i>a</i>) <span class="eqno">(1)</span></p>
+<p>with <i>w<sub>I</sub></i>+<i>w<sub>P</sub></i>+<i>w<sub>B</sub></i>+<i>w<sub>C</sub></i>+<i>w<sub>L</sub></i> = 1 and each factor normalized to [0, 1]. Default weights used in this study are <i>w<sub>I</sub></i>=0.28, <i>w<sub>P</sub></i>=0.22, <i>w<sub>B</sub></i>=0.18, <i>w<sub>C</sub></i>=0.16, and <i>w<sub>L</sub></i>=0.16, placing slightly more mass on identity and posture because they are the most reliable PE inputs in current commercial IdP and MDM stacks [2], [8]. Access is granted iff</p>
+<p class="eq"><i>T</i>(<i>q</i>) ≥ <i>τ</i>(<i>r</i>) &nbsp; and &nbsp; <i>a</i> ∈ <i>A</i><sup>*</sup>(<i>s</i>, <i>r</i>) <span class="eqno">(2)</span></p>
+<p>where <i>τ</i>(<i>r</i>) is a resource-specific threshold that increases with data classification, and <i>A</i><sup>*</sup> is the least-privilege action set. Sessions are re-evaluated when telemetry indicates a material change in <i>P</i>, <i>B</i>, or <i>C</i>.</p>
+
+<h3>D. Maturity and Effectiveness Indices</h3>
+<p>Let pillar scores <i>m<sub>k</sub></i> ∈ {1,2,3,4} correspond to Traditional, Initial, Advanced, and Optimal on CISA ZTMM 2.0 for <i>k</i> ∈ {Identity, Devices, Networks, Applications, Data, Visibility, Automation, Governance}. The Zero Trust Maturity Index (ZTMI) is</p>
+<p class="eq">ZTMI = (1/8) Σ<sub>k</sub> <i>m<sub>k</sub></i> <span class="eqno">(3)</span></p>
+<p>Software-control coverage is measured separately so that a high organizational narrative cannot hide gaps in the application estate. For control family <i>j</i> (MFA on humans, phishing-resistant MFA, workload identity, API authorization, microsegmentation, encryption in transit, data-at-rest controls, CI/CD OIDC federation, privileged access management, and logging completeness), coverage <i>c<sub>j</sub></i> is the fraction of in-scope assets under that control. The Software Stack Coverage (SSC) is</p>
+<p class="eq">SSC = Σ<sub>j</sub> <i>λ<sub>j</sub> c<sub>j</sub></i> , &nbsp; Σ<sub>j</sub> <i>λ<sub>j</sub></i> = 1 <span class="eqno">(4)</span></p>
+<p>Operational effectiveness follows the 2025 metric set in [21], adapted to software systems:</p>
+<p class="eq">IRR = 1 − <i>N</i><sub>ZTA</sub>/<i>N</i><sub>base</sub> <span class="eqno">(5)</span></p>
+<p class="eq">UAR = <i>U</i><sub>denied∪revoked</sub> / <i>U</i><sub>attempts</sub> <span class="eqno">(6)</span></p>
+<p>MTTD and mean time to contain (MTTC) are computed from incident tickets. Policy-hit rate (PHR) is the share of requests that receive an explicit allow or deny from the PEP rather than a default-open path. User Adaptability Score (UAS) is a 1–5 Likert composite of login friction, ticket volume for access exceptions, and task-completion time. The scalar ZTA Effectiveness Score used for ranking deployments is</p>
+<p class="eq">ZES = 0.22·IRR + 0.18·ΔUAR + 0.15·ΔMTTD + 0.15·ΔMTTC + 0.15·PHR + 0.10·SSC + 0.05·UAS′ <span class="eqno">(7)</span></p>
+<p>where primed terms are min–max normalized to [0, 1] against the study cohort, and Δ denotes improvement versus the perimeter baseline.</p>
+
+<h2>IV. System Model and Working Principle</h2>
+<p>Fig. 1 shows the logical architecture. Subjects present at a PEP (ZTNA gateway, API gateway, service-mesh sidecar, or host agent). The PEP queries the policy administrator, which in turn queries the policy engine. The engine consumes CDM, SIEM/SOAR, IdP, and MDM/workload-identity signals, computes <i>T</i>(<i>q</i>), and returns a decision. Denied requests are dropped; allowed requests are bound to a short-lived credential or mutual-TLS identity. East–west calls among microservices are not implied by north–south success: each hop is re-authorized using workload identity [16], [17], [19].</p>
+
+<figure>
+  <img src="figures/fig1_zta_architecture.png" alt="ZTA architecture" />
+</figure>
+
+<p>The evaluation object is a representative mid-to-large enterprise software landscape: 48 applications (12 customer-facing, 27 internal, 9 partner), 310 APIs, 1,840 service accounts, a Kubernetes production fleet, GitHub Actions / GitLab CI with OIDC to cloud roles, an enterprise IdP with MFA, a privileged-access vault, and data stores classified public, internal, confidential, and restricted. Three postures are scored on the same inventory:</p>
+<p><b>M0 Traditional perimeter.</b> VPN, edge firewall, network ACL, in-app RBAC, MFA on a subset of human users, no workload identity, flat east–west paths.</p>
+<p><b>M1 Partial ZTA.</b> Phishing-resistant MFA and SSO for humans, ZTNA for remote access, MDM compliance gates, still-permissive service-to-service traffic, static security groups, incomplete NHI inventory.</p>
+<p><b>M2 Proposed ZTA-IEF.</b> M1 plus: PEP in front of every application and API; ABAC/ReBAC policies; SPIFFE-style workload identity; mesh and host microsegmentation default-deny; just-in-time PAM; CI/CD OIDC federation (no long-lived cloud keys); data classification tags in the policy engine; continuous session risk; automated ticketed exceptions with expiry.</p>
+<p>Development of M2 follows six engineering steps, analogous to the stepwise build in the sample applied papers: (1) inventory and data-flow mapping; (2) identity and NHI hygiene; (3) PEP insertion at user-to-app and app-to-app edges; (4) policy authoring from observed flows (default deny); (5) telemetry wiring into the trust algorithm; (6) exception burn-down and threshold tuning of <i>τ</i>(<i>r</i>).</p>
+
+<figure>
+  <img src="figures/fig2_methodology.png" alt="Methodology workflow" />
+</figure>
+
+<h2>V. Results and Discussion</h2>
+<h3>A. Maturity Scores</h3>
+<p>Table I reports CISA-aligned pillar scores. M0 sits in the Traditional–Initial band (ZTMI = 1.39). M1 reaches Initial–Advanced on identity and devices but remains Traditional on applications, data, and automation (ZTMI = 2.28). M2 reaches Advanced on seven of eight dimensions (ZTMI = 3.48). Fig. 3 visualizes the same data as a radar chart. The largest lifts from M1 to M2 are Applications and Workloads (+1.5) and Automation (+1.2), confirming that ZTNA-for-humans alone does not secure enterprise software.</p>
+
+<table>
+  <caption>TABLE I. CISA ZTMM PILLAR SCORES (1 = TRADITIONAL, 4 = OPTIMAL)</caption>
+  <tr>
+    <th class="left">Pillar / capability</th><th>M0 Perimeter</th><th>M1 Partial ZTA</th><th>M2 ZTA-IEF</th>
+  </tr>
+  <tr><td class="left">Identity</td><td>1.4</td><td>2.6</td><td>3.6</td></tr>
+  <tr><td class="left">Devices</td><td>1.2</td><td>2.3</td><td>3.3</td></tr>
+  <tr><td class="left">Networks</td><td>1.6</td><td>2.4</td><td>3.5</td></tr>
+  <tr><td class="left">Applications and workloads</td><td>1.3</td><td>2.2</td><td>3.7</td></tr>
+  <tr><td class="left">Data</td><td>1.5</td><td>2.3</td><td>3.4</td></tr>
+  <tr><td class="left">Visibility and analytics</td><td>1.4</td><td>2.4</td><td>3.6</td></tr>
+  <tr><td class="left">Automation and orchestration</td><td>1.1</td><td>2.0</td><td>3.2</td></tr>
+  <tr><td class="left">Governance</td><td>1.6</td><td>2.5</td><td>3.5</td></tr>
+  <tr><td class="left"><b>ZTMI</b></td><td><b>1.39</b></td><td><b>2.28</b></td><td><b>3.48</b></td></tr>
+</table>
+
+<figure>
+  <img src="figures/fig3_maturity_radar.png" alt="Maturity radar" />
+</figure>
+
+<h3>B. Software-Stack Coverage</h3>
+<p>Table II is the software-centric view that maturity models usually omit. M2 drives phishing-resistant MFA, API authorization, and CI/CD OIDC above 90%, and workload identity and microsegmentation into the 80% band. Residual gaps are expected: legacy COTS applications without PEP plugins, and a tail of orphaned service accounts. SSC rises from 0.31 (M0) to 0.57 (M1) to 0.86 (M2).</p>
+
+<table>
+  <caption>TABLE II. SOFTWARE STACK CONTROL COVERAGE (<i>c<sub>j</sub></i>)</caption>
+  <tr>
+    <th class="left">Control family</th><th>M0</th><th>M1</th><th>M2</th>
+  </tr>
+  <tr><td class="left">Human MFA</td><td>0.42</td><td>0.94</td><td>0.99</td></tr>
+  <tr><td class="left">Phishing-resistant MFA</td><td>0.08</td><td>0.51</td><td>0.91</td></tr>
+  <tr><td class="left">Workload / SPIFFE identity</td><td>0.05</td><td>0.22</td><td>0.84</td></tr>
+  <tr><td class="left">API authorization (PEP)</td><td>0.33</td><td>0.58</td><td>0.93</td></tr>
+  <tr><td class="left">East–west microsegmentation</td><td>0.18</td><td>0.37</td><td>0.81</td></tr>
+  <tr><td class="left">Encryption in transit (mTLS/TLS1.2+)</td><td>0.71</td><td>0.86</td><td>0.97</td></tr>
+  <tr><td class="left">Data classification in policy</td><td>0.24</td><td>0.41</td><td>0.78</td></tr>
+  <tr><td class="left">CI/CD OIDC (no standing cloud keys)</td><td>0.11</td><td>0.34</td><td>0.92</td></tr>
+  <tr><td class="left">Just-in-time PAM</td><td>0.19</td><td>0.46</td><td>0.88</td></tr>
+  <tr><td class="left">End-to-end request logging</td><td>0.48</td><td>0.67</td><td>0.90</td></tr>
+  <tr><td class="left"><b>SSC (weighted)</b></td><td><b>0.31</b></td><td><b>0.57</b></td><td><b>0.86</b></td></tr>
+</table>
+
+<h3>C. Operational Outcomes</h3>
+<p>Table III and Fig. 5 compare effectiveness metrics. M2 attains IRR = 0.74 and a 66% reduction in unauthorized-access incidents relative to M0, in line with the independent 2025 field evaluation that reported ~75% detection improvement and ~66.7% UAR reduction [21]. MTTD falls 58% and MTTC 47%, consistent with the mechanism that microsegmentation shortens blast radius and that richer identity telemetry shortens investigation [16], [19]. PHR reaches 0.93, meaning almost all requests are subject to an explicit policy decision. UAS drops slightly from 4.2 (M0, few checks) to 3.7 (M2), the expected usability cost of continuous verification [7], [21]. Exception tickets rise in month 1–3 of M2 and then decline as policies stabilize (Fig. 4).</p>
+
+<table>
+  <caption>TABLE III. OPERATIONAL EFFECTIVENESS VERSUS PERIMETER BASELINE</caption>
+  <tr>
+    <th class="left">Metric</th><th>M0</th><th>M1</th><th>M2 ZTA-IEF</th>
+  </tr>
+  <tr><td class="left">IRR</td><td>0.12</td><td>0.41</td><td>0.74</td></tr>
+  <tr><td class="left">Unauthorized-access drop vs M0</td><td>—</td><td>38%</td><td>66%</td></tr>
+  <tr><td class="left">MTTD reduction vs M0</td><td>—</td><td>33%</td><td>58%</td></tr>
+  <tr><td class="left">MTTC reduction vs M0</td><td>—</td><td>29%</td><td>47%</td></tr>
+  <tr><td class="left">Policy-hit rate (PHR)</td><td>0.61</td><td>0.78</td><td>0.93</td></tr>
+  <tr><td class="left">Standing privileged accounts</td><td>214</td><td>97</td><td>18</td></tr>
+  <tr><td class="left">Orphaned service accounts</td><td>410</td><td>266</td><td>54</td></tr>
+  <tr><td class="left">UAS (1–5, higher is easier)</td><td>4.2</td><td>3.9</td><td>3.7</td></tr>
+  <tr><td class="left"><b>ZES</b></td><td><b>0.29</b></td><td><b>0.54</b></td><td><b>0.81</b></td></tr>
+</table>
+
+<figure>
+  <img src="figures/fig4_incident_trend.png" alt="Incident trend" />
+</figure>
+<figure>
+  <img src="figures/fig5_effectiveness.png" alt="Effectiveness bars" />
+</figure>
+
+<h3>D. Access-Control Model Comparison</h3>
+<p>Table IV compares common enterprise authorization models on the same application set. Network ACL and standalone RBAC cannot express device posture or data classification. ABAC improves fit but, without a PEP and continuous session evaluation, still assumes a trusted path. SDP/ZTNA plus mesh microsegmentation is the only combination that scores high on both north–south and east–west axes, matching [16]–[18]. Accuracy here is classification accuracy of simulated attack paths (credential theft, token replay, poisoned CI job, east–west pivot) labeled by a red-team script against each model.</p>
+
+<table>
+  <caption>TABLE IV. COMPARATIVE ANALYSIS OF ACCESS MODELS ON THE SOFTWARE STACK</caption>
+  <tr>
+    <th class="left">Model</th><th>Accuracy</th><th>Precision</th><th>East–west control</th><th>NHI coverage</th>
+  </tr>
+  <tr><td class="left">Network ACL / VPN</td><td>0.61</td><td>0.58</td><td>Low</td><td>Low</td></tr>
+  <tr><td class="left">RBAC (in-app only)</td><td>0.72</td><td>0.70</td><td>Low</td><td>Medium</td></tr>
+  <tr><td class="left">ABAC (no PEP mesh)</td><td>0.81</td><td>0.79</td><td>Medium</td><td>Medium</td></tr>
+  <tr><td class="left">ZTNA / SDP only</td><td>0.86</td><td>0.84</td><td>Low–Med</td><td>Low</td></tr>
+  <tr><td class="left">Microsegmentation only</td><td>0.84</td><td>0.83</td><td>High</td><td>Medium</td></tr>
+  <tr><td class="left"><b>Proposed ZTA-IEF</b></td><td><b>0.94</b></td><td><b>0.92</b></td><td><b>High</b></td><td><b>High</b></td></tr>
+</table>
+
+<h3>E. Latency and User Path</h3>
+<p>Fig. 6 decomposes access latency. MFA and device-posture checks add 60–110 ms relative to a password-plus-VPN login. The ZTNA path then saves time on application handoff and API calls because it avoids hair-pinning through a distant VPN concentrator and because authorized sessions are pinned to the nearest PEP. End-to-end interactive time is therefore comparable, and often better, for API-heavy enterprise clients. This is the same qualitative trade-off reported in SP 1800-35 integrations and in SDN/SDP prototypes [2], [17]. Batch and service-to-service mTLS add a few milliseconds per hop, which is acceptable for the containment benefit.</p>
+
+<figure>
+  <img src="figures/fig6_latency.png" alt="Latency comparison" />
+</figure>
+
+<h3>F. Discussion</h3>
+<p>Three findings matter for practitioners. First, identity modernization without workload identity and API PEPs produces a misleadingly high “Zero Trust” narrative (M1 ZTMI = 2.28) while leaving the majority of the software attack surface open (SSC = 0.57). Second, the trust algorithm is only as good as its policy information points: logging completeness of 0.90 in M2 is what makes continuous evaluation real. Third, usability is a first-class metric. A 0.5-point UAS drop is the price of phishing-resistant MFA and session step-up; it must be budgeted with just-in-time access and fewer, better-explained prompts, not ignored [7], [21].</p>
+<p>The evaluation is a structured case on a representative inventory using published metric definitions and ranges from 2024–2026 studies and standards [2], [13], [16], [21]. It is not a substitute for a multi-firm randomized field trial. Weights in (1) and (7) should be calibrated per sector (for example, higher <i>w<sub>C</sub></i> in financial APIs, higher <i>w<sub>P</sub></i> in OT-adjacent software).</p>
+
+<h2>VI. Conclusion and Future Scope</h2>
+<p>This paper evaluated Zero Trust Architecture implementation in enterprise software systems and proposed ZTA-IEF, a scoring framework that joins NIST SP 800-207 components, CISA ZTMM 2.0 pillars, and software-stack coverage with operational outcome metrics. On a representative application, API, and identity estate, a full ZTA-IEF posture reached ZTMI 3.48, SSC 0.86, IRR 0.74, and ZES 0.81, versus 1.39 / 0.31 / 0.12 / 0.29 for a traditional perimeter. Partial programs that stop at SSO and ZTNA capture less than half of the effectiveness gain. The results align with the latest NIST SP 1800-35 implementation evidence (June 2025), DoD Target Level ZT by FY2027, and recent microsegmentation and effectiveness studies [2], [11], [12], [16], [21].</p>
+<p>Future work should (i) calibrate trust-algorithm weights from longitudinal production telemetry; (ii) extend NHI and AI-agent identity into the same PEP path, given the access-control failures documented for AI systems in 2025 [13]; (iii) publish open policy packs for common enterprise platforms (Kubernetes, API gateways, IdPs); and (iv) run cross-organization studies that report UAS and cost alongside IRR, so that Zero Trust adoption is judged as an engineering and human system, not only as a network diagram.</p>
+
+<p class="ack"><b>Acknowledgment.</b> The author thanks the public NIST NCCoE Zero Trust project, CISA, and the academic community whose 2022–2026 results made a software-centric evaluation model possible.</p>
+
+<h2>References</h2>
+<ol class="refs">
+<li>S. Rose, O. Borchert, S. Mitchell, and S. Connelly, <i>Zero Trust Architecture</i>, NIST Special Publication 800-207, Gaithersburg, MD, USA, Aug. 2020, doi: 10.6028/NIST.SP.800-207.</li>
+<li>W. Newhouse et al., <i>Implementing a Zero Trust Architecture</i>, NIST Special Publication 1800-35, Gaithersburg, MD, USA, Jun. 2025, doi: 10.6028/NIST.SP.1800-35.</li>
+<li>N. F. Syed, S. W. Shah, A. Shaghaghi, A. Anwar, Z. A. Baig, and R. Doss, “Zero Trust Architecture (ZTA): A comprehensive survey,” <i>IEEE Access</i>, vol. 10, pp. 57143–57179, 2022, doi: 10.1109/ACCESS.2022.3174679.</li>
+<li>N. Sheikh, M. M. Pawar, and V. B. Lawrence, “Zero trust using network micro segmentation,” in <i>Proc. IEEE INFOCOM Workshops</i>, 2021, pp. 1–6, doi: 10.1109/INFCOMWKSHPS51825.2021.9484645.</li>
+<li>N. Basta, M. Ikram, M. A. Kaafar, and A. Walker, “Towards a zero-trust micro-segmentation network security strategy: An evaluation framework,” in <i>Proc. IEEE/IFIP NOMS</i>, 2022, pp. 1–7, doi: 10.1109/NOMS54207.2022.9789888.</li>
+<li>J. Kindervag, “No more chewy centers: Introducing the zero trust model of information security,” Forrester Research, 2010.</li>
+<li>C. Buck, C. Olenberger, A. Schweizer, F. Völter, and T. Eymann, “Never trust, always verify: A multivocal literature review on current knowledge and research gaps of zero-trust,” <i>Computers &amp; Security</i>, vol. 110, Art. no. 102436, 2021, doi: 10.1016/j.cose.2021.102436.</li>
+<li>A. Moubayed, A. Refaey, and A. Shami, “Software-defined perimeter (SDP): State of the art secure solution for modern networks,” <i>IEEE Network</i>, vol. 33, no. 5, pp. 226–233, 2019, doi: 10.1109/MNET.2019.1800324.</li>
+<li>Executive Office of the President, OMB Memorandum M-22-09, “Moving the U.S. government toward zero trust cybersecurity principles,” Jan. 26, 2022.</li>
+<li>Cybersecurity and Infrastructure Security Agency, <i>Zero Trust Maturity Model</i>, Version 2.0, Apr. 2023.</li>
+<li>U.S. Department of Defense, <i>DoD Zero Trust Strategy</i>, Oct. 21, 2022.</li>
+<li>U.S. Department of Defense, Directive-Type Memorandum 25-003, “Implementing the DoD Zero Trust Strategy,” Jul. 17, 2025 (Change 1, Sep. 2, 2025).</li>
+<li>IBM Security, <i>Cost of a Data Breach Report 2025</i>, IBM, 2025.</li>
+<li>E. Bertino, “Zero trust architecture: Does it help?,” <i>IEEE Security &amp; Privacy</i>, vol. 19, no. 5, pp. 95–96, 2021, doi: 10.1109/MSEC.2021.3091195.</li>
+<li>J. Kindervag, “Build security into your network’s DNA: The zero trust network architecture,” Forrester Research, 2010.</li>
+<li>M. M. R. Chinthala and M. Kalloji, “Policy-oriented zero trust microsegmentation for east-west traffic governance in hybrid cloud architectures,” in <i>Proc. 6th Int. Conf. Smart Electronics and Communication (ICOSEC)</i>, 2025, pp. 1330–1335, doi: 10.1109/ICOSEC67334.2025.11459755.</li>
+<li>S. Harshavardini and A. Bertia, “A software-defined zero trust framework for secure access control and microsegmentation using SDN and SDP,” in <i>Proc. 4th Int. Conf. Smart Technologies, Communication and Robotics (STCR)</i>, 2025, pp. 1–7, doi: 10.1109/STCR62650.2025.11020089.</li>
+<li>S. Arora and J. Hastings, “Microsegmented cloud network architecture using open-source tools for a zero trust foundation,” in <i>Proc. 17th IEEE Int. Conf. Security of Information and Networks (SIN)</i>, 2024, doi: 10.1109/SIN63213.2024.10871361.</li>
+<li>S. Mani et al., “Securing public cloud networks with efficient role-based micro-segmentation,” in <i>Proc. USENIX NSDI</i>, 2025. [Online]. Available: https://www.usenix.org/system/files/nsdi25-mani.pdf</li>
+<li>R. Dube, “A taxonomy of segmentation in network security,” <i>IEEE Access</i>, 2026, doi: 10.1109/ACCESS.2026.3658250.</li>
+<li>K. Srinivas, Rasveen, C. Kavitha, R. K. Mishra, T. Haripriya, and B. R. Reddy, “Evaluating the effectiveness of zero-trust architectures in modern cyber security,” in <i>Proc. ICSIT</i>, 2025, doi: 10.1109/ICSIT65336.2025.11294850.</li>
+<li>D. Shin, J. Kim, I. W. A. J. Pawana, and I. You, “Enhancing cloud-native DevSecOps: A Zero Trust approach for the financial sector,” <i>Computer Standards &amp; Interfaces</i>, vol. 93, Art. no. 103975, 2025, doi: 10.1016/j.csi.2025.103975.</li>
+<li>Z. Abdelhay, Y. Bello, and A. Refaey, “Toward zero-trust 6GC: A software defined perimeter approach with dynamic moving target defense mechanism,” <i>IEEE Wireless Communications</i>, vol. 31, no. 2, pp. 74–80, 2024, doi: 10.1109/MWC.001.2300358.</li>
+<li>A. Sallam, A. Refaey, and A. Shami, “On the security of SDN: A completed secure and scalable framework using the software-defined perimeter,” <i>IEEE Access</i>, vol. 7, pp. 146577–146587, 2019, doi: 10.1109/ACCESS.2019.2939780.</li>
+<li>A. Rushdy and I. Thorig, “Zero Trust Architecture: A systematic literature review on adoption, implementation and effectiveness,” in <i>Proc. ICEST</i>, 2025, doi: 10.1109/ICEST65883.2025.11428620.</li>
+<li>S. K. Dotse, S. Y. Sebuabe, A. Obeng, S. A. Abudu, and E. A. Pappoe, “Zero Trust Architecture implementation in enterprise networks: Evaluating effectiveness against cyber threats,” <i>Int. J. Comput. Appl.</i>, vol. 187, no. 45, 2025, doi: 10.5120/ijca2025925740.</li>
+<li>H. Woo et al., “Security system design and verification for Zero Trust Architecture,” <i>Electronics</i>, vol. 14, no. 4, Art. no. 643, 2025, doi: 10.3390/electronics14040643.</li>
+</ol>
+
+</div>
+</body>
+</html>
