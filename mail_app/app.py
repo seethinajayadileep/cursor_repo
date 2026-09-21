@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
 import hmac
 import os
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
@@ -27,7 +29,47 @@ FOLDERS = (
     ("deleteditems", "Deleted", "DL"),
 )
 
-app = FastAPI(title="Host Inbox", docs_url=None, redoc_url=None)
+async def keep_connected_accounts() -> int:
+    """Refresh stored Microsoft tokens so mailboxes stay linked until revoked."""
+    if not settings.session_secret:
+        return 0
+    kept = 0
+    for ref in store.list_mailbox_refs():
+        account = store.get_account(ref.id, settings.session_secret)
+        if not account:
+            continue
+        result = auth.refresh_access_token(settings, account.refresh_token)
+        if not result:
+            continue
+        if result.get("refresh_token"):
+            store.update_refresh(account.id, result["refresh_token"], settings.session_secret)
+        kept += 1
+    return kept
+
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    task = None
+    disabled = os.getenv("DISABLE_TOKEN_KEEPALIVE", "").lower() in {"1", "true", "yes"}
+    if not disabled:
+
+        async def _loop() -> None:
+            wait = int(os.getenv("TOKEN_KEEPALIVE_SECONDS", str(12 * 60 * 60)))
+            wait = max(wait, 60)
+            while True:
+                try:
+                    await keep_connected_accounts()
+                except Exception:
+                    pass
+                await asyncio.sleep(wait)
+
+        task = asyncio.create_task(_loop())
+    yield
+    if task:
+        task.cancel()
+
+
+app = FastAPI(title="Host Inbox", docs_url=None, redoc_url=None, lifespan=_lifespan)
 app.add_middleware(
     SessionMiddleware,
     secret_key=settings.session_secret or "dev-only-change-me",

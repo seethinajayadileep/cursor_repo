@@ -81,9 +81,9 @@ Keep `SESSION_SECRET` stable after the first deploy. Changing it invalidates sto
 
 ## How long a connected account stays
 
-Microsoft personal accounts (`@outlook.com`) give a **refresh token** that lasts about **90 days of no use**. Each time someone opens that mailbox live link, the app refreshes the token and the 90-day clock starts again. Used regularly, it can stay connected indefinitely.
+The mailbox stays connected **until they revoke it** (Microsoft account → apps that can access your data → remove this app), or until an admin disconnects it here with the admin password.
 
-It ends sooner if an admin signs out or disconnects the mailbox (admin password required), revokes the app in the Microsoft account, or you change `SESSION_SECRET`. Browser operator cookies last up to **400 days**. There is no Sign out on the inbox. Only **Admin** can sign out, by typing the admin password again.
+The site refreshes Microsoft tokens in the background about every 12 hours so the link does not die from sitting unused. Also keep `SESSION_SECRET` unchanged.
 
 ## Admin directory
 

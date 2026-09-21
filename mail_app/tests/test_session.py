@@ -303,3 +303,27 @@ def test_disconnect_requires_admin_password(monkeypatch) -> None:
     assert removed.status_code == 302
     assert removed.headers["location"] == "/admin"
     assert store.get_account(account.id, "test-secret-value-not-for-production") is None
+
+
+def test_keep_connected_accounts_refreshes_tokens(monkeypatch) -> None:
+    import asyncio
+
+    from mail_app.app import keep_connected_accounts
+
+    account = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="keep@example.com",
+        name="Keep",
+        refresh_token="old-refresh",
+    )
+
+    def fake_refresh(_settings, token: str):
+        return {"access_token": "new-access", "refresh_token": f"rotated-{token}"}
+
+    monkeypatch.setattr("mail_app.app.auth.refresh_access_token", fake_refresh)
+    kept = asyncio.run(keep_connected_accounts())
+    assert kept >= 1
+    updated = store.get_account(account.id, "test-secret-value-not-for-production")
+    assert updated is not None
+    assert updated.refresh_token == "rotated-old-refresh"
