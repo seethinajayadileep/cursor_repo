@@ -46,11 +46,6 @@
           <button class="btn full copy-link" type="button" data-link="{{ account_url(account.id) }}">Copy this link</button>
           <p class="uid">This link reads and writes this mailbox. Keep it private.</p>
         </div>
-        {% if signed_in %}
-        <form class="inline" method="post" action="/a/{{ account.id }}/disconnect" onsubmit="return confirm('Disconnect this mailbox from the site?');">
-          <button class="link" type="submit">Disconnect mailbox</button>
-        </form>
-        {% endif %}
       </aside>
       <section class="col list-col">
         <div class="list-head">

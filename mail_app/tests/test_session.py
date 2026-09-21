@@ -259,3 +259,47 @@ def test_delete_and_send_use_graph_write(monkeypatch) -> None:
     assert sent.status_code == 302
     assert sent.headers["location"] == f"/a/{account.id}?folder=sentitems"
     assert calls == [("delete", "msg-1"), ("send", "a@example.com", "Hi", "Hello")]
+
+
+def test_public_logout_does_not_clear_session() -> None:
+    client = TestClient(app, follow_redirects=False)
+    response = client.get("/logout")
+    assert response.status_code == 302
+    assert response.headers["location"] == "/"
+
+
+def test_admin_signout_requires_password(monkeypatch) -> None:
+    monkeypatch.setenv("ADMIN_PASSWORD", "openseasame")
+    client = TestClient(app, follow_redirects=False)
+    client.post("/admin/login", data={"password": "openseasame"})
+    denied = client.post("/admin/signout", data={"password": "wrong"})
+    assert denied.status_code == 401
+    assert "Sign out was cancelled" in denied.text
+    still = client.get("/admin")
+    assert still.status_code == 200
+    done = client.post("/admin/signout", data={"password": "openseasame"})
+    assert done.status_code == 302
+    assert done.headers["location"] == "/admin/login"
+    locked = client.get("/admin")
+    assert locked.status_code == 302
+    assert locked.headers["location"] == "/admin/login"
+
+
+def test_disconnect_requires_admin_password(monkeypatch) -> None:
+    monkeypatch.setenv("ADMIN_PASSWORD", "openseasame")
+    account = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="pat@example.com",
+        name="Pat",
+        refresh_token="refresh-token",
+    )
+    client = TestClient(app, follow_redirects=False)
+    blocked = client.post(f"/a/{account.id}/disconnect", data={"password": "openseasame"})
+    assert blocked.status_code == 302
+    assert blocked.headers["location"] == "/admin/login"
+    client.post("/admin/login", data={"password": "openseasame"})
+    removed = client.post(f"/a/{account.id}/disconnect", data={"password": "openseasame"})
+    assert removed.status_code == 302
+    assert removed.headers["location"] == "/admin"
+    assert store.get_account(account.id, "test-secret-value-not-for-production") is None

@@ -220,7 +220,22 @@ button { font-family: inherit; }
 .compose .btn { margin-top: 12px; }
 .msg-actions { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 18px; }
 .msg-actions .btn { margin-top: 0; }
-.btn.danger { color: var(--danger); border-color: #f5c2c0; }
+.signout-form, .disconnect-form {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-top: 8px;
+}
+.signout-form input, .disconnect-form input {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  border-radius: 10px;
+  padding: 8px 10px;
+  font: inherit;
+  width: 160px;
+}
 .read-card {
   max-width: 860px;
   background: #fff;

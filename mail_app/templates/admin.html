@@ -19,8 +19,9 @@
       <div class="topbar-actions">
         <a class="btn ghost" href="/">Inbox</a>
         {% if password_login and full_directory %}
-        <form class="inline" method="post" action="/admin/logout">
-          <button class="btn ghost" type="submit">Lock admin</button>
+        <form class="inline signout-form" method="post" action="/admin/signout">
+          <input name="password" type="password" required placeholder="Admin password" autocomplete="current-password" aria-label="Confirm admin password to sign out">
+          <button class="btn ghost" type="submit">Sign out</button>
         </form>
         {% endif %}
       </div>
@@ -28,7 +29,10 @@
     <div class="admin-wrap">
       <div class="list-head">
         <h2>{{ mailboxes|length }} mailbox{% if mailboxes|length != 1 %}es{% endif %}</h2>
-        <div class="uid">Keep these access links private. Anyone with a link can read that mailbox.</div>
+        <div class="uid">Keep these access links private. Anyone with a link can read and write that mailbox. Only admin can sign out, by typing the admin password.</div>
+        {% if signout_error %}
+        <p class="error">That password is not correct. Sign out was cancelled.</p>
+        {% endif %}
       </div>
       {% if not mailboxes %}
       <p class="empty">No mailboxes yet. Connect an account from the home page after signing in with Microsoft.</p>
@@ -56,6 +60,12 @@
               <td class="link-cell"><a href="{{ account_url(box.id) }}">{{ account_url(box.id) }}</a></td>
               <td>
                 <button class="btn ghost copy-link" type="button" data-link="{{ account_url(box.id) }}">Copy link</button>
+                {% if password_login and full_directory %}
+                <form class="inline disconnect-form" method="post" action="/a/{{ box.id }}/disconnect">
+                  <input name="password" type="password" required placeholder="Admin password" autocomplete="current-password" aria-label="Confirm admin password to disconnect {{ box.email }}">
+                  <button class="btn ghost danger" type="submit">Disconnect</button>
+                </form>
+                {% endif %}
               </td>
             </tr>
             {% endfor %}

@@ -65,6 +65,13 @@ def _admin_password() -> str:
     return os.getenv("ADMIN_PASSWORD", "").strip()
 
 
+def _admin_password_ok(password: str) -> bool:
+    expected = _admin_password()
+    if not expected:
+        return False
+    return hmac.compare_digest((password or "").encode("utf-8"), expected.encode("utf-8"))
+
+
 def _admin_session(request: Request) -> bool:
     return bool(request.session.get("admin"))
 
@@ -247,8 +254,7 @@ async def callback(request: Request):
 
 
 @app.get("/logout")
-async def logout(request: Request):
-    request.session.clear()
+async def logout():
     return RedirectResponse("/", status_code=302)
 
 
@@ -270,9 +276,7 @@ async def admin_login(request: Request, password: str = Form("")):
     expected = _admin_password()
     if not expected:
         return RedirectResponse("/", status_code=302)
-    given = (password or "").encode("utf-8")
-    ok = hmac.compare_digest(given, expected.encode("utf-8"))
-    if not ok:
+    if not _admin_password_ok(password):
         return templates.TemplateResponse(
             request,
             "admin_login.html",
@@ -283,10 +287,25 @@ async def admin_login(request: Request, password: str = Form("")):
     return RedirectResponse("/admin", status_code=302)
 
 
-@app.post("/admin/logout")
-async def admin_logout(request: Request):
-    request.session.pop("admin", None)
-    return RedirectResponse("/admin/login" if _admin_password() else "/", status_code=302)
+@app.post("/admin/signout")
+async def admin_signout(request: Request, password: str = Form("")):
+    if not _admin_session(request) or not _admin_password():
+        return RedirectResponse("/admin/login" if _admin_password() else "/", status_code=302)
+    if not _admin_password_ok(password):
+        mailboxes = _admin_mailboxes(request) or []
+        return templates.TemplateResponse(
+            request,
+            "admin.html",
+            {
+                "mailboxes": mailboxes,
+                "full_directory": True,
+                "password_login": True,
+                "signout_error": True,
+            },
+            status_code=401,
+        )
+    request.session.clear()
+    return RedirectResponse("/admin/login", status_code=302)
 
 
 @app.get("/admin", response_class=HTMLResponse)
@@ -303,6 +322,7 @@ async def admin_directory(request: Request):
             "mailboxes": mailboxes,
             "full_directory": bool(_admin_session(request)),
             "password_login": bool(_admin_password()),
+            "signout_error": False,
         },
     )
 
@@ -316,14 +336,18 @@ async def inbox_redirect(request: Request):
 
 
 @app.post("/a/{account_id}/disconnect")
-async def disconnect(request: Request, account_id: str):
-    owner = _owner_email(request)
-    if not _session_user(request) or not owner:
+async def disconnect(request: Request, account_id: str, password: str = Form("")):
+    if not _admin_session(request) or not _admin_password_ok(password):
+        if _admin_password():
+            return RedirectResponse("/admin/login", status_code=302)
         return RedirectResponse("/", status_code=302)
-    store.delete_account(account_id, owner)
+    account = store.get_account(account_id, settings.session_secret)
+    if not account:
+        return RedirectResponse("/admin", status_code=302)
+    store.delete_account(account_id, account.owner_email)
     if request.session.get("active_account_id") == account_id:
         request.session.pop("active_account_id", None)
-    return RedirectResponse("/", status_code=302)
+    return RedirectResponse("/admin", status_code=302)
 
 
 async def _mailbox_token(request: Request, account_id: str) -> tuple[store.Account, str] | None:
