@@ -88,6 +88,7 @@ def test_signed_in_unique_inbox(monkeypatch) -> None:
     assert "Sign out" not in response.text
     assert "Inbox" in response.text
     assert "Sent" in response.text
+    assert "Other" in response.text
 
 
 def test_open_message_shows_reply_and_to_line(monkeypatch) -> None:
@@ -211,6 +212,7 @@ def test_list_messages_puts_newest_first() -> None:
     async def fake_get(_token: str, path: str, params: dict | None = None) -> dict:
         assert params is not None
         assert params.get("$orderby") == "receivedDateTime desc"
+        assert "inferenceClassification" in (params.get("$select") or "")
         return {
             "value": [
                 {
@@ -238,6 +240,55 @@ def test_list_messages_puts_newest_first() -> None:
     finally:
         graph.graph_get = orig
     assert [item["id"] for item in messages] == ["new", "mid", "old"]
+
+
+def test_list_incoming_includes_other_and_junk() -> None:
+    import asyncio
+
+    from mail_app import graph
+
+    async def fake_get(_token: str, path: str, params: dict | None = None) -> dict:
+        if "junkemail" in path:
+            return {
+                "value": [
+                    {
+                        "id": "spam",
+                        "subject": "Spam",
+                        "receivedDateTime": "2026-09-21T19:00:00Z",
+                    }
+                ]
+            }
+        if "clutter" in path:
+            raise graph.GraphError(404, "no clutter")
+        return {
+            "value": [
+                {
+                    "id": "focused",
+                    "subject": "Focused",
+                    "receivedDateTime": "2026-09-21T12:00:00Z",
+                    "inferenceClassification": "focused",
+                },
+                {
+                    "id": "other",
+                    "subject": "Other tab",
+                    "receivedDateTime": "2026-09-21T13:00:00Z",
+                    "inferenceClassification": "other",
+                },
+            ]
+        }
+
+    orig = graph.graph_get
+    graph.graph_get = fake_get  # type: ignore[assignment]
+    try:
+        incoming = asyncio.run(graph.list_incoming_messages("token"))
+        others = asyncio.run(graph.list_other_messages("token"))
+    finally:
+        graph.graph_get = orig
+    assert [item["id"] for item in incoming] == ["spam", "other", "focused"]
+    assert incoming[0]["_incoming_folder"] == "junkemail"
+    assert incoming[1]["_incoming_folder"] == "other"
+    assert incoming[2]["_incoming_folder"] == "inbox"
+    assert [item["id"] for item in others] == ["other"]
 
 
 def test_pending_flow_survives_without_session_cookie() -> None:
@@ -372,6 +423,8 @@ def test_admin_all_mail_merges_linked_inboxes(monkeypatch) -> None:
         return account.email
 
     async def fake_list(token: str, folder: str = "inbox", top: int = 80) -> list[dict]:
+        if folder != "inbox":
+            return []
         if token == "one@example.com":
             return [
                 {
@@ -441,6 +494,8 @@ def test_admin_all_mail_sorts_mixed_timestamps(monkeypatch) -> None:
         return account.email
 
     async def fake_list(token: str, folder: str = "inbox", top: int = 80) -> list[dict]:
+        if folder != "inbox":
+            return []
         if token == "older@example.com":
             return [
                 {
@@ -469,6 +524,103 @@ def test_admin_all_mail_sorts_mixed_timestamps(monkeypatch) -> None:
     items, skipped = asyncio.run(collect_linked_inbox(refs))
     assert skipped == []
     assert [item.subject for item in items] == ["New mail", "Old mail"]
+
+
+def test_admin_all_mail_captures_other_and_junk(monkeypatch) -> None:
+    import asyncio
+
+    from mail_app.app import collect_linked_inbox
+
+    box = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="mix@example.com",
+        name="Mix",
+        refresh_token="refresh-token",
+    )
+
+    async def fake_token(_account) -> str:
+        return "token"
+
+    async def fake_list(_token: str, folder: str = "inbox", top: int = 80) -> list[dict]:
+        if folder == "junkemail":
+            return [
+                {
+                    "id": "junk",
+                    "subject": "Junk offer",
+                    "from": {"emailAddress": {"name": "Spam", "address": "spam@example.com"}},
+                    "receivedDateTime": "2026-09-21T20:00:00Z",
+                    "bodyPreview": "buy",
+                    "isRead": True,
+                }
+            ]
+        if folder == "clutter":
+            return []
+        return [
+            {
+                "id": "other",
+                "subject": "Other newsletter",
+                "from": {"emailAddress": {"name": "News", "address": "news@example.com"}},
+                "receivedDateTime": "2026-09-21T19:00:00Z",
+                "bodyPreview": "hello",
+                "isRead": False,
+                "inferenceClassification": "other",
+            }
+        ]
+
+    monkeypatch.setattr("mail_app.app._token_for_account", fake_token)
+    monkeypatch.setattr("mail_app.app.graph.list_messages", fake_list)
+    refs = [ref for ref in store.list_mailbox_refs() if ref.id == box.id]
+    items, skipped = asyncio.run(collect_linked_inbox(refs))
+    assert skipped == []
+    assert [item.subject for item in items] == ["Junk offer", "Other newsletter"]
+    assert [item.folder for item in items] == ["junkemail", "other"]
+
+
+def test_other_mailbox_folder_lists_other_mail(monkeypatch) -> None:
+    account = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="pat@example.com",
+        name="Pat",
+        refresh_token="refresh-token",
+    )
+
+    async def fake_list(_token: str, folder: str = "inbox", top: int = 80) -> list[dict]:
+        if folder == "clutter":
+            return []
+        return [
+            {
+                "id": "focus",
+                "subject": "Focused hello",
+                "from": {"emailAddress": {"name": "Sam", "address": "sam@example.com"}},
+                "receivedDateTime": "2026-09-21T10:00:00Z",
+                "bodyPreview": "hi",
+                "isRead": False,
+                "inferenceClassification": "focused",
+            },
+            {
+                "id": "other",
+                "subject": "Other hello",
+                "from": {"emailAddress": {"name": "Alex", "address": "alex@example.com"}},
+                "receivedDateTime": "2026-09-21T11:00:00Z",
+                "bodyPreview": "hey",
+                "isRead": False,
+                "inferenceClassification": "other",
+            },
+        ]
+
+    async def fake_token(_account) -> str:
+        return "fake-token"
+
+    monkeypatch.setattr("mail_app.app.graph.list_messages", fake_list)
+    monkeypatch.setattr("mail_app.app._token_for_account", fake_token)
+    client = TestClient(app)
+    page = client.get(f"/a/{account.id}?folder=other")
+    assert page.status_code == 200
+    assert "Other hello" in page.text
+    assert "Focused hello" not in page.text
+    assert "folder=other" in page.text
 
 
 def test_delete_and_send_use_graph_write(monkeypatch) -> None:

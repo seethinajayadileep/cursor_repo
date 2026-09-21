@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>All mail — Host inbox</title>
-  <link rel="stylesheet" href="/static/mail.css?v=allmail">
+  <link rel="stylesheet" href="/static/mail.css?v=othermail">
 </head>
 <body>
   <div class="admin-shell">
@@ -21,7 +21,7 @@
     <div class="admin-wrap">
       <div class="admin-intro allmail-intro">
         <h2>{{ items|length }} message{% if items|length != 1 %}s{% endif %}</h2>
-        <p class="uid">Newest inbox mail across {{ mailboxes|length }} linked mailbox{% if mailboxes|length != 1 %}es{% endif %}. Open a row to read it in that mailbox.</p>
+        <p class="uid">Newest incoming mail (Inbox, Other, and Junk) across {{ mailboxes|length }} linked mailbox{% if mailboxes|length != 1 %}es{% endif %}. Open a row to read it in that mailbox.</p>
         <form class="allmail-filters" method="get" action="/admin/inbox">
           <label class="search">
             <span class="visually-hidden">Search all mail</span>
@@ -40,12 +40,12 @@
         {% endif %}
       </div>
       {% if not items %}
-      <p class="empty">No inbox mail to show for these mailboxes yet.</p>
+      <p class="empty">No incoming mail to show for these mailboxes yet.</p>
       {% else %}
       <ul class="allmail-list">
         {% for item in items %}
         <li class="allmail-item {% if not item.is_read %}unread{% endif %}">
-          <a href="/a/{{ item.account_id }}?folder=inbox&amp;msg={{ item.message_id }}">
+          <a href="/a/{{ item.account_id }}?folder={{ item.folder }}&amp;msg={{ item.message_id }}">
             <span class="unread-pip" aria-hidden="true"></span>
             <span class="avatar">{{ item.initials }}</span>
             <span class="item-main">
@@ -55,7 +55,7 @@
               </span>
               <span class="subject">{{ item.subject or "(no subject)" }}</span>
               <span class="preview">{{ item.preview }}</span>
-              <span class="mailbox-chip">To {{ item.mailbox }}</span>
+              <span class="mailbox-chip">To {{ item.mailbox }} · {{ folder_label(item.folder) }}</span>
             </span>
           </a>
         </li>

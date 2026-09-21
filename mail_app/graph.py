@@ -72,7 +72,7 @@ async def list_messages(access_token: str, folder: str = "inbox", top: int = 80)
     params = {
         "$top": str(top),
         "$orderby": "receivedDateTime desc",
-        "$select": "id,subject,from,receivedDateTime,sentDateTime,bodyPreview,isRead,hasAttachments",
+        "$select": "id,subject,from,receivedDateTime,sentDateTime,bodyPreview,isRead,hasAttachments,inferenceClassification",
     }
     try:
         data = await graph_get(access_token, path, params=params)
@@ -84,6 +84,58 @@ async def list_messages(access_token: str, folder: str = "inbox", top: int = 80)
 
 async def list_inbox(access_token: str, top: int = 50) -> list[dict]:
     return await list_messages(access_token, "inbox", top)
+
+
+INCOMING_FOLDERS = ("inbox", "junkemail", "clutter")
+
+
+def incoming_section(message: dict, folder: str) -> str:
+    if folder == "junkemail":
+        return "junkemail"
+    if folder == "clutter":
+        return "other"
+    if str(message.get("inferenceClassification") or "").lower() == "other":
+        return "other"
+    return "inbox"
+
+
+def is_other_section(message: dict) -> bool:
+    return str(message.get("inferenceClassification") or "").lower() == "other"
+
+
+async def list_other_messages(access_token: str, top: int = 80) -> list[dict]:
+    inbox = await list_messages(access_token, "inbox", top)
+    others = [message for message in inbox if is_other_section(message)]
+    seen = {message.get("id") for message in others if message.get("id")}
+    try:
+        clutter = await list_messages(access_token, "clutter", top)
+    except GraphError:
+        clutter = []
+    for message in clutter:
+        mid = message.get("id")
+        if mid and mid not in seen:
+            others.append(message)
+            seen.add(mid)
+    return sort_newest_first(others)
+
+
+async def list_incoming_messages(access_token: str, top_per_folder: int = 40) -> list[dict]:
+    seen: set[str] = set()
+    incoming: list[dict] = []
+    for folder in INCOMING_FOLDERS:
+        try:
+            batch = await list_messages(access_token, folder, top=top_per_folder)
+        except GraphError:
+            continue
+        for message in batch:
+            mid = message.get("id")
+            if not mid or mid in seen:
+                continue
+            seen.add(mid)
+            row = dict(message)
+            row["_incoming_folder"] = incoming_section(message, folder)
+            incoming.append(row)
+    return sort_newest_first(incoming)
 
 
 async def folder_counts(access_token: str) -> dict[str, dict]:

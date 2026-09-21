@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parent
 settings = load_settings()
 FOLDERS = (
     ("inbox", "Inbox", "IN"),
+    ("other", "Other", "OT"),
     ("sentitems", "Sent", "SN"),
     ("drafts", "Drafts", "DR"),
     ("junkemail", "Junk", "JK"),
@@ -143,6 +144,7 @@ class UnifiedItem:
     when: str
     received: str
     is_read: bool
+    folder: str
 
 
 async def collect_linked_inbox(
@@ -167,12 +169,13 @@ async def collect_linked_inbox(
         if not token:
             return [], ref.email
         try:
-            messages = await graph.list_messages(token, "inbox", top=per_box)
+            messages = await graph.list_incoming_messages(token, top_per_folder=per_box)
         except graph.GraphError:
             return [], ref.email
         rows: list[UnifiedItem] = []
         for message in messages:
             received = message.get("receivedDateTime") or ""
+            folder = message.get("_incoming_folder") or "inbox"
             rows.append(
                 UnifiedItem(
                     account_id=ref.id,
@@ -185,6 +188,7 @@ async def collect_linked_inbox(
                     when=_format_when(received),
                     received=received,
                     is_read=bool(message.get("isRead")),
+                    folder=folder,
                 )
             )
         return rows, None
@@ -204,7 +208,8 @@ async def collect_linked_inbox(
         items = [
             item
             for item in items
-            if needle in f"{item.subject} {item.sender} {item.mailbox} {item.preview}".lower()
+            if needle
+            in f"{item.subject} {item.sender} {item.mailbox} {item.preview} {item.folder}".lower()
         ]
     return items[:200], skipped
 
@@ -650,7 +655,10 @@ async def account_inbox(request: Request, account_id: str):
     except Exception:
         counts = {}
     try:
-        messages = await graph.list_messages(token, folder)
+        if folder == "other":
+            messages = await graph.list_other_messages(token)
+        else:
+            messages = await graph.list_messages(token, folder)
         if msg_id:
             message = await graph.get_message(token, msg_id)
             body = (message.get("body") or {}).get("content") or ""
