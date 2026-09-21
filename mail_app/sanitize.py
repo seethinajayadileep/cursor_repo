@@ -1,7 +1,11 @@
 from __future__ import annotations
 
 from bleach import clean
-from bleach.css_sanitizer import CSSSanitizer
+
+try:
+    from bleach.css_sanitizer import CSSSanitizer
+except ImportError:  # tinycss2 missing; width and height attributes still apply
+    CSSSanitizer = None  # type: ignore[misc, assignment]
 
 ALLOWED_TAGS = [
     "a",
@@ -99,9 +103,11 @@ _BLOCKED_STYLE = ("url(", "expression", "javascript", "behavior", "@import", "bi
 
 class _EmailCSS:
     def __init__(self) -> None:
-        self._inner = CSSSanitizer(allowed_css_properties=ALLOWED_CSS)
+        self._inner = CSSSanitizer(allowed_css_properties=ALLOWED_CSS) if CSSSanitizer else None
 
     def sanitize_css(self, style: str) -> str:
+        if self._inner is None:
+            return ""
         cleaned = self._inner.sanitize_css(style or "")
         kept: list[str] = []
         for part in cleaned.split(";"):
