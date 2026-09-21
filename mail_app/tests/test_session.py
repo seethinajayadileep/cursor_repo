@@ -260,6 +260,8 @@ def test_admin_password_lists_all_mailbox_links(monkeypatch) -> None:
     assert "second@example.com" in page.text
     assert f"/a/{first.id}" in page.text
     assert "Copy link" in page.text
+    assert "admin-row" in page.text
+    assert "Mailbox directory" in page.text
 
 
 def test_signed_in_operator_sees_only_own_admin_rows(monkeypatch) -> None:

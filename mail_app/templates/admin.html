@@ -4,14 +4,14 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin directory — Host inbox</title>
-  <link rel="stylesheet" href="/static/mail.css?v=layout">
+  <link rel="stylesheet" href="/static/mail.css?v=admin">
 </head>
 <body>
-  <div class="shell admin-shell">
-    <header class="topbar">
+  <div class="admin-shell">
+    <header class="admin-topbar">
       <div class="topbar-left">
         <div class="mark">AD</div>
-        <div>
+        <div class="rail-id">
           <div class="topbar-title">Mailbox directory</div>
           <div class="uid">{% if full_directory %}All connected mailboxes{% else %}Mailboxes for your signed-in operator account{% endif %}</div>
         </div>
@@ -19,7 +19,7 @@
       <div class="topbar-actions">
         <a class="btn ghost" href="/">Inbox</a>
         {% if password_login and full_directory %}
-        <form class="inline signout-form" method="post" action="/admin/signout">
+        <form class="signout-form" method="post" action="/admin/signout">
           <input name="password" type="password" required placeholder="Admin password" autocomplete="current-password" aria-label="Confirm admin password to sign out">
           <button class="btn ghost" type="submit">Sign out</button>
         </form>
@@ -27,9 +27,9 @@
       </div>
     </header>
     <div class="admin-wrap">
-      <div class="list-head">
+      <div class="admin-intro">
         <h2>{{ mailboxes|length }} mailbox{% if mailboxes|length != 1 %}es{% endif %}</h2>
-        <div class="uid">Keep these access links private. Anyone with a link can read and write that mailbox. Only admin can sign out, by typing the admin password.</div>
+        <p class="uid">Keep these access links private. Anyone with a link can read and write that mailbox. Only admin can sign out, by typing the admin password.</p>
         {% if signout_error %}
         <p class="error">That password is not correct. Sign out was cancelled.</p>
         {% endif %}
@@ -37,40 +37,38 @@
       {% if not mailboxes %}
       <p class="empty">No mailboxes yet. Connect an account from the home page after signing in with Microsoft.</p>
       {% else %}
-      <div class="table-wrap">
-        <table class="admin-table">
-          <thead>
-            <tr>
-              <th>Mail ID</th>
-              <th>Name</th>
-              {% if full_directory %}<th>Operator</th>{% endif %}
-              <th>Access link</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for box in mailboxes %}
-            <tr>
-              <td>
-                <div class="acct-name">{{ box.email }}</div>
-                <div class="uid">{{ box.id }}</div>
-              </td>
-              <td>{{ box.name }}</td>
-              {% if full_directory %}<td class="uid">{{ box.owner_email }}</td>{% endif %}
-              <td class="link-cell"><a href="{{ account_url(box.id) }}">{{ account_url(box.id) }}</a></td>
-              <td>
-                <button class="btn ghost copy-link" type="button" data-link="{{ account_url(box.id) }}">Copy link</button>
-                {% if password_login and full_directory %}
-                <form class="inline disconnect-form" method="post" action="/a/{{ box.id }}/disconnect">
-                  <input name="password" type="password" required placeholder="Admin password" autocomplete="current-password" aria-label="Confirm admin password to disconnect {{ box.email }}">
-                  <button class="btn ghost danger" type="submit">Disconnect</button>
-                </form>
-                {% endif %}
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <div class="admin-list">
+        <div class="admin-row admin-head" aria-hidden="true">
+          <div>Mailbox</div>
+          <div>Name</div>
+          {% if full_directory %}<div>Operator</div>{% endif %}
+          <div>Access link</div>
+          <div>Actions</div>
+        </div>
+        {% for box in mailboxes %}
+        <div class="admin-row{% if not full_directory %} no-operator{% endif %}">
+          <div class="admin-mail">
+            <div class="acct-name email-clip" title="{{ box.email }}">{{ box.email }}</div>
+            <div class="uid email-clip" title="{{ box.id }}">{{ box.id }}</div>
+          </div>
+          <div class="admin-name email-clip" title="{{ box.name }}">{{ box.name }}</div>
+          {% if full_directory %}
+          <div class="uid email-clip" title="{{ box.owner_email }}">{{ box.owner_email }}</div>
+          {% endif %}
+          <div class="admin-link">
+            <a class="email-clip" href="{{ account_url(box.id) }}" title="{{ account_url(box.id) }}">{{ account_url(box.id) }}</a>
+          </div>
+          <div class="admin-actions">
+            <button class="btn ghost copy-link" type="button" data-link="{{ account_url(box.id) }}">Copy link</button>
+            {% if password_login and full_directory %}
+            <form class="disconnect-form" method="post" action="/a/{{ box.id }}/disconnect">
+              <input name="password" type="password" required placeholder="Password" autocomplete="current-password" aria-label="Confirm admin password to disconnect {{ box.email }}">
+              <button class="btn ghost danger" type="submit">Disconnect</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
       </div>
       {% endif %}
     </div>
