@@ -170,6 +170,11 @@ def sender_name(message: dict) -> str:
     return from_.get("name") or from_.get("address") or "(unknown)"
 
 
+def sender_email(message: dict) -> str:
+    from_ = (message.get("from") or {}).get("emailAddress") or {}
+    return from_.get("address") or ""
+
+
 def sender_initials(message: dict) -> str:
     name = sender_name(message)
     parts = [p for p in name.replace("(", " ").split() if p.isalpha() or p[:1].isalpha()]
@@ -178,6 +183,21 @@ def sender_initials(message: dict) -> str:
     if len(parts) == 1:
         return parts[0][:2].upper()
     return (parts[0][:1] + parts[-1][:1]).upper()
+
+
+def recipient_line(message: dict, field: str = "toRecipients") -> str:
+    names: list[str] = []
+    for person in message.get(field) or []:
+        addr = person.get("emailAddress") or {}
+        names.append(addr.get("name") or addr.get("address") or "")
+    return ", ".join(name for name in names if name)
+
+
+def folder_label(folder: str) -> str:
+    for key, label, _tag in FOLDERS:
+        if key == folder:
+            return label
+    return "Inbox"
 
 
 def account_url(account_id: str) -> str:
@@ -191,7 +211,10 @@ def mail_href(account_id: str, message: dict, folder: str) -> str:
 
 templates.env.filters["when"] = _format_when
 templates.env.globals["sender_name"] = sender_name
+templates.env.globals["sender_email"] = sender_email
 templates.env.globals["sender_initials"] = sender_initials
+templates.env.globals["recipient_line"] = recipient_line
+templates.env.globals["folder_label"] = folder_label
 templates.env.globals["account_url"] = account_url
 templates.env.globals["mail_href"] = mail_href
 templates.env.globals["public_base_url"] = settings.public_base_url
@@ -499,6 +522,11 @@ async def account_inbox(request: Request, account_id: str):
     messages: list[dict] = []
     message = None
     body_html = ""
+    counts: dict[str, dict] = {}
+    try:
+        counts = await graph.folder_counts(token)
+    except Exception:
+        counts = {}
     try:
         messages = await graph.list_messages(token, folder)
         if msg_id:
@@ -535,6 +563,8 @@ async def account_inbox(request: Request, account_id: str):
             "signed_in": signed_in,
             "folders": FOLDERS,
             "folder": folder,
+            "counts": counts,
+            "unread_here": sum(1 for item in messages if not item.get("isRead")),
             "messages": messages,
             "message": message,
             "msg_id": msg_id,

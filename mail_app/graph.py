@@ -60,12 +60,47 @@ async def list_inbox(access_token: str, top: int = 50) -> list[dict]:
     return await list_messages(access_token, "inbox", top)
 
 
+async def folder_counts(access_token: str) -> dict[str, dict]:
+    data = await graph_get(
+        access_token,
+        "/me/mailFolders",
+        params={
+            "$top": "40",
+            "$select": "displayName,unreadItemCount,totalItemCount,wellKnownName",
+        },
+    )
+    aliases = {
+        "inbox": "inbox",
+        "sentitems": "sentitems",
+        "sent items": "sentitems",
+        "drafts": "drafts",
+        "junkemail": "junkemail",
+        "junk email": "junkemail",
+        "deleteditems": "deleteditems",
+        "deleted items": "deleteditems",
+    }
+    mapped: dict[str, dict] = {}
+    for folder in data.get("value") or []:
+        known = (folder.get("wellKnownName") or "").lower()
+        name = (folder.get("displayName") or "").lower()
+        key = aliases.get(known) or aliases.get(name)
+        if not key:
+            continue
+        mapped[key] = {
+            "unread": int(folder.get("unreadItemCount") or 0),
+            "total": int(folder.get("totalItemCount") or 0),
+        }
+    return mapped
+
+
 async def get_message(access_token: str, message_id: str) -> dict:
     encoded = quote(message_id, safe="")
     return await graph_get(
         access_token,
         f"/me/messages/{encoded}",
-        params={"$select": "id,subject,from,toRecipients,receivedDateTime,body,isRead"},
+        params={
+            "$select": "id,subject,from,toRecipients,ccRecipients,receivedDateTime,body,isRead,hasAttachments,bodyPreview"
+        },
     )
 
 

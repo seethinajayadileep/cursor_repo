@@ -86,6 +86,60 @@ def test_signed_in_unique_inbox(monkeypatch) -> None:
     assert "pat@example.com" in response.text
     assert account.id in response.text
     assert "Sign out" not in response.text
+    assert "Inbox" in response.text
+    assert "Sent" in response.text
+
+
+def test_open_message_shows_reply_and_to_line(monkeypatch) -> None:
+    account = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="pat@example.com",
+        name="Pat",
+        refresh_token="refresh-token",
+    )
+
+    async def fake_list(_token: str, folder: str = "inbox", top: int = 80) -> list[dict]:
+        return [
+            {
+                "id": "msg-1",
+                "subject": "Hello",
+                "from": {"emailAddress": {"name": "Sam", "address": "sam@example.com"}},
+                "receivedDateTime": "2026-01-02T03:04:05Z",
+                "bodyPreview": "Hi there",
+                "isRead": False,
+            }
+        ]
+
+    async def fake_get(_token: str, message_id: str) -> dict:
+        return {
+            "id": message_id,
+            "subject": "Hello",
+            "from": {"emailAddress": {"name": "Sam", "address": "sam@example.com"}},
+            "toRecipients": [{"emailAddress": {"name": "Pat", "address": "pat@example.com"}}],
+            "receivedDateTime": "2026-01-02T03:04:05Z",
+            "body": {"contentType": "text", "content": "Hi there"},
+            "bodyPreview": "Hi there",
+            "isRead": False,
+        }
+
+    async def fake_read(_token: str, _message_id: str, _is_read: bool) -> None:
+        return None
+
+    async def fake_token(_account) -> str:
+        return "fake-token"
+
+    monkeypatch.setattr("mail_app.app.graph.list_messages", fake_list)
+    monkeypatch.setattr("mail_app.app.graph.get_message", fake_get)
+    monkeypatch.setattr("mail_app.app.graph.set_read", fake_read)
+    monkeypatch.setattr("mail_app.app._token_for_account", fake_token)
+    client = TestClient(app)
+    response = client.get(f"/a/{account.id}?msg=msg-1")
+    assert response.status_code == 200
+    assert "Reply" in response.text
+    assert "Forward" in response.text
+    assert "To Pat" in response.text
+    assert 'id="composer"' in response.text
 
 
 def test_mailbox_link_works_without_session(monkeypatch) -> None:
@@ -121,6 +175,32 @@ def test_mailbox_link_works_without_session(monkeypatch) -> None:
     assert "Connect another mailbox" in response.text
     assert "Sign out" not in response.text
     assert "New message" in response.text
+    assert 'id="composer"' in response.text
+    assert "Search this folder" in response.text
+
+
+def test_folder_counts_maps_well_known_names() -> None:
+    import asyncio
+
+    async def fake_get(_token: str, path: str, params: dict | None = None) -> dict:
+        assert path == "/me/mailFolders"
+        return {
+            "value": [
+                {"wellKnownName": "inbox", "unreadItemCount": 3, "totalItemCount": 80},
+                {"displayName": "Sent Items", "unreadItemCount": 0, "totalItemCount": 12},
+            ]
+        }
+
+    from mail_app import graph
+
+    orig = graph.graph_get
+    graph.graph_get = fake_get  # type: ignore[assignment]
+    try:
+        counts = asyncio.run(graph.folder_counts("token"))
+    finally:
+        graph.graph_get = orig
+    assert counts["inbox"]["unread"] == 3
+    assert counts["sentitems"]["total"] == 12
 
 
 def test_pending_flow_survives_without_session_cookie() -> None:

@@ -8,7 +8,7 @@ Web app that signs **you** in with Microsoft and shows **your** mailboxes. Each 
 2. After a successful connect, the mailbox is saved (encrypted refresh token) and gets a unique ID.
 3. **Connect another account** to add more mailboxes under the same signed-in operator.
 4. Later visits / new device: open `https://your-domain/a/<id>` to see that mailbox. Microsoft consent is not required again until the token is revoked.
-5. Large three-pane UI: mailboxes / folder list / reading pane. Sign in on `/` only to connect or list all of *your* boxes.
+5. Mailbox UI: folders, search, reading pane, reply/forward, and a compose window. Sign in on `/` only to connect or list all of *your* boxes.
 
 ## Azure app registration
 
