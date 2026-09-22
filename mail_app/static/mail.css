@@ -439,6 +439,29 @@ h1, h2, .rail-title, .topbar-title, .court-brand h1 {
 }
 .read-toolbar .btn { padding: 7px 12px; font-size: 0.86rem; margin: 0; white-space: nowrap; }
 .read-toolbar form.inline { display: inline-flex; margin: 0; }
+.translate-pick { margin-left: auto; display: flex; align-items: center; flex-shrink: 0; }
+.translate-pick select {
+  background: #fffaf3;
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 28px 6px 12px;
+  font-size: 0.86rem;
+}
+.translate-note {
+  margin: 0;
+  padding: 8px 20px;
+  background: var(--gold-soft);
+  color: var(--text);
+  font-size: 0.82rem;
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--line);
+}
+.translate-note[hidden] { display: none; }
+.translate-note .btn { padding: 4px 10px; font-size: 0.8rem; margin: 0; }
 .read-card {
   max-width: 860px;
   margin: 22px auto;
@@ -464,6 +487,7 @@ h1, h2, .rail-title, .topbar-title, .court-brand h1 {
 .from-meta .uid { overflow-wrap: anywhere; }
 .from-row .avatar { width: 40px; height: 40px; }
 .body { line-height: 1.55; overflow-wrap: anywhere; font-size: 0.98rem; }
+.body.translated { white-space: pre-wrap; }
 .body a { color: var(--accent-2); }
 .body img {
   max-width: 100%;

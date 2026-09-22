@@ -141,6 +141,9 @@ def test_open_message_shows_reply_and_to_line(monkeypatch) -> None:
     assert "Forward" in response.text
     assert "To Pat" in response.text
     assert 'id="composer"' in response.text
+    assert 'id="translate-lang"' in response.text
+    assert "Spanish" in response.text
+    assert "Show original" in response.text
 
 
 def test_mailbox_link_works_without_session(monkeypatch) -> None:
@@ -927,3 +930,101 @@ def test_list_messages_retries_without_other_field() -> None:
     assert [item["id"] for item in messages] == ["kept"]
     assert any("inferenceClassification" in select for select in calls)
     assert any("inferenceClassification" not in select for select in calls)
+
+
+def test_translate_unknown_mailbox() -> None:
+    client = TestClient(app)
+    response = client.post(
+        "/a/missing-box/translate",
+        json={"subject": "Hi", "body": "Hello", "target": "es"},
+    )
+    assert response.status_code == 404
+
+
+def test_translate_rejects_unknown_language() -> None:
+    account = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="pat@example.com",
+        name="Pat",
+        refresh_token="refresh-token",
+    )
+    client = TestClient(app)
+    response = client.post(
+        f"/a/{account.id}/translate",
+        json={"subject": "Hi", "body": "Hello", "target": "xx"},
+    )
+    assert response.status_code == 502
+    assert response.json()["error"] == "Translation failed"
+
+
+def test_translate_returns_subject_and_body(monkeypatch) -> None:
+    account = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="pat@example.com",
+        name="Pat",
+        refresh_token="refresh-token",
+    )
+
+    async def fake_pair(subject: str, body: str, target: str) -> tuple[str, str]:
+        assert subject == "Hello"
+        assert body == "Hi there"
+        assert target == "es"
+        return "Hola", "Cuerpo"
+
+    async def should_not_refresh(_account):
+        raise AssertionError("translate must not refresh mailbox tokens")
+
+    monkeypatch.setattr("mail_app.app.translate_pair", fake_pair)
+    monkeypatch.setattr("mail_app.app._token_for_account", should_not_refresh)
+    client = TestClient(app)
+    response = client.post(
+        f"/a/{account.id}/translate",
+        json={"subject": "Hello", "body": "Hi there", "target": "es"},
+    )
+    assert response.status_code == 200
+    assert response.json() == {"subject": "Hola", "body": "Cuerpo", "target": "es"}
+
+
+def test_translate_chunks_keep_every_character() -> None:
+    from mail_app.translate import _chunks
+
+    text = ("line one\n" * 40) + ("word " * 200)
+    assert "".join(_chunks(text, limit=420)) == text
+    assert "".join(_chunks("short", limit=420)) == "short"
+
+
+def test_mymemory_warning_is_rejected(monkeypatch) -> None:
+    import asyncio
+
+    import httpx
+
+    from mail_app.translate import TranslateError, translate_pair
+
+    monkeypatch.delenv("AZURE_TRANSLATOR_KEY", raising=False)
+
+    def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "responseStatus": 200,
+                "responseData": {
+                    "translatedText": "MYMEMORY WARNING: YOU USED ALL AVAILABLE FREE TRANSLATIONS"
+                },
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    real_client = httpx.AsyncClient
+
+    def fake_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr("mail_app.translate.httpx.AsyncClient", fake_client)
+    try:
+        asyncio.run(translate_pair("Hello", "Body", "es"))
+    except TranslateError:
+        return
+    raise AssertionError("expected TranslateError")

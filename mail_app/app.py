@@ -20,6 +20,7 @@ from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware
 from mail_app import auth, graph, store
 from mail_app.config import load_settings
 from mail_app.sanitize import sanitize_html
+from mail_app.translate import TRANSLATE_LANGS, TranslateError, translate_pair
 
 ROOT = Path(__file__).resolve().parent
 settings = load_settings()
@@ -346,6 +347,12 @@ templates.env.globals["folder_label"] = folder_label
 templates.env.globals["account_url"] = account_url
 templates.env.globals["mail_href"] = mail_href
 templates.env.globals["public_base_url"] = settings.public_base_url
+def translator_is_azure() -> bool:
+    return bool(os.getenv("AZURE_TRANSLATOR_KEY", "").strip())
+
+
+templates.env.globals["translate_langs"] = TRANSLATE_LANGS
+templates.env.globals["translator_is_azure"] = translator_is_azure
 
 
 @app.middleware("http")
@@ -594,6 +601,32 @@ def _back_to_mailbox(account_id: str, folder: str, msg: str = "") -> RedirectRes
     if msg:
         url += f"&msg={quote(msg, safe='')}"
     return RedirectResponse(url, status_code=302)
+
+
+@app.post("/a/{account_id}/translate")
+async def translate_open_message(account_id: str, request: Request):
+    if store.get_mailbox_ref(account_id) is None:
+        return JSONResponse({"error": "Unknown mailbox"}, status_code=404)
+    try:
+        payload = await request.json()
+    except Exception:
+        payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    target = str(payload.get("target") or "").strip()
+    subject = str(payload.get("subject") or "")
+    body = str(payload.get("body") or "")
+    try:
+        translated_subject, translated_body = await translate_pair(subject, body, target)
+    except TranslateError:
+        return JSONResponse({"error": "Translation failed"}, status_code=502)
+    return JSONResponse(
+        {
+            "subject": translated_subject,
+            "body": translated_body,
+            "target": target,
+        }
+    )
 
 
 @app.post("/a/{account_id}/send")
