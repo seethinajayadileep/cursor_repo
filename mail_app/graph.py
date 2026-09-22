@@ -1,11 +1,24 @@
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime, timezone
 from urllib.parse import quote
 
 import httpx
 
 GRAPH = "https://graph.microsoft.com/v1.0"
+_http: httpx.AsyncClient | None = None
+_prefer_safe_select = False
+
+
+def _client() -> httpx.AsyncClient:
+    global _http
+    if _http is None or _http.is_closed:
+        _http = httpx.AsyncClient(
+            timeout=12.0,
+            limits=httpx.Limits(max_connections=60, max_keepalive_connections=30),
+        )
+    return _http
 
 
 class GraphError(RuntimeError):
@@ -25,10 +38,7 @@ async def graph_call(
 ) -> dict:
     url = f"{GRAPH}{path}"
     headers = {"Authorization": f"Bearer {access_token}"}
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        response = await client.request(
-            method, url, headers=headers, params=params, json=json
-        )
+    response = await _client().request(method, url, headers=headers, params=params, json=json)
     if response.status_code >= 400:
         raise GraphError(response.status_code, response.text[:500])
     if not response.content:
@@ -72,12 +82,15 @@ FULL_SELECT = SAFE_SELECT + ",inferenceClassification"
 
 
 async def list_messages(access_token: str, folder: str = "inbox", top: int = 100) -> list[dict]:
+    global _prefer_safe_select
     path = f"/me/mailFolders/{folder}/messages"
-    attempts = (
+    attempts = [
         {"$top": str(top), "$orderby": "receivedDateTime desc", "$select": FULL_SELECT},
         {"$top": str(top), "$orderby": "receivedDateTime desc", "$select": SAFE_SELECT},
         {"$top": str(top), "$select": SAFE_SELECT},
-    )
+    ]
+    if _prefer_safe_select:
+        attempts = attempts[1:]
     last_error: GraphError | None = None
     for params in attempts:
         try:
@@ -85,6 +98,8 @@ async def list_messages(access_token: str, folder: str = "inbox", top: int = 100
             return sort_newest_first(data.get("value") or [])
         except GraphError as exc:
             last_error = exc
+            if exc.status_code == 400 and "inferenceClassification" in (params.get("$select") or ""):
+                _prefer_safe_select = True
             if exc.status_code in {401, 403, 404}:
                 raise
     if last_error:
@@ -129,19 +144,25 @@ async def list_other_messages(access_token: str, top: int = 80) -> list[dict]:
     return sort_newest_first(others)
 
 
-async def list_incoming_messages(access_token: str, top_per_folder: int = 40) -> list[dict]:
+async def list_incoming_messages(access_token: str, top_per_folder: int = 20) -> list[dict]:
     seen: set[str] = set()
     incoming: list[dict] = []
     loaded_any = False
     auth_error: GraphError | None = None
-    for folder in INCOMING_FOLDERS:
+
+    async def one_folder(folder: str) -> tuple[str, list[dict] | GraphError]:
         try:
-            batch = await list_messages(access_token, folder, top=top_per_folder)
-            loaded_any = True
+            return folder, await list_messages(access_token, folder, top=top_per_folder)
         except GraphError as exc:
-            if exc.status_code in {401, 403}:
-                auth_error = exc
+            return folder, exc
+
+    loaded = await asyncio.gather(*(one_folder(folder) for folder in INCOMING_FOLDERS))
+    for folder, batch in loaded:
+        if isinstance(batch, GraphError):
+            if batch.status_code in {401, 403}:
+                auth_error = batch
             continue
+        loaded_any = True
         for message in batch:
             mid = message.get("id")
             if not mid or mid in seen:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import hmac
 import os
+import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -30,26 +31,29 @@ FOLDERS = (
     ("junkemail", "Junk", "JK"),
     ("deleteditems", "Deleted", "DL"),
 )
+TOKEN_TTL_SECONDS = 20 * 60
+FEED_TTL_SECONDS = 20
+_token_cache: dict[str, tuple[float, str]] = {}
+_feed_cache: dict[tuple, tuple[float, tuple]] = {}
 
 async def keep_connected_accounts() -> int:
     """Refresh stored Microsoft tokens so mailboxes stay linked until revoked."""
     if not settings.session_secret:
         return 0
-    kept = 0
-    for ref in store.list_mailbox_refs():
+    refs = store.list_mailbox_refs()
+
+    async def one(ref: store.MailboxRef) -> bool:
         try:
             account = store.get_account(ref.id, settings.session_secret)
         except RuntimeError:
-            continue
+            return False
         if not account:
-            continue
-        result = auth.refresh_access_token(settings, account.refresh_token)
-        if not result:
-            continue
-        if result.get("refresh_token"):
-            store.update_refresh(account.id, result["refresh_token"], settings.session_secret)
-        kept += 1
-    return kept
+            return False
+        _token_cache.pop(account.id, None)
+        return bool(await _token_for_account(account))
+
+    results = await asyncio.gather(*(one(ref) for ref in refs))
+    return sum(1 for ok in results if ok)
 
 
 @asynccontextmanager
@@ -159,57 +163,67 @@ async def collect_linked_inbox(
     *,
     box_id: str = "",
     query: str = "",
-    per_box: int = 40,
+    per_box: int = 20,
 ) -> tuple[list[UnifiedItem], list[str]]:
     chosen = [ref for ref in refs if not box_id or ref.id == box_id]
-    skipped: list[str] = []
-    items: list[UnifiedItem] = []
+    cache_key = (box_id, tuple(ref.id for ref in chosen), per_box)
+    cached = _feed_cache.get(cache_key)
+    now = time.monotonic()
+    if cached and cached[0] > now:
+        items, skipped = cached[1]
+    else:
+        skipped = []
+        items = []
 
-    async def one(ref: store.MailboxRef) -> tuple[list[UnifiedItem], str | None]:
-        try:
-            account = store.get_account(ref.id, settings.session_secret)
-        except Exception:
-            return [], ref.email
-        if not account:
-            return [], ref.email
-        token = await _token_for_account(account)
-        if not token:
-            return [], ref.email
-        try:
-            messages = await graph.list_incoming_messages(token, top_per_folder=per_box)
-        except graph.GraphError:
-            return [], ref.email
-        rows: list[UnifiedItem] = []
-        for message in messages:
-            received = message.get("receivedDateTime") or ""
-            folder = message.get("_incoming_folder") or "inbox"
-            rows.append(
-                UnifiedItem(
-                    account_id=ref.id,
-                    mailbox=ref.email,
-                    message_id=message.get("id") or "",
-                    sender=sender_name(message),
-                    initials=sender_initials(message),
-                    subject=message.get("subject") or "",
-                    preview=message.get("bodyPreview") or "",
-                    when=_format_when(received),
-                    received=received,
-                    is_read=bool(message.get("isRead")),
-                    folder=folder,
+        async def one(ref: store.MailboxRef) -> tuple[list[UnifiedItem], str | None]:
+            try:
+                account = store.get_account(ref.id, settings.session_secret)
+            except Exception:
+                return [], ref.email
+            if not account:
+                return [], ref.email
+            token = await _token_for_account(account)
+            if not token:
+                return [], ref.email
+            try:
+                messages = await asyncio.wait_for(
+                    graph.list_incoming_messages(token, top_per_folder=per_box),
+                    timeout=12,
                 )
-            )
-        return rows, None
+            except (graph.GraphError, TimeoutError):
+                return [], ref.email
+            rows: list[UnifiedItem] = []
+            for message in messages:
+                received = message.get("receivedDateTime") or ""
+                folder = message.get("_incoming_folder") or "inbox"
+                rows.append(
+                    UnifiedItem(
+                        account_id=ref.id,
+                        mailbox=ref.email,
+                        message_id=message.get("id") or "",
+                        sender=sender_name(message),
+                        initials=sender_initials(message),
+                        subject=message.get("subject") or "",
+                        preview=message.get("bodyPreview") or "",
+                        when=_format_when(received),
+                        received=received,
+                        is_read=bool(message.get("isRead")),
+                        folder=folder,
+                    )
+                )
+            return rows, None
 
-    results = await asyncio.gather(*(one(ref) for ref in chosen), return_exceptions=True)
-    for ref, result in zip(chosen, results):
-        if isinstance(result, Exception):
-            skipped.append(ref.email)
-            continue
-        rows, err = result
-        items.extend(rows)
-        if err:
-            skipped.append(err)
-    items.sort(key=lambda item: graph.parse_graph_time(item.received), reverse=True)
+        results = await asyncio.gather(*(one(ref) for ref in chosen), return_exceptions=True)
+        for ref, result in zip(chosen, results):
+            if isinstance(result, Exception):
+                skipped.append(ref.email)
+                continue
+            rows, err = result
+            items.extend(rows)
+            if err:
+                skipped.append(err)
+        items.sort(key=lambda item: graph.parse_graph_time(item.received), reverse=True)
+        _feed_cache[cache_key] = (time.monotonic() + FEED_TTL_SECONDS, (list(items), list(skipped)))
     needle = query.strip().lower()
     if needle:
         items = [
@@ -222,12 +236,20 @@ async def collect_linked_inbox(
 
 
 async def _token_for_account(account: store.Account) -> str | None:
-    result = auth.refresh_access_token(settings, account.refresh_token)
+    cached = _token_cache.get(account.id)
+    now = time.monotonic()
+    if cached and cached[0] > now:
+        return cached[1]
+    result = await asyncio.to_thread(
+        auth.refresh_access_token, settings, account.refresh_token
+    )
     if not result:
         return None
     if result.get("refresh_token"):
         store.update_refresh(account.id, result["refresh_token"], settings.session_secret)
-    return result["access_token"]
+    token = result["access_token"]
+    _token_cache[account.id] = (now + TOKEN_TTL_SECONDS, token)
+    return token
 
 
 async def _access_token(request: Request) -> str | None:
@@ -237,7 +259,7 @@ async def _access_token(request: Request) -> str | None:
     refresh = request.session.get("refresh_token")
     if not refresh or not settings.configured:
         return None
-    result = auth.refresh_access_token(settings, refresh)
+    result = await asyncio.to_thread(auth.refresh_access_token, settings, refresh)
     if not result:
         return None
     request.session["access_token"] = result["access_token"]
@@ -674,15 +696,32 @@ async def account_inbox(request: Request, account_id: str):
     message = None
     body_html = ""
     counts: dict[str, dict] = {}
-    try:
-        counts = await graph.folder_counts(token)
-    except Exception:
-        counts = {}
-    try:
+
+    async def load_counts() -> dict:
+        try:
+            return await graph.folder_counts(token)
+        except Exception:
+            return {}
+
+    async def load_messages() -> list[dict]:
         if folder == "other":
-            messages = await graph.list_other_messages(token, top=100)
-        else:
-            messages = await graph.list_messages(token, folder, top=100)
+            return await graph.list_other_messages(token, top=100)
+        return await graph.list_messages(token, folder, top=100)
+
+    async def load_open() -> dict | None:
+        if not msg_id:
+            return None
+        return await graph.get_message(token, msg_id)
+
+    count_result, message_result, open_result = await asyncio.gather(
+        load_counts(), load_messages(), load_open(), return_exceptions=True
+    )
+    if isinstance(count_result, dict):
+        counts = count_result
+    if isinstance(message_result, Exception):
+        error = "Could not load this mailbox. Connect the account again."
+    else:
+        messages = message_result
         if folder == "inbox":
             other_rows = [item for item in messages if graph.is_other_section(item)]
             counts = dict(counts)
@@ -690,21 +729,21 @@ async def account_inbox(request: Request, account_id: str):
                 "unread": sum(1 for item in other_rows if not item.get("isRead")),
                 "total": len(other_rows),
             }
-        if msg_id:
-            message = await graph.get_message(token, msg_id)
-            body = (message.get("body") or {}).get("content") or ""
-            if (message.get("body") or {}).get("contentType") == "html":
-                body_html = sanitize_html(body)
-            else:
-                body_html = sanitize_html(f"<pre>{body}</pre>")
-            if message.get("isRead") is False:
-                try:
-                    await graph.set_read(token, msg_id, True)
-                    message["isRead"] = True
-                except graph.GraphError:
-                    pass
-    except graph.GraphError:
-        error = "Could not load this mailbox. Connect the account again."
+    if isinstance(open_result, dict):
+        message = open_result
+        body = (message.get("body") or {}).get("content") or ""
+        if (message.get("body") or {}).get("contentType") == "html":
+            body_html = sanitize_html(body)
+        else:
+            body_html = sanitize_html(f"<pre>{body}</pre>")
+        if message.get("isRead") is False:
+            try:
+                await graph.set_read(token, msg_id, True)
+                message["isRead"] = True
+            except graph.GraphError:
+                pass
+    elif msg_id and isinstance(open_result, Exception):
+        error = error or "Could not open that message."
 
     if signed_in:
         request.session["active_account_id"] = account.id

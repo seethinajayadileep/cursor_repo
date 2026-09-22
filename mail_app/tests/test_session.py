@@ -209,6 +209,8 @@ def test_list_messages_puts_newest_first() -> None:
 
     from mail_app import graph
 
+    graph._prefer_safe_select = False
+
     async def fake_get(_token: str, path: str, params: dict | None = None) -> dict:
         assert params is not None
         assert params.get("$orderby") == "receivedDateTime desc"
@@ -863,11 +865,42 @@ def test_keepalive_skips_a_locked_row(monkeypatch) -> None:
     assert store.get_mailbox_ref(locked.id) is not None
 
 
+def test_mailbox_access_token_is_reused(monkeypatch) -> None:
+    import asyncio
+
+    from mail_app.app import _token_cache, _token_for_account
+
+    account = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="cached-token@example.com",
+        name="Cached",
+        refresh_token="cache-refresh",
+    )
+    _token_cache.pop(account.id, None)
+    calls: list[str] = []
+
+    def fake_refresh(_settings, token: str):
+        calls.append(token)
+        return {"access_token": "cached-access", "refresh_token": token}
+
+    async def twice():
+        first = await _token_for_account(account)
+        second = await _token_for_account(account)
+        return first, second
+
+    monkeypatch.setattr("mail_app.app.auth.refresh_access_token", fake_refresh)
+    first, second = asyncio.run(twice())
+    assert first == second == "cached-access"
+    assert calls == ["cache-refresh"]
+
+
 def test_list_messages_retries_without_other_field() -> None:
     import asyncio
 
     from mail_app import graph
 
+    graph._prefer_safe_select = False
     calls: list[str] = []
 
     async def fake_get(_token: str, path: str, params: dict | None = None) -> dict:
