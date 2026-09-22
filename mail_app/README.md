@@ -96,7 +96,7 @@ The site refreshes Microsoft tokens in the background about every 6 hours so the
 - Set `ADMIN_PASSWORD` in Railway. Then open `/admin`, enter that password, and you see **every** connected mailbox.
 - If `ADMIN_PASSWORD` is not set, only a Microsoft-signed-in operator can open `/admin`, and only **their** mailboxes are listed.
 - Unique mailbox links (`/a/<id>`) never unlock this page. Wrong passwords do not reveal whether a mailbox exists.
-- `/admin/inbox` shows incoming mail from **all linked mailboxes** (Inbox, Outlook Other, and Junk) in one list. Open a row to read it in that mailbox. Each unique mailbox link also has Inbox, Other, Sent, Drafts, Junk, and Deleted.
+- `/admin/inbox` shows incoming mail from **all linked mailboxes** (Inbox, Outlook Other, and Junk) in one list. Open a row to read it on the same page. Each unique mailbox link also has Inbox, Other, Sent, Drafts, Junk, and Deleted.
 
 ## Live translation
 

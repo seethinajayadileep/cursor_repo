@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>All mail — Host inbox</title>
-  <link rel="stylesheet" href="/static/mail.css?v=translate">
+  <link rel="stylesheet" href="/static/mail.css?v=allmail-read">
 </head>
 <body>
   <div class="admin-shell">
@@ -18,51 +18,190 @@
       </div>
       {% include "admin_nav.html" %}
     </header>
-    <div class="admin-wrap">
-      <div class="admin-intro allmail-intro">
-        <h2>{{ items|length }} message{% if items|length != 1 %}s{% endif %}</h2>
-        <p class="uid">Newest incoming mail (Inbox, Other, and Junk) across {{ mailboxes|length }} linked mailbox{% if mailboxes|length != 1 %}es{% endif %}. Open a row to read it in that mailbox.</p>
-        <form class="allmail-filters" method="get" action="/admin/inbox">
-          <label class="search">
-            <span class="visually-hidden">Search all mail</span>
-            <input type="search" name="q" value="{{ q }}" placeholder="Search subject, sender, or mailbox">
-          </label>
-          <select name="box" aria-label="Filter by mailbox">
-            <option value="">All mailboxes</option>
-            {% for box in mailboxes %}
-            <option value="{{ box.id }}" {% if box.id == box_id %}selected{% endif %}>{{ box.email }}</option>
+    <div class="admin-wrap allmail-wrap">
+      <div class="allmail-stage">
+        <section class="allmail-col">
+          <div class="admin-intro allmail-intro">
+            <h2>{{ items|length }} message{% if items|length != 1 %}s{% endif %}</h2>
+            <p class="uid">Newest incoming mail (Inbox, Other, and Junk) across {{ mailboxes|length }} linked mailbox{% if mailboxes|length != 1 %}es{% endif %}. Open a row to read it here.</p>
+            <form class="allmail-filters" method="get" action="/admin/inbox">
+              <label class="search">
+                <span class="visually-hidden">Search all mail</span>
+                <input type="search" name="q" value="{{ q }}" placeholder="Search subject, sender, or mailbox">
+              </label>
+              <select name="box" aria-label="Filter by mailbox">
+                <option value="">All mailboxes</option>
+                {% for box in mailboxes %}
+                <option value="{{ box.id }}" {% if box.id == box_id %}selected{% endif %}>{{ box.email }}</option>
+                {% endfor %}
+              </select>
+              <button class="btn" type="submit">Show</button>
+            </form>
+            {% if skipped %}
+            <p class="error">Could not load mail for {{ skipped|join(", ") }}.</p>
+            {% endif %}
+          </div>
+          {% if not items %}
+          <p class="empty">No incoming mail to show for these mailboxes yet.</p>
+          {% else %}
+          <ul class="allmail-list" id="allmail-list">
+            {% for item in items %}
+            <li class="allmail-item {% if not item.is_read %}unread{% endif %}{% if msg_id == item.message_id and open_account == item.account_id %} active{% endif %}">
+              <button
+                type="button"
+                class="allmail-open"
+                data-box="{{ item.account_id }}"
+                data-msg="{{ item.message_id }}"
+                data-folder="{{ item.folder }}"
+                data-mailbox="{{ item.mailbox }}"
+              >
+                <span class="unread-pip" aria-hidden="true"></span>
+                <span class="avatar">{{ item.initials }}</span>
+                <span class="item-main">
+                  <span class="item-top">
+                    <span class="from">{{ item.sender }}</span>
+                    <time>{{ item.when }}</time>
+                  </span>
+                  <span class="subject">{{ item.subject or "(no subject)" }}</span>
+                  <span class="preview">{{ item.preview }}</span>
+                  <span class="mailbox-chip">To {{ item.mailbox }} · {{ folder_label(item.folder) }}</span>
+                </span>
+              </button>
+            </li>
             {% endfor %}
-          </select>
-          <button class="btn" type="submit">Show</button>
-        </form>
-        {% if skipped %}
-        <p class="error">Could not load mail for {{ skipped|join(", ") }}.</p>
-        {% endif %}
+          </ul>
+          {% endif %}
+        </section>
+        <article class="allmail-read" id="allmail-read" aria-live="polite">
+          <div class="read-empty" id="allmail-empty">
+            <div class="mark" aria-hidden="true"><span class="crest"></span></div>
+            <h2>Select a message</h2>
+            <p class="muted">Choose a conversation on the left. The mail opens here so you stay on All mail.</p>
+          </div>
+          <div class="allmail-loading" id="allmail-loading" hidden>Opening message…</div>
+          <p class="error" id="allmail-error" hidden></p>
+          <div class="read-card" id="allmail-card" hidden>
+            <div class="allmail-read-meta">
+              <span class="mailbox-chip" id="allmail-mailbox"></span>
+              <a class="allmail-open-box" id="allmail-open-box" href="#">Open in mailbox</a>
+            </div>
+            <h1 id="allmail-subject"></h1>
+            <div class="from-row">
+              <div class="avatar" id="allmail-avatar"></div>
+              <div class="from-meta">
+                <div class="acct-name" id="allmail-from"></div>
+                <div class="uid" id="allmail-from-email"></div>
+                <div class="uid" id="allmail-to" hidden></div>
+                <div class="uid" id="allmail-cc" hidden></div>
+              </div>
+              <time id="allmail-when"></time>
+            </div>
+            <div class="body" id="allmail-body"></div>
+          </div>
+        </article>
       </div>
-      {% if not items %}
-      <p class="empty">No incoming mail to show for these mailboxes yet.</p>
-      {% else %}
-      <ul class="allmail-list">
-        {% for item in items %}
-        <li class="allmail-item {% if not item.is_read %}unread{% endif %}">
-          <a href="/a/{{ item.account_id }}?folder={{ item.folder }}&amp;msg={{ item.message_id }}">
-            <span class="unread-pip" aria-hidden="true"></span>
-            <span class="avatar">{{ item.initials }}</span>
-            <span class="item-main">
-              <span class="item-top">
-                <span class="from">{{ item.sender }}</span>
-                <time>{{ item.when }}</time>
-              </span>
-              <span class="subject">{{ item.subject or "(no subject)" }}</span>
-              <span class="preview">{{ item.preview }}</span>
-              <span class="mailbox-chip">To {{ item.mailbox }} · {{ folder_label(item.folder) }}</span>
-            </span>
-          </a>
-        </li>
-        {% endfor %}
-      </ul>
-      {% endif %}
     </div>
   </div>
+  <script>
+    const list = document.getElementById("allmail-list");
+    const empty = document.getElementById("allmail-empty");
+    const loading = document.getElementById("allmail-loading");
+    const errorEl = document.getElementById("allmail-error");
+    const card = document.getElementById("allmail-card");
+    const openBox = document.getElementById("allmail-open-box");
+    const filterBox = {{ box_id|tojson }};
+    const startAccount = {{ open_account|tojson }};
+    const startMsg = {{ msg_id|tojson }};
+    const startQ = {{ q|tojson }};
+    let openGeneration = 0;
+
+    function showState(kind) {
+      empty.hidden = kind !== "empty";
+      loading.hidden = kind !== "loading";
+      errorEl.hidden = kind !== "error";
+      card.hidden = kind !== "card";
+    }
+    function setActive(button) {
+      if (!list) return;
+      list.querySelectorAll(".allmail-item").forEach(function (row) {
+        row.classList.toggle("active", row.contains(button));
+        if (row.contains(button)) row.classList.remove("unread");
+      });
+    }
+    function updateUrl(account, msg) {
+      const params = new URLSearchParams();
+      if (startQ) params.set("q", startQ);
+      if (filterBox) params.set("box", filterBox);
+      if (account) params.set("account", account);
+      if (msg) params.set("msg", msg);
+      const query = params.toString();
+      history.replaceState({}, "", "/admin/inbox" + (query ? "?" + query : ""));
+    }
+    async function openMessage(button) {
+      const box = button.getAttribute("data-box") || "";
+      const msg = button.getAttribute("data-msg") || "";
+      const folder = button.getAttribute("data-folder") || "inbox";
+      if (!box || !msg) return;
+      const generation = ++openGeneration;
+      setActive(button);
+      showState("loading");
+      updateUrl(box, msg);
+      try {
+        const response = await fetch(
+          "/admin/inbox/message?box=" + encodeURIComponent(box) +
+          "&msg=" + encodeURIComponent(msg) +
+          "&folder=" + encodeURIComponent(folder)
+        );
+        if (generation !== openGeneration) return;
+        if (!response.ok) throw new Error("failed");
+        const data = await response.json();
+        if (generation !== openGeneration) return;
+        document.getElementById("allmail-subject").textContent = data.subject || "(no subject)";
+        document.getElementById("allmail-avatar").textContent = data.initials || "?";
+        document.getElementById("allmail-from").textContent = data.sender || "";
+        document.getElementById("allmail-from-email").textContent = data.sender_email ? "<" + data.sender_email + ">" : "";
+        const toEl = document.getElementById("allmail-to");
+        if (data.to) {
+          toEl.hidden = false;
+          toEl.textContent = "To " + data.to;
+        } else {
+          toEl.hidden = true;
+          toEl.textContent = "";
+        }
+        const ccEl = document.getElementById("allmail-cc");
+        if (data.cc) {
+          ccEl.hidden = false;
+          ccEl.textContent = "Cc " + data.cc;
+        } else {
+          ccEl.hidden = true;
+          ccEl.textContent = "";
+        }
+        document.getElementById("allmail-when").textContent = data.when || "";
+        document.getElementById("allmail-mailbox").textContent =
+          "To " + (data.mailbox || "") + " · " + (data.folder_label || folder);
+        document.getElementById("allmail-body").innerHTML = data.body_html || "";
+        openBox.href = "/a/" + encodeURIComponent(data.account_id) +
+          "?folder=" + encodeURIComponent(data.folder || folder) +
+          "&msg=" + encodeURIComponent(data.message_id || msg);
+        showState("card");
+      } catch (err) {
+        if (generation !== openGeneration) return;
+        errorEl.textContent = "Could not open that message.";
+        showState("error");
+      }
+    }
+    if (list) {
+      list.addEventListener("click", function (event) {
+        const button = event.target.closest(".allmail-open");
+        if (button) openMessage(button);
+      });
+      if (startAccount && startMsg) {
+        const starter = list.querySelector(
+          '.allmail-open[data-box="' + startAccount.replace(/"/g, "") + '"][data-msg="' + startMsg.replace(/"/g, "") + '"]'
+        );
+        if (starter) openMessage(starter);
+      }
+    }
+  </script>
 </body>
 </html>

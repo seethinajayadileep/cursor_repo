@@ -539,6 +539,8 @@ async def admin_all_mail(request: Request):
         return RedirectResponse("/", status_code=302)
     box_id = (request.query_params.get("box") or "").strip()
     query = request.query_params.get("q") or ""
+    msg_id = (request.query_params.get("msg") or "").strip()
+    open_account = (request.query_params.get("account") or "").strip()
     items, skipped = await collect_linked_inbox(mailboxes, box_id=box_id, query=query)
     return templates.TemplateResponse(
         request,
@@ -549,10 +551,68 @@ async def admin_all_mail(request: Request):
             "skipped": skipped,
             "q": query,
             "box_id": box_id,
+            "msg_id": msg_id,
+            "open_account": open_account,
             "full_directory": bool(_admin_session(request)),
             "password_login": bool(_admin_password()),
             "admin_page": "allmail",
         },
+    )
+
+
+@app.get("/admin/inbox/message")
+async def admin_open_message(request: Request):
+    mailboxes = _admin_mailboxes(request)
+    if mailboxes is None:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    box_id = (request.query_params.get("box") or "").strip()
+    msg_id = (request.query_params.get("msg") or "").strip()
+    folder = (request.query_params.get("folder") or "inbox").strip() or "inbox"
+    if not box_id or not msg_id:
+        return JSONResponse({"error": "Missing message"}, status_code=400)
+    if not any(ref.id == box_id for ref in mailboxes):
+        return JSONResponse({"error": "Unknown mailbox"}, status_code=404)
+    try:
+        account = store.get_account(box_id, settings.session_secret)
+    except RuntimeError:
+        return JSONResponse({"error": "Mailbox locked"}, status_code=503)
+    if not account:
+        return JSONResponse({"error": "Unknown mailbox"}, status_code=404)
+    token = await _token_for_account(account)
+    if not token:
+        return JSONResponse({"error": "Could not open mailbox"}, status_code=502)
+    try:
+        message = await graph.get_message(token, msg_id)
+    except graph.GraphError:
+        return JSONResponse({"error": "Could not open that message"}, status_code=502)
+    body = (message.get("body") or {}).get("content") or ""
+    if (message.get("body") or {}).get("contentType") == "html":
+        body_html = sanitize_html(body)
+    else:
+        body_html = sanitize_html(f"<pre>{body}</pre>")
+    if message.get("isRead") is False:
+        try:
+            await graph.set_read(token, msg_id, True)
+            message["isRead"] = True
+        except graph.GraphError:
+            pass
+    return JSONResponse(
+        {
+            "account_id": account.id,
+            "mailbox": account.email,
+            "folder": folder,
+            "folder_label": folder_label(folder),
+            "message_id": message.get("id") or msg_id,
+            "subject": message.get("subject") or "(no subject)",
+            "sender": sender_name(message),
+            "sender_email": sender_email(message),
+            "initials": sender_initials(message),
+            "to": recipient_line(message),
+            "cc": recipient_line(message, "ccRecipients"),
+            "when": _format_when(message.get("receivedDateTime")),
+            "body_html": body_html,
+            "is_read": bool(message.get("isRead")),
+        }
     )
 
 

@@ -482,13 +482,44 @@ def test_admin_all_mail_merges_linked_inboxes(monkeypatch) -> None:
     assert "To one@example.com" in page.text
     assert "To two@example.com" in page.text
     assert first.id in page.text
-    assert "msg=m1" in page.text
+    assert 'data-msg="m1"' in page.text
+    assert "Select a message" in page.text
+    assert "/admin/inbox/message" in page.text
     filtered = client.get(f"/admin/inbox?box={first.id}")
     assert "Hello one" in filtered.text
     assert "Hello two" not in filtered.text
     searched = client.get("/admin/inbox?q=two")
     assert "Hello two" in searched.text
     assert "Hello one" not in searched.text
+
+    async def fake_get(_token: str, message_id: str) -> dict:
+        return {
+            "id": message_id,
+            "subject": "Hello one",
+            "from": {"emailAddress": {"name": "Sam", "address": "sam@example.com"}},
+            "toRecipients": [{"emailAddress": {"name": "One", "address": "one@example.com"}}],
+            "receivedDateTime": "2026-09-21T10:00:00Z",
+            "body": {"contentType": "html", "content": "<p>First box body</p>"},
+            "bodyPreview": "First box",
+            "isRead": False,
+        }
+
+    async def fake_read(_token: str, _message_id: str, _is_read: bool) -> None:
+        return None
+
+    monkeypatch.setattr("mail_app.app.graph.get_message", fake_get)
+    monkeypatch.setattr("mail_app.app.graph.set_read", fake_read)
+    opened = client.get(f"/admin/inbox/message?box={first.id}&msg=m1&folder=inbox")
+    assert opened.status_code == 200
+    payload = opened.json()
+    assert payload["subject"] == "Hello one"
+    assert "First box body" in payload["body_html"]
+    assert payload["mailbox"] == "one@example.com"
+
+    denied = TestClient(app, follow_redirects=False).get(
+        f"/admin/inbox/message?box={first.id}&msg=m1"
+    )
+    assert denied.status_code == 401
 
 
 def test_admin_all_mail_sorts_mixed_timestamps(monkeypatch) -> None:
