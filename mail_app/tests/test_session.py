@@ -142,6 +142,7 @@ def test_open_message_shows_reply_and_to_line(monkeypatch) -> None:
     assert "To Pat" in response.text
     assert 'id="composer"' in response.text
     assert 'id="translate-lang"' in response.text
+    assert "mail-list-scroll" in response.text
     assert "Spanish" in response.text
     assert "Show original" in response.text
 

@@ -229,6 +229,34 @@
       closeCompose();
     });
 
+    const list = document.getElementById("mail-list");
+    const readPane = document.querySelector(".read");
+    const listScrollKey = "mail-list-scroll:{{ account.id }}:{{ folder }}";
+    if ("scrollRestoration" in history) history.scrollRestoration = "manual";
+    if (list) {
+      const savedTop = Number(sessionStorage.getItem(listScrollKey) || "");
+      if (!Number.isNaN(savedTop) && savedTop > 0) list.scrollTop = savedTop;
+      const active = list.querySelector(".item.active");
+      if (active) {
+        const box = list.getBoundingClientRect();
+        const row = active.getBoundingClientRect();
+        if (row.top < box.top) list.scrollTop += row.top - box.top;
+        else if (row.bottom > box.bottom) list.scrollTop += row.bottom - box.bottom;
+      }
+      function rememberListScroll() {
+        sessionStorage.setItem(listScrollKey, String(list.scrollTop));
+      }
+      list.addEventListener("scroll", rememberListScroll, { passive: true });
+      list.addEventListener("pointerdown", function (event) {
+        if (event.target.closest("a")) rememberListScroll();
+      });
+    }
+    function keepReadPlace(update) {
+      const top = readPane ? readPane.scrollTop : 0;
+      update();
+      if (readPane) readPane.scrollTop = top;
+    }
+
     const search = document.getElementById("mail-search");
     search.addEventListener("input", function () {
       const q = search.value.toLowerCase();
@@ -271,14 +299,16 @@
     }
     function showOriginal() {
       translateGeneration += 1;
-      if (subjectHeading) subjectHeading.textContent = originalSubject;
-      if (messageBody) {
-        messageBody.innerHTML = originalBodyHtml;
-        messageBody.classList.remove("translated");
-        messageBody.removeAttribute("dir");
-      }
-      if (translateNote) translateNote.hidden = true;
-      if (translateLang) translateLang.value = "";
+      keepReadPlace(function () {
+        if (subjectHeading) subjectHeading.textContent = originalSubject;
+        if (messageBody) {
+          messageBody.innerHTML = originalBodyHtml;
+          messageBody.classList.remove("translated");
+          messageBody.removeAttribute("dir");
+        }
+        if (translateNote) translateNote.hidden = true;
+        if (translateLang) translateLang.value = "";
+      });
     }
     async function translateMessage(code) {
       if (!code) {
@@ -303,12 +333,14 @@
         if (!response.ok) throw new Error("failed");
         const data = await response.json();
         if (generation !== translateGeneration) return;
-        if (subjectHeading) subjectHeading.textContent = data.subject || originalSubject;
-        if (messageBody) {
-          messageBody.textContent = data.body || "";
-          messageBody.classList.add("translated");
-          messageBody.setAttribute("dir", "auto");
-        }
+        keepReadPlace(function () {
+          if (subjectHeading) subjectHeading.textContent = data.subject || originalSubject;
+          if (messageBody) {
+            messageBody.textContent = data.body || "";
+            messageBody.classList.add("translated");
+            messageBody.setAttribute("dir", "auto");
+          }
+        });
         localStorage.setItem(LANG_KEY, code);
         if (translateLang) translateLang.value = code;
         const engine = translateLang ? (translateLang.getAttribute("data-engine") || "") : "";
@@ -317,14 +349,16 @@
         }
       } catch (err) {
         if (generation !== translateGeneration) return;
-        if (subjectHeading) subjectHeading.textContent = originalSubject;
-        if (messageBody) {
-          messageBody.innerHTML = originalBodyHtml;
-          messageBody.classList.remove("translated");
-          messageBody.removeAttribute("dir");
-        }
-        if (translateStatus) translateStatus.textContent = "Translation failed. The original message is still here.";
-        if (translateNote) translateNote.hidden = false;
+        keepReadPlace(function () {
+          if (subjectHeading) subjectHeading.textContent = originalSubject;
+          if (messageBody) {
+            messageBody.innerHTML = originalBodyHtml;
+            messageBody.classList.remove("translated");
+            messageBody.removeAttribute("dir");
+          }
+          if (translateStatus) translateStatus.textContent = "Translation failed. The original message is still here.";
+          if (translateNote) translateNote.hidden = false;
+        });
       }
     }
     if (translateLang && (subjectHeading || messageBody)) {
