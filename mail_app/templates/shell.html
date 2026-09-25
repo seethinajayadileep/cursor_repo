@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ folder_label(folder) }} — {{ account.email }}</title>
-  <link rel="stylesheet" href="/static/mail.css?v=ist">
+  <link rel="stylesheet" href="/static/mail.css?v=autoen">
 </head>
 <body>
   <div class="shell">
@@ -108,7 +108,7 @@
           <button class="btn ghost danger" type="submit">Delete</button>
         </form>
         <label class="translate-pick">
-          <span class="visually-hidden">Translate this message</span>
+          <span class="translate-label">Translate</span>
           <select id="translate-lang" aria-label="Translate this message" data-engine="{% if translator_is_azure() %}Azure Translator{% else %}a public translator{% endif %}">
             <option value="">Original</option>
             {% for code, label in translate_langs %}

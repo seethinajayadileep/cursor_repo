@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>All mail — Host inbox</title>
-  <link rel="stylesheet" href="/static/mail.css?v=ist">
+  <link rel="stylesheet" href="/static/mail.css?v=autoen">
 </head>
 <body>
   <div class="admin-shell">
@@ -84,7 +84,7 @@
             <div class="allmail-read-meta">
               <span class="mailbox-chip" id="allmail-mailbox"></span>
               <label class="translate-pick">
-                <span class="visually-hidden">Translate this message</span>
+                <span class="translate-label">Translate</span>
                 <select id="allmail-translate" aria-label="Translate this message">
                   <option value="off">Original</option>
                   {% for code, label in translate_langs %}

@@ -439,7 +439,8 @@ h1, h2, .rail-title, .topbar-title, .court-brand h1 {
 }
 .read-toolbar .btn { padding: 7px 12px; font-size: 0.86rem; margin: 0; white-space: nowrap; }
 .read-toolbar form.inline { display: inline-flex; margin: 0; }
-.translate-pick { margin-left: auto; display: flex; align-items: center; flex-shrink: 0; }
+.translate-pick { margin-left: auto; display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.translate-label { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: #6a4318; }
 .translate-pick select {
   background: #fffaf3;
   color: var(--text);

@@ -499,6 +499,8 @@ def test_admin_all_mail_merges_linked_inboxes(monkeypatch) -> None:
     assert 'data-msg="m1"' in page.text
     assert "Select a message" in page.text
     assert "/admin/inbox/message" in page.text
+    assert 'id="allmail-translate"' in page.text
+    assert "Auto to English" in page.text
     filtered = client.get(f"/admin/inbox?box={first.id}")
     assert "Hello one" in filtered.text
     assert "Hello two" not in filtered.text
