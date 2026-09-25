@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Admin directory — Host inbox</title>
-  <link rel="stylesheet" href="/static/mail.css?v=translate">
+  <link rel="stylesheet" href="/static/mail.css?v=ist">
 </head>
 <body>
   <div class="admin-shell">
@@ -22,6 +22,10 @@
       <div class="admin-intro">
         <h2>{{ mailboxes|length }} mailbox{% if mailboxes|length != 1 %}es{% endif %}</h2>
         <p class="uid">Keep these access links private. Anyone with a link can read and write that mailbox. Reconnecting the same address keeps the same link. Only admin can sign out, by typing the admin password.</p>
+        <label class="search admin-box-search">
+          <span class="visually-hidden">Search mailboxes</span>
+          <input id="admin-box-search" type="search" placeholder="Search mailbox, name, or id" autocomplete="off">
+        </label>
         {% if signout_error %}
         <p class="error">That password is not correct. Sign out was cancelled.</p>
         {% endif %}
@@ -38,7 +42,7 @@
           <div>Actions</div>
         </div>
         {% for box in mailboxes %}
-        <div class="admin-row{% if not full_directory %} no-operator{% endif %}">
+        <div class="admin-row{% if not full_directory %} no-operator{% endif %}" data-search="{{ box.email }} {{ box.name }} {{ box.id }} {{ box.owner_email }}">
           <div class="admin-mail">
             <span class="field-label">Mailbox</span>
             <div class="acct-name email-clip" title="{{ box.email }}">{{ box.email }}</div>
@@ -74,6 +78,17 @@
     </div>
   </div>
   <script>
+    const boxSearch = document.getElementById("admin-box-search");
+    if (boxSearch) {
+      boxSearch.addEventListener("input", function () {
+        const q = boxSearch.value.toLowerCase();
+        document.querySelectorAll(".admin-row").forEach(function (row) {
+          if (row.classList.contains("admin-head")) return;
+          const hay = (row.getAttribute("data-search") || "").toLowerCase();
+          row.style.display = hay.indexOf(q) === -1 ? "none" : "";
+        });
+      });
+    }
     document.querySelectorAll(".copy-link").forEach(function (button) {
       button.addEventListener("click", async function () {
         const link = button.getAttribute("data-link") || "";

@@ -35,10 +35,15 @@ async def graph_call(
     *,
     params: dict | None = None,
     json: dict | None = None,
+    headers: dict | None = None,
 ) -> dict:
     url = f"{GRAPH}{path}"
-    headers = {"Authorization": f"Bearer {access_token}"}
-    response = await _client().request(method, url, headers=headers, params=params, json=json)
+    request_headers = {"Authorization": f"Bearer {access_token}"}
+    if headers:
+        request_headers.update(headers)
+    response = await _client().request(
+        method, url, headers=request_headers, params=params, json=json
+    )
     if response.status_code >= 400:
         raise GraphError(response.status_code, response.text[:500])
     if not response.content:
@@ -46,8 +51,13 @@ async def graph_call(
     return response.json()
 
 
-async def graph_get(access_token: str, path: str, params: dict | None = None) -> dict:
-    return await graph_call("GET", access_token, path, params=params)
+async def graph_get(
+    access_token: str,
+    path: str,
+    params: dict | None = None,
+    headers: dict | None = None,
+) -> dict:
+    return await graph_call("GET", access_token, path, params=params, headers=headers)
 
 
 async def get_me(access_token: str) -> dict:
@@ -105,6 +115,19 @@ async def list_messages(access_token: str, folder: str = "inbox", top: int = 100
     if last_error:
         raise last_error
     return []
+
+
+async def search_messages(access_token: str, query: str, top: int = 25) -> list[dict]:
+    text = " ".join(query.replace('"', " ").split())
+    if not text:
+        return []
+    data = await graph_get(
+        access_token,
+        "/me/messages",
+        params={"$search": f'"{text}"', "$top": str(top), "$select": SAFE_SELECT},
+        headers={"ConsistencyLevel": "eventual"},
+    )
+    return sort_newest_first(data.get("value") or [])
 
 
 async def list_inbox(access_token: str, top: int = 50) -> list[dict]:

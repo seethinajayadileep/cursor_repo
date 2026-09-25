@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ folder_label(folder) }} — {{ account.email }}</title>
-  <link rel="stylesheet" href="/static/mail.css?v=translate">
+  <link rel="stylesheet" href="/static/mail.css?v=ist">
 </head>
 <body>
   <div class="shell">
@@ -61,7 +61,7 @@
       <div class="list-head">
         <div>
           <h2>{{ folder_label(folder) }}</h2>
-          <div class="uid">{{ messages|length }} conversation{% if messages|length != 1 %}s{% endif %}{% if messages|length >= list_cap %} · newest {{ list_cap }}, nothing deleted{% endif %}</div>
+          <div class="uid">{% set total = counts.get(folder, {}).get('total', 0) %}{% if total %}{{ total }} in {{ folder_label(folder) }}{% if messages|length < total %} · showing newest {{ messages|length }}{% endif %}{% else %}{{ messages|length }} conversation{% if messages|length != 1 %}s{% endif %}{% endif %}</div>
         </div>
         <label class="search">
           <span class="visually-hidden">Search this folder</span>

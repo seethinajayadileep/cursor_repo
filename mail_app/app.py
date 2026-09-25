@@ -7,6 +7,7 @@ import time
 from contextlib import asynccontextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 from pathlib import Path
 from urllib.parse import quote
 
@@ -34,6 +35,8 @@ FOLDERS = (
 )
 TOKEN_TTL_SECONDS = 20 * 60
 FEED_TTL_SECONDS = 20
+FEED_CAP = 400
+IST = ZoneInfo("Asia/Kolkata")
 _token_cache: dict[str, tuple[float, str]] = {}
 _feed_cache: dict[tuple, tuple[float, tuple]] = {}
 
@@ -165,75 +168,113 @@ async def collect_linked_inbox(
     box_id: str = "",
     query: str = "",
     per_box: int = 20,
-) -> tuple[list[UnifiedItem], list[str]]:
+) -> tuple[list[UnifiedItem], list[str], int]:
     chosen = [ref for ref in refs if not box_id or ref.id == box_id]
-    cache_key = (box_id, tuple(ref.id for ref in chosen), per_box)
+    needle = query.strip()
+    cache_key = (box_id, tuple(ref.id for ref in chosen), per_box, needle.lower())
     cached = _feed_cache.get(cache_key)
     now = time.monotonic()
     if cached and cached[0] > now:
-        items, skipped = cached[1]
-    else:
-        skipped = []
-        items = []
+        items, skipped, incoming_total = cached[1]
+        return list(items), list(skipped), incoming_total
 
-        async def one(ref: store.MailboxRef) -> tuple[list[UnifiedItem], str | None]:
+    skipped: list[str] = []
+    items: list[UnifiedItem] = []
+    incoming_total = 0
+
+    def rows_from(ref: store.MailboxRef, messages: list[dict]) -> list[UnifiedItem]:
+        rows: list[UnifiedItem] = []
+        for message in messages:
+            received = message.get("receivedDateTime") or ""
+            folder = message.get("_incoming_folder") or "inbox"
+            rows.append(
+                UnifiedItem(
+                    account_id=ref.id,
+                    mailbox=ref.email,
+                    message_id=message.get("id") or "",
+                    sender=sender_name(message),
+                    initials=sender_initials(message),
+                    subject=message.get("subject") or "",
+                    preview=message.get("bodyPreview") or "",
+                    when=_format_when(received),
+                    received=received,
+                    is_read=bool(message.get("isRead")),
+                    folder=folder,
+                )
+            )
+        return rows
+
+    async def one(ref: store.MailboxRef) -> tuple[list[UnifiedItem], str | None, int]:
+        try:
+            account = store.get_account(ref.id, settings.session_secret)
+        except Exception:
+            return [], ref.email, 0
+        if not account:
+            return [], ref.email, 0
+        token = await _token_for_account(account)
+        if not token:
+            return [], ref.email, 0
+
+        async def load_messages() -> list[dict]:
+            if needle:
+                try:
+                    found = await graph.search_messages(token, needle, top=per_box)
+                except Exception:
+                    found = await graph.list_incoming_messages(token, top_per_folder=per_box)
+                    q = needle.lower()
+                    found = [
+                        message
+                        for message in found
+                        if q
+                        in " ".join(
+                            [
+                                str(message.get("subject") or ""),
+                                str(message.get("bodyPreview") or ""),
+                                sender_name(message),
+                                sender_email(message),
+                            ]
+                        ).lower()
+                    ]
+                for message in found:
+                    message["_incoming_folder"] = message.get("_incoming_folder") or "inbox"
+                return found
+            return await graph.list_incoming_messages(token, top_per_folder=per_box)
+
+        async def load_total() -> int:
             try:
-                account = store.get_account(ref.id, settings.session_secret)
+                counts = await graph.folder_counts(token)
             except Exception:
-                return [], ref.email
-            if not account:
-                return [], ref.email
-            token = await _token_for_account(account)
-            if not token:
-                return [], ref.email
-            try:
-                messages = await asyncio.wait_for(
-                    graph.list_incoming_messages(token, top_per_folder=per_box),
-                    timeout=12,
-                )
-            except (graph.GraphError, TimeoutError):
-                return [], ref.email
-            rows: list[UnifiedItem] = []
-            for message in messages:
-                received = message.get("receivedDateTime") or ""
-                folder = message.get("_incoming_folder") or "inbox"
-                rows.append(
-                    UnifiedItem(
-                        account_id=ref.id,
-                        mailbox=ref.email,
-                        message_id=message.get("id") or "",
-                        sender=sender_name(message),
-                        initials=sender_initials(message),
-                        subject=message.get("subject") or "",
-                        preview=message.get("bodyPreview") or "",
-                        when=_format_when(received),
-                        received=received,
-                        is_read=bool(message.get("isRead")),
-                        folder=folder,
-                    )
-                )
-            return rows, None
+                return 0
+            return int(counts.get("inbox", {}).get("total") or 0) + int(
+                counts.get("junkemail", {}).get("total") or 0
+            )
 
-        results = await asyncio.gather(*(one(ref) for ref in chosen), return_exceptions=True)
-        for ref, result in zip(chosen, results):
-            if isinstance(result, Exception):
-                skipped.append(ref.email)
-                continue
-            rows, err = result
-            items.extend(rows)
-            if err:
-                skipped.append(err)
-        items.sort(key=lambda item: graph.parse_graph_time(item.received), reverse=True)
-        _feed_cache[cache_key] = (time.monotonic() + FEED_TTL_SECONDS, (list(items), list(skipped)))
-    needle = query.strip().lower()
-    if needle:
-        items = [
-            item
-            for item in items
-            if needle
-            in f"{item.subject} {item.sender} {item.mailbox} {item.preview} {item.folder}".lower()
-        ]
-    return items[:400], skipped
+        try:
+            messages, total = await asyncio.wait_for(
+                asyncio.gather(load_messages(), load_total()),
+                timeout=12,
+            )
+        except (graph.GraphError, TimeoutError):
+            return [], ref.email, 0
+        return rows_from(ref, messages), None, total
+
+    results = await asyncio.gather(*(one(ref) for ref in chosen), return_exceptions=True)
+    for ref, result in zip(chosen, results):
+        if isinstance(result, Exception):
+            skipped.append(ref.email)
+            continue
+        rows, err, total = result
+        items.extend(rows)
+        incoming_total += total
+        if err:
+            skipped.append(err)
+    items.sort(key=lambda item: graph.parse_graph_time(item.received), reverse=True)
+    items = items[:FEED_CAP]
+    _feed_cache[cache_key] = (
+        time.monotonic() + FEED_TTL_SECONDS,
+        (list(items), list(skipped), incoming_total),
+    )
+    return items, skipped, incoming_total
 
 
 async def _token_for_account(account: store.Account) -> str | None:
@@ -269,28 +310,32 @@ async def _access_token(request: Request) -> str | None:
     return result["access_token"]
 
 
-def _format_when(value: str | None) -> str:
+def _to_ist(value: str | None) -> datetime | None:
     if not value:
-        return ""
+        return None
     try:
         dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return dt.strftime("%d %b · %H:%M")
     except ValueError:
-        return value
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(IST)
+
+
+def _format_when(value: str | None) -> str:
+    dt = _to_ist(value)
+    if not dt:
+        return value or ""
+    return dt.strftime("%d %b · %H:%M IST")
 
 
 def _format_when_short(value: str | None) -> str:
-    if not value:
-        return ""
-    try:
-        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        if dt.date() == datetime.now(timezone.utc).date():
-            return dt.strftime("%H:%M")
-        return dt.strftime("%d %b")
-    except ValueError:
-        return value
+    dt = _to_ist(value)
+    if not dt:
+        return value or ""
+    if dt.date() == datetime.now(IST).date():
+        return dt.strftime("%H:%M")
+    return dt.strftime("%d %b")
 
 
 def sender_name(message: dict) -> str:
@@ -541,7 +586,7 @@ async def admin_all_mail(request: Request):
     query = request.query_params.get("q") or ""
     msg_id = (request.query_params.get("msg") or "").strip()
     open_account = (request.query_params.get("account") or "").strip()
-    items, skipped = await collect_linked_inbox(mailboxes, box_id=box_id, query=query)
+    items, skipped, incoming_total = await collect_linked_inbox(mailboxes, box_id=box_id, query=query)
     return templates.TemplateResponse(
         request,
         "admin_inbox.html",
@@ -549,6 +594,7 @@ async def admin_all_mail(request: Request):
             "mailboxes": mailboxes,
             "items": items,
             "skipped": skipped,
+            "incoming_total": incoming_total,
             "q": query,
             "box_id": box_id,
             "msg_id": msg_id,

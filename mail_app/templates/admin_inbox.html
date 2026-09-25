@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>All mail — Host inbox</title>
-  <link rel="stylesheet" href="/static/mail.css?v=allmail-read">
+  <link rel="stylesheet" href="/static/mail.css?v=ist">
 </head>
 <body>
   <div class="admin-shell">
@@ -22,8 +22,8 @@
       <div class="allmail-stage">
         <section class="allmail-col">
           <div class="admin-intro allmail-intro">
-            <h2>{{ items|length }} message{% if items|length != 1 %}s{% endif %}</h2>
-            <p class="uid">Newest incoming mail (Inbox, Other, and Junk) across {{ mailboxes|length }} linked mailbox{% if mailboxes|length != 1 %}es{% endif %}. Open a row to read it here.</p>
+            <h2>{% if q %}{{ items|length }} match{% if items|length != 1 %}es{% endif %}{% else %}{{ incoming_total or items|length }} message{% if (incoming_total or items|length) != 1 %}s{% endif %}{% endif %}</h2>
+            <p class="uid">{% if q %}Search looks through each linked mailbox, not only the newest rows.{% else %}Inbox and Junk totals from Microsoft.{% if incoming_total > items|length %} Showing the newest {{ items|length }}.{% endif %}{% endif %} Open a row to read it here.</p>
             <form class="allmail-filters" method="get" action="/admin/inbox">
               <label class="search">
                 <span class="visually-hidden">Search all mail</span>

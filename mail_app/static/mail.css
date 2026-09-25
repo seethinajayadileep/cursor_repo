@@ -486,9 +486,10 @@ h1, h2, .rail-title, .topbar-title, .court-brand h1 {
 .from-meta { min-width: 0; }
 .from-meta .uid { overflow-wrap: anywhere; }
 .from-row .avatar { width: 40px; height: 40px; }
-.body { line-height: 1.55; overflow-wrap: anywhere; font-size: 0.98rem; }
+.body { line-height: 1.55; overflow-wrap: anywhere; font-size: 0.98rem; color: #1c1612; background: #fffaf3; }
+.body, .body * { color: #1c1612 !important; background-color: transparent !important; background-image: none !important; }
+.body a, .body a * { color: #6a4318 !important; }
 .body.translated { white-space: pre-wrap; }
-.body a { color: var(--accent-2); }
 .body img {
   max-width: 100%;
   height: auto;
@@ -623,11 +624,30 @@ h1, h2, .rail-title, .topbar-title, .court-brand h1 {
   border-color: #4a3d32;
 }
 .admin-topbar .btn.ghost:hover { background: var(--rail-hover); }
-.admin-topbar .signout-form input {
-  background: #2a211a;
-  border-color: #4a3d32;
-  color: #fff;
+.admin-topbar,
+.admin-topbar .topbar-title,
+.admin-topbar .btn,
+.admin-topbar a {
+  color: var(--rail-text);
 }
+.admin-topbar input,
+.signout-form input,
+.disconnect-form input {
+  color: #1c1612;
+  background: #fffaf3;
+}
+.admin-topbar input::placeholder,
+.signout-form input::placeholder,
+.disconnect-form input::placeholder {
+  color: #6f6256;
+}
+.admin-topbar .signout-form input {
+  background: #fffaf3;
+  border-color: #4a3d32;
+  color: #1c1612;
+}
+.admin-box-search { display: block; margin-top: 14px; max-width: 420px; }
+.preview, .uid, .field-label, .muted { color: #4e4338; }
 .topbar-left { display: flex; align-items: center; gap: 12px; min-width: 0; }
 .topbar-actions {
   display: flex;

@@ -7,6 +7,12 @@ from mail_app.sanitize import sanitize_html
 from mail_app import store
 
 
+def test_times_are_shown_in_ist() -> None:
+    from mail_app.app import _format_when
+
+    assert _format_when("2026-09-21T10:00:00Z") == "21 Sep · 15:30 IST"
+
+
 def test_healthz() -> None:
     client = TestClient(app)
     response = client.get("/healthz")
@@ -470,10 +476,16 @@ def test_admin_all_mail_merges_linked_inboxes(monkeypatch) -> None:
 
     monkeypatch.setattr("mail_app.app._token_for_account", fake_token)
     monkeypatch.setattr("mail_app.app.graph.list_messages", fake_list)
+
+    async def fake_counts(_token: str) -> dict:
+        return {"inbox": {"unread": 1, "total": 80}, "junkemail": {"unread": 0, "total": 2}}
+
+    monkeypatch.setattr("mail_app.app.graph.folder_counts", fake_counts)
     client = TestClient(app, follow_redirects=False)
     client.post("/admin/login", data={"password": "openseasame"})
     directory = client.get("/admin")
-    assert "All mail" in directory.text
+    assert "Mailbox directory" in directory.text
+    assert "Search mailbox, name, or id" in directory.text
     page = client.get("/admin/inbox")
     assert page.status_code == 200
     assert "Hello two" in page.text
@@ -481,7 +493,8 @@ def test_admin_all_mail_merges_linked_inboxes(monkeypatch) -> None:
     assert page.text.find("Hello two") < page.text.find("Hello one")
     assert "To one@example.com" in page.text
     assert "To two@example.com" in page.text
-    assert first.id in page.text
+    assert "Inbox and Junk" in page.text
+    assert "Search subject, sender, or mailbox" in page.text
     assert 'data-msg="m1"' in page.text
     assert "Select a message" in page.text
     assert "/admin/inbox/message" in page.text
@@ -572,8 +585,13 @@ def test_admin_all_mail_sorts_mixed_timestamps(monkeypatch) -> None:
 
     monkeypatch.setattr("mail_app.app._token_for_account", fake_token)
     monkeypatch.setattr("mail_app.app.graph.list_messages", fake_list)
+
+    async def fake_counts(_token: str) -> dict:
+        return {"inbox": {"total": 3}, "junkemail": {"total": 0}}
+
+    monkeypatch.setattr("mail_app.app.graph.folder_counts", fake_counts)
     refs = [ref for ref in store.list_mailbox_refs() if ref.id in {older.id, newer.id}]
-    items, skipped = asyncio.run(collect_linked_inbox(refs))
+    items, skipped, _total = asyncio.run(collect_linked_inbox(refs))
     assert skipped == []
     assert [item.subject for item in items] == ["New mail", "Old mail"]
 
@@ -622,8 +640,13 @@ def test_admin_all_mail_captures_other_and_junk(monkeypatch) -> None:
 
     monkeypatch.setattr("mail_app.app._token_for_account", fake_token)
     monkeypatch.setattr("mail_app.app.graph.list_messages", fake_list)
+
+    async def fake_counts(_token: str) -> dict:
+        return {"inbox": {"total": 4}, "junkemail": {"total": 1}}
+
+    monkeypatch.setattr("mail_app.app.graph.folder_counts", fake_counts)
     refs = [ref for ref in store.list_mailbox_refs() if ref.id == box.id]
-    items, skipped = asyncio.run(collect_linked_inbox(refs))
+    items, skipped, _total = asyncio.run(collect_linked_inbox(refs))
     assert skipped == []
     assert [item.subject for item in items] == ["Junk offer", "Other newsletter"]
     assert [item.folder for item in items] == ["junkemail", "other"]
