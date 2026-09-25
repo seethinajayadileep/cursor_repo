@@ -83,8 +83,18 @@
           <div class="read-card" id="allmail-card" hidden>
             <div class="allmail-read-meta">
               <span class="mailbox-chip" id="allmail-mailbox"></span>
+              <label class="translate-pick">
+                <span class="visually-hidden">Translate this message</span>
+                <select id="allmail-translate" aria-label="Translate this message">
+                  <option value="off">Original</option>
+                  {% for code, label in translate_langs %}
+                  <option value="{{ code }}">{{ label }}</option>
+                  {% endfor %}
+                </select>
+              </label>
               <a class="allmail-open-box" id="allmail-open-box" href="#">Open in mailbox</a>
             </div>
+            <p class="translate-note" id="allmail-translate-note" hidden></p>
             <h1 id="allmail-subject"></h1>
             <div class="from-row">
               <div class="avatar" id="allmail-avatar"></div>
@@ -179,15 +189,87 @@
         document.getElementById("allmail-when").textContent = data.when || "";
         document.getElementById("allmail-mailbox").textContent =
           "To " + (data.mailbox || "") + " · " + (data.folder_label || folder);
-        document.getElementById("allmail-body").innerHTML = data.body_html || "";
+        const subjectEl = document.getElementById("allmail-subject");
+        const bodyEl = document.getElementById("allmail-body");
+        delete subjectEl.dataset.original;
+        delete bodyEl.dataset.originalHtml;
+        delete bodyEl.dataset.originalText;
+        bodyEl.classList.remove("translated");
+        const note = document.getElementById("allmail-translate-note");
+        if (note) note.hidden = true;
         openBox.href = "/a/" + encodeURIComponent(data.account_id) +
           "?folder=" + encodeURIComponent(data.folder || folder) +
           "&msg=" + encodeURIComponent(data.message_id || msg);
         showState("card");
+        translateAdmin(data.account_id);
       } catch (err) {
         if (generation !== openGeneration) return;
         errorEl.textContent = "Could not open that message.";
         showState("error");
+      }
+    }
+    const allmailTranslate = document.getElementById("allmail-translate");
+    if (allmailTranslate) {
+      const saved = localStorage.getItem("mail-translate");
+      allmailTranslate.value = saved === null ? "auto" : (saved === "off" ? "off" : saved);
+      allmailTranslate.addEventListener("change", function () {
+        localStorage.setItem("mail-translate", allmailTranslate.value || "off");
+        const subject = document.getElementById("allmail-subject");
+        const body = document.getElementById("allmail-body");
+        if (allmailTranslate.value === "off") {
+          if (subject && subject.dataset.original) subject.textContent = subject.dataset.original;
+          if (body && body.dataset.originalHtml) body.innerHTML = body.dataset.originalHtml;
+          return;
+        }
+        const active = document.querySelector(".allmail-item.active .allmail-open");
+        if (active) translateAdmin(active.getAttribute("data-box") || "");
+      });
+    }
+    async function translateAdmin(accountId) {
+      const select = document.getElementById("allmail-translate");
+      const subject = document.getElementById("allmail-subject");
+      const body = document.getElementById("allmail-body");
+      const note = document.getElementById("allmail-translate-note");
+      if (!select || !subject || !body || !accountId) return;
+      const target = select.value || "auto";
+      if (!subject.dataset.original) subject.dataset.original = subject.textContent || "";
+      if (!body.dataset.originalHtml) {
+        body.dataset.originalHtml = body.innerHTML || "";
+        body.dataset.originalText = body.innerText || "";
+      }
+      if (target === "off") {
+        if (note) note.hidden = true;
+        return;
+      }
+      if (note) {
+        note.hidden = false;
+        note.textContent = "Translating…";
+      }
+      try {
+        const response = await fetch("/a/" + encodeURIComponent(accountId) + "/translate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            subject: subject.dataset.original === "(no subject)" ? "" : subject.dataset.original,
+            body: body.dataset.originalText || "",
+            target: target
+          })
+        });
+        if (!response.ok) throw new Error("failed");
+        const translated = await response.json();
+        subject.textContent = translated.subject || subject.dataset.original;
+        body.textContent = translated.body || "";
+        body.classList.add("translated");
+        const option = select.querySelector('option[value="' + target + '"]');
+        if (note) note.textContent = "Showing " + (option ? option.textContent : target);
+      } catch (err) {
+        subject.textContent = subject.dataset.original || "";
+        body.innerHTML = body.dataset.originalHtml || "";
+        body.classList.remove("translated");
+        if (note) {
+          note.hidden = false;
+          note.textContent = "Translation failed. The original message is still here.";
+        }
       }
     }
     if (list) {

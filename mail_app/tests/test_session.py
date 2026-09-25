@@ -149,6 +149,7 @@ def test_open_message_shows_reply_and_to_line(monkeypatch) -> None:
     assert 'id="composer"' in response.text
     assert 'id="translate-lang"' in response.text
     assert "mail-list-scroll" in response.text
+    assert "Auto to English" in response.text
     assert "Spanish" in response.text
     assert "Show original" in response.text
 
@@ -1048,6 +1049,38 @@ def test_translate_chunks_keep_every_character() -> None:
     text = ("line one\n" * 40) + ("word " * 200)
     assert "".join(_chunks(text, limit=420)) == text
     assert "".join(_chunks("short", limit=420)) == "short"
+
+
+def test_english_source_stays_readable(monkeypatch) -> None:
+    import asyncio
+
+    import httpx
+
+    from mail_app.translate import translate_pair
+
+    monkeypatch.delenv("AZURE_TRANSLATOR_KEY", raising=False)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json={
+                "responseStatus": "403",
+                "responseDetails": "PLEASE SELECT TWO DISTINCT LANGUAGES",
+                "responseData": {"translatedText": "PLEASE SELECT TWO DISTINCT LANGUAGES"},
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    real_client = httpx.AsyncClient
+
+    def fake_client(*args, **kwargs):
+        kwargs["transport"] = transport
+        return real_client(*args, **kwargs)
+
+    monkeypatch.setattr("mail_app.translate.httpx.AsyncClient", fake_client)
+    subject, body = asyncio.run(translate_pair("Hello", "Your registration is waiting.", "auto"))
+    assert subject == "Hello"
+    assert body == "Your registration is waiting."
 
 
 def test_mymemory_warning_is_rejected(monkeypatch) -> None:

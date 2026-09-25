@@ -5,6 +5,7 @@ import os
 import httpx
 
 TRANSLATE_LANGS: tuple[tuple[str, str], ...] = (
+    ("auto", "Auto to English"),
     ("en", "English"),
     ("pt", "Portuguese"),
     ("es", "Spanish"),
@@ -64,9 +65,10 @@ async def translate_pair(subject: str, body: str, target: str) -> tuple[str, str
     body = (body or "").strip()[:8000]
     if not subject and not body:
         return "", ""
+    destination = "en" if target == "auto" else target
     if os.getenv("AZURE_TRANSLATOR_KEY", "").strip():
-        return await _azure(subject, body, target)
-    return await _mymemory(subject, body, target)
+        return await _azure(subject, body, destination)
+    return await _mymemory(subject, body, destination)
 
 
 async def _azure(subject: str, body: str, target: str) -> tuple[str, str]:
@@ -102,16 +104,23 @@ async def _mymemory(subject: str, body: str, target: str) -> tuple[str, str]:
         if not text.strip():
             return ""
         parts: list[str] = []
-        for chunk in _chunks(text):
+        for chunk in _chunks(text, limit=180):
             response = await client.get(
                 "https://api.mymemory.translated.net/get",
                 params={"q": chunk, "langpair": f"Autodetect|{code}"},
             )
-            if response.status_code >= 400:
-                raise TranslateError("translator rejected the request")
-            data = response.json()
+            try:
+                data = response.json()
+            except Exception as exc:
+                raise TranslateError("translator rejected the request") from exc
             translated = ((data.get("responseData") or {}).get("translatedText") or "").strip()
             status = data.get("responseStatus")
+            details = str(data.get("responseDetails") or translated)
+            if "DISTINCT LANGUAGES" in details.upper() or "DISTINCT LANGUAGES" in translated.upper():
+                parts.append(chunk)
+                continue
+            if response.status_code >= 400:
+                raise TranslateError("translator rejected the request")
             if status not in (200, "200") or not translated or translated.upper().startswith("MYMEMORY"):
                 raise TranslateError("translator returned an unexpected response")
             parts.append(translated)

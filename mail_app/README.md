@@ -100,7 +100,7 @@ The site refreshes Microsoft tokens in the background about every 6 hours so the
 
 ## Live translation
 
-The open message has a language menu. The choice is remembered in the browser, so the next message translates as soon as it opens. **Show original** restores the mail as Microsoft sent it. Reply and forward still use the original text.
+The open message, including All mail, detects the language and translates into English as soon as it opens. The language menu can switch to another language or back to Original. That choice is remembered in the browser. **Show original** restores the mail as Microsoft sent it. Mail that is already English stays as written instead of showing a translation error. Reply and forward still use the original text.
 
 Without `AZURE_TRANSLATOR_KEY`, translation goes through the public MyMemory service (short messages, rate limits). Set `AZURE_TRANSLATOR_KEY` and `AZURE_TRANSLATOR_REGION` to use Azure Translator instead. The mailbox address is not sent to the translator.
 

@@ -312,7 +312,7 @@
     }
     async function translateMessage(code) {
       if (!code) {
-        localStorage.removeItem(LANG_KEY);
+        localStorage.setItem(LANG_KEY, "off");
         showOriginal();
         return;
       }
@@ -362,17 +362,19 @@
       }
     }
     if (translateLang && (subjectHeading || messageBody)) {
-      const saved = localStorage.getItem(LANG_KEY) || "";
-      if (saved && translateLang.querySelector('option[value="' + saved + '"]')) {
-        translateLang.value = saved;
-        translateMessage(saved);
+      const saved = localStorage.getItem(LANG_KEY);
+      const code = saved === null ? "auto" : saved;
+      if (code && code !== "off" && translateLang.querySelector('option[value="' + code + '"]')) {
+        translateLang.value = code;
+        translateMessage(code);
       }
       translateLang.addEventListener("change", function () {
+        if (!translateLang.value) localStorage.setItem(LANG_KEY, "off");
         translateMessage(translateLang.value);
       });
     }
     if (originalBtn) originalBtn.addEventListener("click", function () {
-      localStorage.removeItem(LANG_KEY);
+      localStorage.setItem(LANG_KEY, "off");
       showOriginal();
     });
   </script>
