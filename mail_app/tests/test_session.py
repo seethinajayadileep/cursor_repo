@@ -147,11 +147,8 @@ def test_open_message_shows_reply_and_to_line(monkeypatch) -> None:
     assert "Forward" in response.text
     assert "To Pat" in response.text
     assert 'id="composer"' in response.text
-    assert 'id="translate-lang"' in response.text
     assert "mail-list-scroll" in response.text
-    assert "Auto to English" in response.text
-    assert "Spanish" in response.text
-    assert "Show original" in response.text
+    assert "translate-lang" not in response.text
 
 
 def test_mailbox_link_works_without_session(monkeypatch) -> None:
@@ -499,8 +496,7 @@ def test_admin_all_mail_merges_linked_inboxes(monkeypatch) -> None:
     assert 'data-msg="m1"' in page.text
     assert "Select a message" in page.text
     assert "/admin/inbox/message" in page.text
-    assert 'id="allmail-translate"' in page.text
-    assert "Auto to English" in page.text
+    assert "allmail-translate" not in page.text
     filtered = client.get(f"/admin/inbox?box={first.id}")
     assert "Hello one" in filtered.text
     assert "Hello two" not in filtered.text
@@ -988,61 +984,6 @@ def test_list_messages_retries_without_other_field() -> None:
     assert [item["id"] for item in messages] == ["kept"]
     assert any("inferenceClassification" in select for select in calls)
     assert any("inferenceClassification" not in select for select in calls)
-
-
-def test_translate_unknown_mailbox() -> None:
-    client = TestClient(app)
-    response = client.post(
-        "/a/missing-box/translate",
-        json={"subject": "Hi", "body": "Hello", "target": "es"},
-    )
-    assert response.status_code == 404
-
-
-def test_translate_rejects_unknown_language() -> None:
-    account = store.upsert_account(
-        secret="test-secret-value-not-for-production",
-        owner_email="pat@example.com",
-        email="pat@example.com",
-        name="Pat",
-        refresh_token="refresh-token",
-    )
-    client = TestClient(app)
-    response = client.post(
-        f"/a/{account.id}/translate",
-        json={"subject": "Hi", "body": "Hello", "target": "xx"},
-    )
-    assert response.status_code == 502
-    assert response.json()["error"] == "Translation failed"
-
-
-def test_translate_returns_subject_and_body(monkeypatch) -> None:
-    account = store.upsert_account(
-        secret="test-secret-value-not-for-production",
-        owner_email="pat@example.com",
-        email="pat@example.com",
-        name="Pat",
-        refresh_token="refresh-token",
-    )
-
-    async def fake_pair(subject: str, body: str, target: str) -> tuple[str, str]:
-        assert subject == "Hello"
-        assert body == "Hi there"
-        assert target == "es"
-        return "Hola", "Cuerpo"
-
-    async def should_not_refresh(_account):
-        raise AssertionError("translate must not refresh mailbox tokens")
-
-    monkeypatch.setattr("mail_app.app.translate_pair", fake_pair)
-    monkeypatch.setattr("mail_app.app._token_for_account", should_not_refresh)
-    client = TestClient(app)
-    response = client.post(
-        f"/a/{account.id}/translate",
-        json={"subject": "Hello", "body": "Hi there", "target": "es"},
-    )
-    assert response.status_code == 200
-    assert response.json() == {"subject": "Hola", "body": "Cuerpo", "target": "es"}
 
 
 def test_translate_chunks_keep_every_character() -> None:

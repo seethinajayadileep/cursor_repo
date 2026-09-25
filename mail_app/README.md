@@ -8,7 +8,7 @@ Web app that signs **you** in with Microsoft and shows **your** mailboxes. Each 
 2. After a successful connect, the mailbox is saved (encrypted refresh token) and gets a unique ID.
 3. **Connect another account** to add more mailboxes under the same signed-in operator.
 4. Later visits / new device: open `https://your-domain/a/<id>` to see that mailbox. Microsoft consent is not required again until the token is revoked.
-5. Mailbox UI: folders, search, reading pane, reply/forward, live translation of the open message, and a compose window. Sign in on `/` only to connect or list all of *your* boxes.
+5. Mailbox UI: folders, search, reading pane, reply/forward, and a compose window. Sign in on `/` only to connect or list all of *your* boxes.
 
 ## Azure app registration
 
@@ -70,8 +70,6 @@ PUBLIC_BASE_URL=https://your-app.up.railway.app
 REDIRECT_URI=https://your-app.up.railway.app/auth/callback
 HTTPS_ONLY=1
 MAIL_DB_PATH=/data/accounts.sqlite
-AZURE_TRANSLATOR_KEY=     # optional; live translation uses this when set
-AZURE_TRANSLATOR_REGION=eastus
 ```
 
 3. Entra → app → Authentication → add Web redirect `https://your-app.up.railway.app/auth/callback`.
@@ -97,12 +95,6 @@ The site refreshes Microsoft tokens in the background about every 6 hours so the
 - If `ADMIN_PASSWORD` is not set, only a Microsoft-signed-in operator can open `/admin`, and only **their** mailboxes are listed.
 - Unique mailbox links (`/a/<id>`) never unlock this page. Wrong passwords do not reveal whether a mailbox exists.
 - `/admin/inbox` shows incoming mail from **all linked mailboxes** (Inbox, Outlook Other, and Junk) in one list. Open a row to read it on the same page. Each unique mailbox link also has Inbox, Other, Sent, Drafts, Junk, and Deleted.
-
-## Live translation
-
-The open message, including All mail, detects the language and translates into English as soon as it opens. The language menu can switch to another language or back to Original. That choice is remembered in the browser. **Show original** restores the mail as Microsoft sent it. Mail that is already English stays as written instead of showing a translation error. Reply and forward still use the original text.
-
-Without `AZURE_TRANSLATOR_KEY`, translation goes through the public MyMemory service (short messages, rate limits). Set `AZURE_TRANSLATOR_KEY` and `AZURE_TRANSLATOR_REGION` to use Azure Translator instead. The mailbox address is not sent to the translator.
 
 ## Tests
 

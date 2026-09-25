@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{ folder_label(folder) }} — {{ account.email }}</title>
-  <link rel="stylesheet" href="/static/mail.css?v=autoen">
+  <link rel="stylesheet" href="/static/mail.css?v=notr">
 </head>
 <body>
   <div class="shell">
@@ -107,20 +107,7 @@
           <input type="hidden" name="folder" value="{{ folder }}">
           <button class="btn ghost danger" type="submit">Delete</button>
         </form>
-        <label class="translate-pick">
-          <span class="translate-label">Translate</span>
-          <select id="translate-lang" aria-label="Translate this message" data-engine="{% if translator_is_azure() %}Azure Translator{% else %}a public translator{% endif %}">
-            <option value="">Original</option>
-            {% for code, label in translate_langs %}
-            <option value="{{ code }}">{{ label }}</option>
-            {% endfor %}
-          </select>
-        </label>
       </div>
-      <p class="translate-note" id="translate-note" hidden>
-        <span id="translate-status"></span>
-        <button class="btn ghost" type="button" id="translate-original">Show original</button>
-      </p>
       <div class="read-card">
         <h1>{{ message.subject or "(no subject)" }}</h1>
         <div class="from-row">
@@ -278,104 +265,6 @@
     }
     document.querySelectorAll(".copy-link").forEach(function (button) {
       button.addEventListener("click", function () { copyLink(button); });
-    });
-
-    const translateLang = document.getElementById("translate-lang");
-    const translateNote = document.getElementById("translate-note");
-    const translateStatus = document.getElementById("translate-status");
-    const subjectHeading = document.querySelector(".read-card h1");
-    const messageBody = document.querySelector(".read-card .body");
-    const originalBtn = document.getElementById("translate-original");
-    const LANG_KEY = "mail-translate";
-    const originalSubject = subjectHeading ? subjectHeading.textContent : "";
-    const originalBodyHtml = messageBody ? messageBody.innerHTML : "";
-    const originalBodyText = messageBody ? messageBody.innerText : "";
-    let translateGeneration = 0;
-
-    function languageName(code) {
-      if (!translateLang) return code;
-      const option = translateLang.querySelector('option[value="' + code + '"]');
-      return option ? option.textContent : code;
-    }
-    function showOriginal() {
-      translateGeneration += 1;
-      keepReadPlace(function () {
-        if (subjectHeading) subjectHeading.textContent = originalSubject;
-        if (messageBody) {
-          messageBody.innerHTML = originalBodyHtml;
-          messageBody.classList.remove("translated");
-          messageBody.removeAttribute("dir");
-        }
-        if (translateNote) translateNote.hidden = true;
-        if (translateLang) translateLang.value = "";
-      });
-    }
-    async function translateMessage(code) {
-      if (!code) {
-        localStorage.setItem(LANG_KEY, "off");
-        showOriginal();
-        return;
-      }
-      const generation = ++translateGeneration;
-      if (translateStatus) translateStatus.textContent = "Translating…";
-      if (translateNote) translateNote.hidden = false;
-      try {
-        const response = await fetch("/a/{{ account.id }}/translate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            subject: originalSubject === "(no subject)" ? "" : originalSubject,
-            body: originalBodyText,
-            target: code
-          })
-        });
-        if (generation !== translateGeneration) return;
-        if (!response.ok) throw new Error("failed");
-        const data = await response.json();
-        if (generation !== translateGeneration) return;
-        keepReadPlace(function () {
-          if (subjectHeading) subjectHeading.textContent = data.subject || originalSubject;
-          if (messageBody) {
-            messageBody.textContent = data.body || "";
-            messageBody.classList.add("translated");
-            messageBody.setAttribute("dir", "auto");
-          }
-        });
-        localStorage.setItem(LANG_KEY, code);
-        if (translateLang) translateLang.value = code;
-        const engine = translateLang ? (translateLang.getAttribute("data-engine") || "") : "";
-        if (translateStatus) {
-          translateStatus.textContent = "Showing " + languageName(code) + (engine ? " · " + engine : "");
-        }
-      } catch (err) {
-        if (generation !== translateGeneration) return;
-        keepReadPlace(function () {
-          if (subjectHeading) subjectHeading.textContent = originalSubject;
-          if (messageBody) {
-            messageBody.innerHTML = originalBodyHtml;
-            messageBody.classList.remove("translated");
-            messageBody.removeAttribute("dir");
-          }
-          if (translateStatus) translateStatus.textContent = "Translation failed. The original message is still here.";
-          if (translateNote) translateNote.hidden = false;
-        });
-      }
-    }
-    if (translateLang && (subjectHeading || messageBody)) {
-      const saved = localStorage.getItem(LANG_KEY);
-      const code = saved === null ? "auto" : saved;
-      if (code && code !== "off" && translateLang.querySelector('option[value="' + code + '"]')) {
-        translateLang.value = code;
-        translateMessage(code);
-      }
-      translateLang.addEventListener("change", function () {
-        if (!translateLang.value) localStorage.setItem(LANG_KEY, "off");
-        translateMessage(translateLang.value);
-      });
-    }
-    if (originalBtn) originalBtn.addEventListener("click", function () {
-      localStorage.setItem(LANG_KEY, "off");
-      showOriginal();
     });
   </script>
 </body>
