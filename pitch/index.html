@@ -216,6 +216,33 @@
     color: var(--ink-2);
   }
 
+  /* STORY */
+  .s-story .story {
+    margin-top: 36px;
+    max-width: 34em;
+    font-family: var(--display);
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.03em;
+    line-height: 1.28;
+  }
+  .s-story .story p + p { margin-top: 22px; }
+  .s-story .code {
+    font-family: var(--mono);
+    font-size: 0.72em;
+    letter-spacing: -0.02em;
+    color: var(--primary);
+    font-weight: 500;
+  }
+  .story-count {
+    margin-top: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-2);
+  }
+
   /* PROBLEM */
   .s-problem .head { margin-top: 28px; }
   .s-problem h2 { max-width: 16ch; }
@@ -843,6 +870,24 @@
       <div><strong>95%</strong><span>Merchant accuracy</span></div>
       <div><strong>42ms</strong><span>P95 latency</span></div>
     </div>
+  </section>
+
+  <!-- 100-WORD STORY -->
+  <section class="slide s-story" aria-label="100-word story">
+    <div class="bar">
+      <div class="brand">
+        <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M6 22 C 10 22, 12 18, 16 14 C 20 10, 24 8, 28 8 C 26 14, 22 20, 16 22 C 12 23, 8 24, 6 22 Z" fill="#F05A47"/><path d="M6 22 L4 26" stroke="#F05A47" stroke-width="2" stroke-linecap="round"/></svg>
+        Finch
+      </div>
+      <div class="bar-kicker">The story</div>
+    </div>
+    <p class="kicker" style="margin-top:22px">100 words</p>
+    <div class="story">
+      <p>Australian bank feeds still speak in codes. <span class="code">SQ *GRN MRKT SYD</span> is a grocer in Sydney, but the line does not say so. Customers cannot explain their money. Credit models inherit the noise. Retailers cannot see who was paid.</p>
+      <p>Finch, in Sydney, reads every transaction the way a person would. In under fifty milliseconds a raw string becomes a merchant, a category, a place and a behaviour. One API then powers wellness, affordability, rewards and a live view of the market.</p>
+      <p>The same primitives. Human review beside the models. 4.2 billion transactions already enriched. The feed, finally, makes sense.</p>
+    </div>
+    <p class="story-count">99 words</p>
   </section>
 
   <!-- 2 PROBLEM -->
