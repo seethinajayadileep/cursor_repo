@@ -35,6 +35,14 @@ FOLDERS = (
 TOKEN_TTL_SECONDS = 20 * 60
 FEED_TTL_SECONDS = 20
 FEED_CAP = 400
+_feed_gate: asyncio.Semaphore | None = None
+
+
+def _mail_feed_gate() -> asyncio.Semaphore:
+    global _feed_gate
+    if _feed_gate is None:
+        _feed_gate = asyncio.Semaphore(12)
+    return _feed_gate
 IST = ZoneInfo("Asia/Kolkata")
 _token_cache: dict[str, tuple[float, str]] = {}
 _feed_cache: dict[tuple, tuple[float, tuple]] = {}
@@ -204,58 +212,52 @@ async def collect_linked_inbox(
         return rows
 
     async def one(ref: store.MailboxRef) -> tuple[list[UnifiedItem], str | None, int]:
-        try:
-            account = store.get_account(ref.id, settings.session_secret)
-        except Exception:
-            return [], ref.email, 0
-        if not account:
-            return [], ref.email, 0
-        token = await _token_for_account(account)
-        if not token:
-            return [], ref.email, 0
-
-        async def load_messages() -> list[dict]:
-            if needle:
-                try:
-                    found = await graph.search_messages(token, needle, top=per_box)
-                except Exception:
-                    found = await graph.list_incoming_messages(token, top_per_folder=per_box)
-                    q = needle.lower()
-                    found = [
-                        message
-                        for message in found
-                        if q
-                        in " ".join(
-                            [
-                                str(message.get("subject") or ""),
-                                str(message.get("bodyPreview") or ""),
-                                sender_name(message),
-                                sender_email(message),
-                            ]
-                        ).lower()
-                    ]
-                for message in found:
-                    message["_incoming_folder"] = message.get("_incoming_folder") or "inbox"
-                return found
-            return await graph.list_incoming_messages(token, top_per_folder=per_box)
-
-        async def load_total() -> int:
+        async with _mail_feed_gate():
             try:
-                counts = await graph.folder_counts(token)
+                account = store.get_account(ref.id, settings.session_secret)
             except Exception:
-                return 0
-            return int(counts.get("inbox", {}).get("total") or 0) + int(
-                counts.get("junkemail", {}).get("total") or 0
-            )
+                return [], ref.email, 0
+            if not account:
+                return [], ref.email, 0
+            token = await _token_for_account(account)
+            if not token:
+                return [], ref.email, 0
 
-        try:
-            messages, total = await asyncio.wait_for(
-                asyncio.gather(load_messages(), load_total()),
-                timeout=12,
-            )
-        except (graph.GraphError, TimeoutError):
-            return [], ref.email, 0
-        return rows_from(ref, messages), None, total
+            async def load_messages() -> list[dict]:
+                if needle:
+                    try:
+                        found = await graph.search_messages(token, needle, top=per_box)
+                    except Exception:
+                        found = await graph.list_incoming_messages(token, top_per_folder=per_box)
+                        q = needle.lower()
+                        found = [
+                            message
+                            for message in found
+                            if q
+                            in " ".join(
+                                [
+                                    str(message.get("subject") or ""),
+                                    str(message.get("bodyPreview") or ""),
+                                    sender_name(message),
+                                    sender_email(message),
+                                ]
+                            ).lower()
+                        ]
+                    for message in found:
+                        message["_incoming_folder"] = message.get("_incoming_folder") or "inbox"
+                    return found
+                return await graph.list_incoming_messages(token, top_per_folder=per_box)
+
+            try:
+                messages = await asyncio.wait_for(load_messages(), timeout=12)
+            except (graph.GraphError, TimeoutError):
+                return [], ref.email, 0
+            total = 0
+            try:
+                total = await asyncio.wait_for(graph.inbox_and_junk_total(token), timeout=6)
+            except Exception:
+                total = 0
+            return rows_from(ref, messages), None, total
 
     results = await asyncio.gather(*(one(ref) for ref in chosen), return_exceptions=True)
     for ref, result in zip(chosen, results):

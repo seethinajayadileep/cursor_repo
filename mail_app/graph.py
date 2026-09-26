@@ -270,6 +270,19 @@ async def _well_known_count(access_token: str, folder: str) -> dict | None:
     return _count_pair(data)
 
 
+async def inbox_and_junk_total(access_token: str) -> int:
+    inbox, junk = await asyncio.gather(
+        _well_known_count(access_token, "inbox"),
+        _well_known_count(access_token, "junkemail"),
+    )
+    total = 0
+    if isinstance(inbox, dict):
+        total += inbox["total"]
+    if isinstance(junk, dict):
+        total += junk["total"]
+    return total
+
+
 async def folder_counts(access_token: str) -> dict[str, dict]:
     listed, inbox, junk = await asyncio.gather(
         _folder_list_counts(access_token),

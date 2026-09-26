@@ -509,6 +509,11 @@ def test_admin_all_mail_merges_linked_inboxes(monkeypatch) -> None:
         return {"inbox": {"unread": 1, "total": 80}, "junkemail": {"unread": 0, "total": 2}}
 
     monkeypatch.setattr("mail_app.app.graph.folder_counts", fake_counts)
+
+    async def fake_total(_token: str) -> int:
+        return 82
+
+    monkeypatch.setattr("mail_app.app.graph.inbox_and_junk_total", fake_total)
     client = TestClient(app, follow_redirects=False)
     client.post("/admin/login", data={"password": "openseasame"})
     directory = client.get("/admin")
@@ -619,10 +624,58 @@ def test_admin_all_mail_sorts_mixed_timestamps(monkeypatch) -> None:
         return {"inbox": {"total": 3}, "junkemail": {"total": 0}}
 
     monkeypatch.setattr("mail_app.app.graph.folder_counts", fake_counts)
+
+    async def fake_total(_token: str) -> int:
+        return 82
+
+    monkeypatch.setattr("mail_app.app.graph.inbox_and_junk_total", fake_total)
     refs = [ref for ref in store.list_mailbox_refs() if ref.id in {older.id, newer.id}]
     items, skipped, _total = asyncio.run(collect_linked_inbox(refs))
     assert skipped == []
     assert [item.subject for item in items] == ["New mail", "Old mail"]
+
+
+def test_mailbox_mail_stays_when_the_total_fails(monkeypatch) -> None:
+    import asyncio
+
+    from mail_app.app import collect_linked_inbox
+
+    box = store.upsert_account(
+        secret="test-secret-value-not-for-production",
+        owner_email="pat@example.com",
+        email="kept@example.com",
+        name="Kept",
+        refresh_token="refresh-token",
+    )
+
+    async def fake_token(_account) -> str:
+        return "token"
+
+    async def fake_list(_token: str, folder: str = "inbox", top: int = 80) -> list[dict]:
+        if folder != "inbox":
+            return []
+        return [
+            {
+                "id": "kept-1",
+                "subject": "Still here",
+                "from": {"emailAddress": {"name": "Sam", "address": "sam@example.com"}},
+                "receivedDateTime": "2026-09-21T12:00:00Z",
+                "bodyPreview": "body",
+                "isRead": False,
+            }
+        ]
+
+    async def broken_total(_token: str) -> int:
+        raise TimeoutError("folder total timed out")
+
+    monkeypatch.setattr("mail_app.app._token_for_account", fake_token)
+    monkeypatch.setattr("mail_app.app.graph.list_messages", fake_list)
+    monkeypatch.setattr("mail_app.app.graph.inbox_and_junk_total", broken_total)
+    refs = [ref for ref in store.list_mailbox_refs() if ref.id == box.id]
+    items, skipped, total = asyncio.run(collect_linked_inbox(refs))
+    assert skipped == []
+    assert [item.subject for item in items] == ["Still here"]
+    assert total == 0
 
 
 def test_admin_all_mail_captures_other_and_junk(monkeypatch) -> None:
@@ -674,6 +727,11 @@ def test_admin_all_mail_captures_other_and_junk(monkeypatch) -> None:
         return {"inbox": {"total": 4}, "junkemail": {"total": 1}}
 
     monkeypatch.setattr("mail_app.app.graph.folder_counts", fake_counts)
+
+    async def fake_total(_token: str) -> int:
+        return 82
+
+    monkeypatch.setattr("mail_app.app.graph.inbox_and_junk_total", fake_total)
     refs = [ref for ref in store.list_mailbox_refs() if ref.id == box.id]
     items, skipped, _total = asyncio.run(collect_linked_inbox(refs))
     assert skipped == []
