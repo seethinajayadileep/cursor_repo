@@ -45,3 +45,7 @@ Open `http://127.0.0.1:8000`, upload the PDF, download the `.docx` and evaluatio
 - `evaluation_report.md` — precision, recall, accuracy
 
 To add a PII type: write a detector in `detectors.py`, a fake generator in `replacements.py`, and gold examples in `gold_labels.json`.
+
+## Private Outlook inbox
+
+A separate app in `mail_app/` signs a user in with **Microsoft OAuth**, shows a large mailbox UI, and keeps connected accounts under unique `/a/<id>` URLs that still require a host sign-in. See [mail_app/README.md](mail_app/README.md).

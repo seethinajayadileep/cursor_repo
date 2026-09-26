@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: outlook-inbox
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    disk:
+      name: inbox-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: HTTPS_ONLY
+        value: "1"
+      - key: AZURE_TENANT_ID
+        value: common
+      - key: MAIL_DB_PATH
+        value: /data/accounts.sqlite
+      - key: AZURE_CLIENT_ID
+        sync: false
+      - key: AZURE_CLIENT_SECRET
+        sync: false
+      - key: SESSION_SECRET
+        sync: false
+      - key: PUBLIC_BASE_URL
+        sync: false
+      - key: REDIRECT_URI
+        sync: false

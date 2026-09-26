@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inbox</title>
+  <link rel="stylesheet" href="/static/mail.css?v=ist">
+</head>
+<body>
+  <div class="wrap">
+    <div class="top">
+      <div>
+        <h1>Inbox</h1>
+        <p class="muted">Signed in as {{ user.email }}</p>
+      </div>
+      <span class="muted">Connected</span>
+    </div>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <ul class="list">
+      {% for m in messages %}
+      <li class="item {% if not m.isRead %}unread{% endif %}">
+        <a href="{{ mail_href(m) }}">
+          <div class="subject">{{ m.subject or "(no subject)" }}</div>
+          <div class="meta">{{ sender_name(m) }} · {{ m.receivedDateTime|when }}</div>
+          <div class="meta">{{ m.bodyPreview }}</div>
+        </a>
+      </li>
+      {% else %}
+      <li class="item muted">No messages in Inbox.</li>
+      {% endfor %}
+    </ul>
+    <p class="note">Opening a message uses your session cookie. Another person cannot open this inbox with a shared URL.</p>
+  </div>
+</body>
+</html>

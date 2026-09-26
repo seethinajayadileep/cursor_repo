@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin directory — Host inbox</title>
+  <link rel="stylesheet" href="/static/mail.css?v=ist">
+</head>
+<body>
+  <div class="admin-shell">
+    <header class="admin-topbar">
+      <div class="topbar-left">
+        <div class="mark" aria-hidden="true"><span class="crest"></span></div>
+        <div class="rail-id">
+          <div class="topbar-title">Mailbox directory</div>
+          <div class="uid">{% if full_directory %}All connected mailboxes{% else %}Mailboxes for your signed-in operator account{% endif %}</div>
+        </div>
+      </div>
+      {% include "admin_nav.html" %}
+    </header>
+    <div class="admin-wrap">
+      <div class="admin-intro">
+        <h2>{{ mailboxes|length }} mailbox{% if mailboxes|length != 1 %}es{% endif %}</h2>
+        <p class="uid">Keep these access links private. Anyone with a link can read and write that mailbox. Reconnecting the same address keeps the same link. Only admin can sign out, by typing the admin password.</p>
+        <label class="search admin-box-search">
+          <span class="visually-hidden">Search mailboxes</span>
+          <input id="admin-box-search" type="search" placeholder="Search mailbox, name, or id" autocomplete="off">
+        </label>
+        {% if signout_error %}
+        <p class="error">That password is not correct. Sign out was cancelled.</p>
+        {% endif %}
+      </div>
+      {% if not mailboxes %}
+      <p class="empty">No mailboxes yet. Connect an account from the home page after signing in with Microsoft.</p>
+      {% else %}
+      <div class="admin-list">
+        <div class="admin-row admin-head" aria-hidden="true">
+          <div>Mailbox</div>
+          <div>Name</div>
+          {% if full_directory %}<div>Operator</div>{% endif %}
+          <div>Access link</div>
+          <div>Actions</div>
+        </div>
+        {% for box in mailboxes %}
+        <div class="admin-row{% if not full_directory %} no-operator{% endif %}" data-search="{{ box.email }} {{ box.name }} {{ box.id }} {{ box.owner_email }}">
+          <div class="admin-mail">
+            <span class="field-label">Mailbox</span>
+            <div class="acct-name email-clip" title="{{ box.email }}">{{ box.email }}</div>
+            <div class="uid email-clip" title="{{ box.id }}">{{ box.id }}</div>
+          </div>
+          <div class="admin-name">
+            <span class="field-label">Name</span>
+            <div class="email-clip" title="{{ box.name }}">{{ box.name }}</div>
+          </div>
+          {% if full_directory %}
+          <div class="admin-operator">
+            <span class="field-label">Operator</span>
+            <div class="uid email-clip" title="{{ box.owner_email }}">{{ box.owner_email }}</div>
+          </div>
+          {% endif %}
+          <div class="admin-link">
+            <span class="field-label">Access link</span>
+            <a class="email-clip" href="{{ account_url(box.id) }}" title="{{ account_url(box.id) }}">{{ account_url(box.id) }}</a>
+          </div>
+          <div class="admin-actions">
+            <button class="btn ghost copy-link" type="button" data-link="{{ account_url(box.id) }}">Copy link</button>
+            {% if password_login and full_directory %}
+            <form class="disconnect-form" method="post" action="/a/{{ box.id }}/disconnect" onsubmit="return confirm('Disconnect this mailbox? The saved link stops working. Mail stays in Microsoft.');">
+              <input name="password" type="password" required placeholder="Password" autocomplete="current-password" aria-label="Confirm admin password to disconnect {{ box.email }}">
+              <button class="btn ghost danger" type="submit">Disconnect</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  <script>
+    const boxSearch = document.getElementById("admin-box-search");
+    if (boxSearch) {
+      boxSearch.addEventListener("input", function () {
+        const q = boxSearch.value.toLowerCase();
+        document.querySelectorAll(".admin-row").forEach(function (row) {
+          if (row.classList.contains("admin-head")) return;
+          const hay = (row.getAttribute("data-search") || "").toLowerCase();
+          row.style.display = hay.indexOf(q) === -1 ? "none" : "";
+        });
+      });
+    }
+    document.querySelectorAll(".copy-link").forEach(function (button) {
+      button.addEventListener("click", async function () {
+        const link = button.getAttribute("data-link") || "";
+        try {
+          await navigator.clipboard.writeText(link);
+          button.textContent = "Copied";
+          setTimeout(function () { button.textContent = "Copy link"; }, 1600);
+        } catch (err) {
+          button.textContent = "Copy failed";
+        }
+      });
+    });
+  </script>
+</body>
+</html>
