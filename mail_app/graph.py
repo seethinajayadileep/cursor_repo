@@ -112,6 +112,8 @@ async def list_messages(access_token: str, folder: str = "inbox", top: int = 100
                 _prefer_safe_select = True
             if exc.status_code in {401, 403, 404}:
                 raise
+        except httpx.TimeoutException:
+            last_error = GraphError(504, "Outlook did not respond in time")
     if last_error:
         raise last_error
     return []

@@ -249,7 +249,7 @@ async def collect_linked_inbox(
                 return await graph.list_incoming_messages(token, top_per_folder=per_box)
 
             try:
-                messages = await asyncio.wait_for(load_messages(), timeout=12)
+                messages = await asyncio.wait_for(load_messages(), timeout=20)
             except (graph.GraphError, TimeoutError):
                 return [], ref.email, 0
             total = 0
@@ -827,7 +827,11 @@ async def account_inbox(request: Request, account_id: str):
     if isinstance(count_result, dict):
         counts = count_result
     if isinstance(message_result, Exception):
-        error = "Could not load this mailbox. Connect the account again."
+        denied = isinstance(message_result, graph.GraphError) and message_result.status_code in {401, 403}
+        if denied:
+            error = "Could not load this mailbox. Connect the account again."
+        else:
+            error = "Outlook did not answer in time. Refresh the page."
     else:
         messages = message_result
         if folder == "inbox":

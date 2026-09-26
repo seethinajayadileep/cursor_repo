@@ -1074,6 +1074,42 @@ def test_list_messages_retries_without_other_field() -> None:
     assert any("inferenceClassification" not in select for select in calls)
 
 
+def test_list_messages_retries_after_a_timeout() -> None:
+    import asyncio
+
+    import httpx
+
+    from mail_app import graph
+
+    graph._prefer_safe_select = False
+    calls: list[str] = []
+
+    async def fake_get(_token: str, path: str, params: dict | None = None) -> dict:
+        select = (params or {}).get("$select") or ""
+        calls.append(select)
+        if "inferenceClassification" in select:
+            raise httpx.TimeoutException("slow")
+        return {
+            "value": [
+                {
+                    "id": "kept",
+                    "subject": "Kept",
+                    "receivedDateTime": "2026-09-21T12:00:00Z",
+                }
+            ]
+        }
+
+    orig = graph.graph_get
+    graph.graph_get = fake_get  # type: ignore[assignment]
+    try:
+        messages = asyncio.run(graph.list_messages("token"))
+    finally:
+        graph.graph_get = orig
+        graph._prefer_safe_select = False
+    assert [item["id"] for item in messages] == ["kept"]
+    assert len(calls) >= 2
+
+
 def test_translate_chunks_keep_every_character() -> None:
     from mail_app.translate import _chunks
 
