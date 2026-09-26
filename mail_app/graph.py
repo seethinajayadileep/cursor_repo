@@ -199,36 +199,91 @@ async def list_incoming_messages(access_token: str, top_per_folder: int = 20) ->
     return sort_newest_first(incoming)
 
 
-async def folder_counts(access_token: str) -> dict[str, dict]:
-    data = await graph_get(
-        access_token,
-        "/me/mailFolders",
-        params={
-            "$top": "40",
-            "$select": "displayName,unreadItemCount,totalItemCount,wellKnownName",
-        },
-    )
-    aliases = {
-        "inbox": "inbox",
-        "sentitems": "sentitems",
-        "sent items": "sentitems",
-        "drafts": "drafts",
-        "junkemail": "junkemail",
-        "junk email": "junkemail",
-        "deleteditems": "deleteditems",
-        "deleted items": "deleteditems",
+_FOLDER_ALIASES = {
+    "inbox": "inbox",
+    "sentitems": "sentitems",
+    "sent items": "sentitems",
+    "drafts": "drafts",
+    "junkemail": "junkemail",
+    "junk email": "junkemail",
+    "deleteditems": "deleteditems",
+    "deleted items": "deleteditems",
+}
+
+
+def _folder_key(folder: dict) -> str:
+    known = (folder.get("wellKnownName") or "").lower()
+    name = (folder.get("displayName") or "").lower()
+    return _FOLDER_ALIASES.get(known) or _FOLDER_ALIASES.get(name) or ""
+
+
+def _count_pair(folder: dict) -> dict:
+    return {
+        "unread": int(folder.get("unreadItemCount") or 0),
+        "total": int(folder.get("totalItemCount") or 0),
     }
+
+
+async def _folder_list_counts(access_token: str) -> dict[str, dict]:
     mapped: dict[str, dict] = {}
-    for folder in data.get("value") or []:
-        known = (folder.get("wellKnownName") or "").lower()
-        name = (folder.get("displayName") or "").lower()
-        key = aliases.get(known) or aliases.get(name)
-        if not key:
-            continue
-        mapped[key] = {
-            "unread": int(folder.get("unreadItemCount") or 0),
-            "total": int(folder.get("totalItemCount") or 0),
-        }
+    path = "/me/mailFolders"
+    params: dict | None = {
+        "$top": "100",
+        "$select": "displayName,unreadItemCount,totalItemCount,wellKnownName",
+    }
+    for _ in range(10):
+        try:
+            data = await graph_get(access_token, path, params=params)
+        except GraphError as exc:
+            if (
+                exc.status_code == 400
+                and params
+                and "wellKnownName" in str(params.get("$select") or "")
+            ):
+                params = {
+                    "$top": "100",
+                    "$select": "displayName,unreadItemCount,totalItemCount",
+                }
+                continue
+            raise
+        for folder in data.get("value") or []:
+            key = _folder_key(folder)
+            if key:
+                mapped[key] = _count_pair(folder)
+        next_link = str(data.get("@odata.nextLink") or "")
+        if not next_link.startswith(GRAPH):
+            break
+        path = next_link[len(GRAPH) :]
+        params = None
+    return mapped
+
+
+async def _well_known_count(access_token: str, folder: str) -> dict | None:
+    try:
+        data = await graph_get(
+            access_token,
+            f"/me/mailFolders/{folder}",
+            params={"$select": "totalItemCount,unreadItemCount"},
+        )
+    except GraphError:
+        return None
+    return _count_pair(data)
+
+
+async def folder_counts(access_token: str) -> dict[str, dict]:
+    listed, inbox, junk = await asyncio.gather(
+        _folder_list_counts(access_token),
+        _well_known_count(access_token, "inbox"),
+        _well_known_count(access_token, "junkemail"),
+        return_exceptions=True,
+    )
+    mapped = listed if isinstance(listed, dict) else {}
+    if isinstance(inbox, dict):
+        mapped["inbox"] = inbox
+    if isinstance(junk, dict):
+        mapped["junkemail"] = junk
+    if not mapped:
+        raise GraphError(502, "could not read folder totals")
     return mapped
 
 

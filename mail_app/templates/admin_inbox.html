@@ -23,7 +23,7 @@
         <section class="allmail-col">
           <div class="admin-intro allmail-intro">
             <h2>{% if q %}{{ items|length }} match{% if items|length != 1 %}es{% endif %}{% else %}{{ incoming_total or items|length }} message{% if (incoming_total or items|length) != 1 %}s{% endif %}{% endif %}</h2>
-            <p class="uid">{% if q %}Search looks through each linked mailbox, not only the newest rows.{% else %}Inbox and Junk totals from Microsoft.{% if incoming_total > items|length %} Showing the newest {{ items|length }}.{% endif %}{% endif %} Open a row to read it here.</p>
+            <p class="uid">{% if q %}Search looks through each linked mailbox, not only the newest rows.{% else %}Inbox and Junk message totals from Microsoft.{% if incoming_total > items|length %} Showing the newest {{ items|length }}.{% endif %}{% endif %} Open a row to read it here.</p>
             <form class="allmail-filters" method="get" action="/admin/inbox">
               <label class="search">
                 <span class="visually-hidden">Search all mail</span>

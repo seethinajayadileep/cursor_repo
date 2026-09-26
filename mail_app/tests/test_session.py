@@ -192,6 +192,10 @@ def test_folder_counts_maps_well_known_names() -> None:
     import asyncio
 
     async def fake_get(_token: str, path: str, params: dict | None = None) -> dict:
+        if path == "/me/mailFolders/inbox":
+            return {"unreadItemCount": 3, "totalItemCount": 91}
+        if path == "/me/mailFolders/junkemail":
+            return {"unreadItemCount": 1, "totalItemCount": 4}
         assert path == "/me/mailFolders"
         return {
             "value": [
@@ -209,7 +213,33 @@ def test_folder_counts_maps_well_known_names() -> None:
     finally:
         graph.graph_get = orig
     assert counts["inbox"]["unread"] == 3
+    assert counts["inbox"]["total"] == 91
+    assert counts["junkemail"]["total"] == 4
     assert counts["sentitems"]["total"] == 12
+
+
+def test_folder_counts_reads_inbox_when_the_folder_list_fails() -> None:
+    import asyncio
+
+    async def fake_get(_token: str, path: str, params: dict | None = None) -> dict:
+        if path == "/me/mailFolders":
+            raise graph.GraphError(400, "folder list rejected")
+        if path == "/me/mailFolders/inbox":
+            return {"unreadItemCount": 2, "totalItemCount": 640}
+        if path == "/me/mailFolders/junkemail":
+            return {"unreadItemCount": 0, "totalItemCount": 15}
+        raise graph.GraphError(404, path)
+
+    from mail_app import graph
+
+    orig = graph.graph_get
+    graph.graph_get = fake_get  # type: ignore[assignment]
+    try:
+        counts = asyncio.run(graph.folder_counts("token"))
+    finally:
+        graph.graph_get = orig
+    assert counts["inbox"]["total"] == 640
+    assert counts["junkemail"]["total"] == 15
 
 
 def test_list_messages_puts_newest_first() -> None:
