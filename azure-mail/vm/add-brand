@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+set -euo pipefail
+DIR="$(cd "$(dirname "$0")" && pwd)"
+PY="$DIR/add_brand.py"
+[[ -f "$PY" ]] || PY=/usr/local/lib/azure-mail/add_brand.py
+export AZURE_MAIL_ENV="${AZURE_MAIL_ENV:-/etc/azure-mail/brand.env}"
+exec python3 "$PY" "$@"

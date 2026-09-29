@@ -114,27 +114,42 @@ Default admin: `admin` / `moohoo` — **change immediately**.
 Then: **Mail setup → Domains → add domain → Mailboxes → hello@…**  
 Optional catch-all. For each domain, set the Mailcow “sender-dependent transport” is not required; `extra.cf` already relays **all** outgoing mail through ACS.
 
-## Extra domains (Mailcow UI + one script, no portal)
+## Extra domains (one command on the mail VM)
 
-Mailcow **is** the mail panel (like a private host): domains, mailboxes, aliases, webmail. Azure is only the outbound relay.
+Mailcow is the mail panel. Azure is only the outbound relay. For 10+ brands you do **not** open the portal and you do **not** re-link SMTP.
 
-For a new brand `example.com`:
+**Once** on `mail.seethinajayadileep.dev`:
 
-1. **Mailcow** (https://mail.yourbrand.com/admin): Domains → add `example.com` → **Add domain and restart SOGo**. Mailboxes → `hi@example.com`.
-2. **DNS receive:** MX `@` → `mail.yourbrand.com` priority 10.
-3. **DNS send + ACS** from Cloud Shell (prints the records, waits, links the domain, adds MailFrom `hi`):
+1. Mailcow admin → **Configuration → Access → API** → enable, generate key, allow `127.0.0.1`.
+2. Entra app + client secret with **Contributor** on resource group `mailboxRg`.
+3. Install the helper:
 
 ```bash
-cd azure-mail
-chmod +x add-send-domain.sh
-./add-send-domain.sh example.com hi
+sudo mkdir -p /etc/azure-mail /usr/local/lib/azure-mail
+sudo cp azure-mail/vm/add_brand.py /usr/local/lib/azure-mail/
+sudo cp azure-mail/vm/add-brand /usr/local/sbin/add-brand
+sudo chmod 755 /usr/local/sbin/add-brand
+sudo cp azure-mail/vm/brand.env.example /etc/azure-mail/brand.env
+sudo chmod 600 /etc/azure-mail/brand.env
+sudo nano /etc/azure-mail/brand.env   # AZURE_*, MAILCOW_API_KEY, optional NAMECOM_*
 ```
 
-Override live resource names if needed: `RESOURCE_GROUP` `ACS_NAME` `EMAIL_NAME` `MAIL_HOSTNAME`. Defaults match `mailboxRg` / `mailboxCs` / `mail-box` / `mail.seethinajayadileep.dev`.
+Then each brand:
 
-You still paste DNS at the registrar once (every host does: Google Workspace, Microsoft 365, Mailcow). You do **not** click Azure Email → SMTP → Connect after the first setup.
+```bash
+sudo add-brand otherbrand.com hi
+sudo add-brand third.com support --password 'YourPass12'
+```
 
-Azure-managed domain (`*.azurecomm.net`) is enough to prove send before you touch your real domains.
+That creates the Mailcow domain + mailbox (and restarts SOGo), creates the ACS custom domain, applies MX/SPF/DKIM at Name.com if `NAMECOM_USER`/`NAMECOM_TOKEN` are set, waits until Verified, **appends** `linkedDomains` on `mailboxCs`, and adds MailFrom. It prints the webmail URL and password.
+
+If Name.com is not set, paste the printed DNS rows once at the registrar (apex SPF on `@`, not `domain.domain`). Re-run the same command if verify was still pending.
+
+Cloud Shell fallback (Azure only): `./add-send-domain.sh otherbrand.com hi`
+
+ACS MailFrom quota is often **1 per domain** (DoNotReply). The first extra user on a new domain may need DoNotReply renamed to `hi`.
+
+Azure-managed `*.azurecomm.net` is enough to prove send before you add real domains.
 
 ## What this does not do
 
@@ -151,7 +166,8 @@ Azure-managed domain (`*.azurecomm.net`) is enough to prove send before you touc
 | `vm/install-mailcow.sh` | Docker Mailcow + Postfix ACS relay |
 | `verify.sh` | Port 25 vs 587 checks |
 | `test_acs_send.py` | Authenticated send test |
-| `add-send-domain.sh` | Extra domain: ACS verify + link + MailFrom (no portal) |
+| `add-send-domain.sh` | Extra domain: ACS verify + link + MailFrom (Cloud Shell) |
+| `vm/add_brand.py` | One command on the mail VM: Mailcow + ACS + optional Name.com |
 
 If `az ad app create` is denied, create an app registration in Entra, add a client secret, assign **Contributor** on the ACS resource, create an **SMTP username** on ACS, then put username/secret in the VM file `/opt/mailcow-dockerized/data/conf/postfix/sasl_passwd` and restart:
 
