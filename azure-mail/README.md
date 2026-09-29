@@ -22,23 +22,44 @@ No per-mailbox fee. Extra domains are free on this VM.
 
 ## What you need
 
-1. Azure CLI: https://aka.ms/installazurecli
-2. `az login` on the subscription that holds the credit
-3. Permission to create a resource group, a VM, ACS, and an Entra app (for SMTP)
-4. One hostname you control, e.g. `mail.yourbrand.com`
-5. About 20 minutes after DNS
+**Use Ubuntu.** It is free, the fastest path, and the same OS as the mail VM.
+
+| Piece | Best choice |
+|---|---|
+| Your PC | **Ubuntu 22.04 or 24.04 LTS** (desktop, laptop, or Windows **WSL2 Ubuntu**) |
+| Azure VM | **Ubuntu 22.04 LTS** (already set in `infra/main.bicep`) |
+| Azure region | **Central India** if you are in India, else **East US** |
+
+Windows works, but extra installs (Git Bash, PATH, line endings) slow you down. Ubuntu: `apt` installs Azure CLI, Git, Python, SSH in one go and `deploy.sh` runs as-is.
+
+On Ubuntu PC:
+
+```bash
+sudo apt update
+sudo apt install -y azure-cli git python3 openssh-client
+az login
+```
+
+If the PC is Windows only: install [WSL2](https://learn.microsoft.com/en-us/windows/wsl/install), pick **Ubuntu**, then use those same commands inside Ubuntu.
+
+Also:
+
+1. `az login` on the subscription that holds the $1000 credit
+2. Permission to create a resource group, a VM, ACS, and an Entra app (for SMTP)
+3. One hostname you control, e.g. `mail.yourbrand.com`
+4. About 20 minutes after DNS
 
 ## Deploy
 
-From a PC with Azure CLI (not required inside GitHub):
+From **Ubuntu** (or Ubuntu WSL) with Azure CLI:
 
 ```bash
 cd azure-mail
 chmod +x deploy.sh vm/install-mailcow.sh verify.sh
-MAIL_HOSTNAME=mail.yourbrand.com ./deploy.sh
+LOCATION=centralindia MAIL_HOSTNAME=mail.yourbrand.com ./deploy.sh
 ```
 
-Optional env: `RESOURCE_GROUP`, `LOCATION` (default `eastus`), `DATA_LOCATION` (`United States`).
+Use `LOCATION=eastus` if Central India is not available. Optional env: `RESOURCE_GROUP`, `DATA_LOCATION` (`United States`).
 
 `deploy.sh` will:
 

@@ -27,7 +27,7 @@ echo "$SUB_STATE"
 
 MAIL_HOSTNAME="${MAIL_HOSTNAME:?Set MAIL_HOSTNAME=mail.yourdomain.com (A record FQDN, not the mailbox domain only)}"
 RG="${RESOURCE_GROUP:-rg-azure-mail}"
-LOCATION="${LOCATION:-eastus}"
+LOCATION="${LOCATION:-centralindia}"
 DATA_LOCATION="${DATA_LOCATION:-United States}"
 VM_SIZE="${VM_SIZE:-Standard_B2ms}"
 ADMIN_USER="${ADMIN_USER:-azureuser}"
