@@ -200,10 +200,9 @@ echo "1) DNS for RECEIVE (every mailbox domain):"
 echo "     MX   @   $MAIL_HOSTNAME.   priority 10"
 echo "     A    mail  $IP     (if not done)"
 echo
-echo "2) DNS for SEND (ACS custom domain — portal):"
-echo "     Email Communication Service -> Domains -> Add custom domain"
-echo "     Paste the SPF + DKIM ACS shows (do NOT use the VM IP in SPF)."
-echo "     From-address must be that verified domain."
+echo "2) DNS for SEND (ACS custom domain):"
+echo "     ./add-send-domain.sh yourdomain.com hi"
+echo "     (prints TXT/SPF/DKIM, verifies, links mailboxCs, adds MailFrom hi@)"
 echo
 echo "3) Immediate SEND TEST (Azure managed domain):"
 echo "     From:  DoNotReply@${FROM_DOMAIN}"

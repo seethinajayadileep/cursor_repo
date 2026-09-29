@@ -82,7 +82,7 @@ Credentials land in `azure-mail/.env` (gitignored). SSH key in `azure-mail/keys/
 
 Turn **off** Cloudflare proxy (grey cloud) on `mail`.
 
-**Send** — add a **custom domain** on the Email Communication Service in the Azure portal. Paste the SPF + DKIM ACS shows. The From address in Mailcow must be that verified domain (or `DoNotReply@xxxx.azurecomm.net` for a first test).
+**Send** — each From-domain must be verified on Azure Communication Services (Azure blocks VM port 25). Do that from Cloud Shell with `add-send-domain.sh` instead of the portal (see below). The From address in Mailcow must be a MailFrom on that verified, **linked** domain (or `DoNotReply@xxxx.azurecomm.net` for a first test).
 
 After the A record exists:
 
@@ -114,12 +114,25 @@ Default admin: `admin` / `moohoo` — **change immediately**.
 Then: **Mail setup → Domains → add domain → Mailboxes → hello@…**  
 Optional catch-all. For each domain, set the Mailcow “sender-dependent transport” is not required; `extra.cf` already relays **all** outgoing mail through ACS.
 
-## Portal extras (first custom domain)
+## Extra domains (Mailcow UI + one script, no portal)
 
-1. Azure Portal → **Email Communication Service** → **Provision domains** → **Custom domain**
-2. Add the TXT verify record, then SPF + two DKIM CNAMEs ACS lists
-3. Connect that domain on the **Communication Services** resource if it is not linked
-4. In Mailcow, send as `hello@that-domain.com`
+Mailcow **is** the mail panel (like a private host): domains, mailboxes, aliases, webmail. Azure is only the outbound relay.
+
+For a new brand `example.com`:
+
+1. **Mailcow** (https://mail.yourbrand.com/admin): Domains → add `example.com` → **Add domain and restart SOGo**. Mailboxes → `hi@example.com`.
+2. **DNS receive:** MX `@` → `mail.yourbrand.com` priority 10.
+3. **DNS send + ACS** from Cloud Shell (prints the records, waits, links the domain, adds MailFrom `hi`):
+
+```bash
+cd azure-mail
+chmod +x add-send-domain.sh
+./add-send-domain.sh example.com hi
+```
+
+Override live resource names if needed: `RESOURCE_GROUP` `ACS_NAME` `EMAIL_NAME` `MAIL_HOSTNAME`. Defaults match `mailboxRg` / `mailboxCs` / `mail-box` / `mail.seethinajayadileep.dev`.
+
+You still paste DNS at the registrar once (every host does: Google Workspace, Microsoft 365, Mailcow). You do **not** click Azure Email → SMTP → Connect after the first setup.
 
 Azure-managed domain (`*.azurecomm.net`) is enough to prove send before you touch your real domains.
 
@@ -138,6 +151,7 @@ Azure-managed domain (`*.azurecomm.net`) is enough to prove send before you touc
 | `vm/install-mailcow.sh` | Docker Mailcow + Postfix ACS relay |
 | `verify.sh` | Port 25 vs 587 checks |
 | `test_acs_send.py` | Authenticated send test |
+| `add-send-domain.sh` | Extra domain: ACS verify + link + MailFrom (no portal) |
 
 If `az ad app create` is denied, create an app registration in Entra, add a client secret, assign **Contributor** on the ACS resource, create an **SMTP username** on ACS, then put username/secret in the VM file `/opt/mailcow-dockerized/data/conf/postfix/sasl_passwd` and restart:
 
