@@ -20,6 +20,8 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(recs[0].value, "mail.seethinajayadileep.dev.")
         self.assertEqual(recs[0].priority, 10)
         self.assertEqual(format_records(recs)[0]["host"], "@")
+        self.assertEqual(recs[-1].kind, "DMARC")
+        self.assertEqual(recs[-1].host, "_dmarc")
 
     def test_dns_rows_skip_empty(self):
         from lib_brand import dns_rows, records_ready
@@ -67,7 +69,8 @@ class RecordTests(unittest.TestCase):
         rows = lookup_dns({"MAIL_HOSTNAME": "mail.example.com"}, "brand.com")
         self.assertEqual(rows[0]["type"], "MX")
         self.assertEqual(rows[0]["value"], "mail.example.com.")
-        self.assertEqual(len(rows), 1)
+        self.assertEqual(len(rows), 2)
+        self.assertEqual(rows[-1]["host"], "_dmarc")
 
 
 if __name__ == "__main__":

@@ -386,7 +386,15 @@ def wait_acs_domain(env: dict[str, str], dom_id: str, log: LogFn) -> dict:
 
 def mail_records(domain: str, mail_host: str, acs_rows: list[DnsRecord]) -> list[DnsRecord]:
     mx = DnsRecord(type="MX", host="", value=mail_host.rstrip(".") + ".", priority=10, kind="MX")
-    return [mx, *acs_rows]
+    dmarc = DnsRecord(type="TXT", host="_dmarc", value="v=DMARC1; p=none;", kind="DMARC")
+    return [mx, *acs_rows, dmarc]
+
+
+def paste_block(recs: list[dict]) -> str:
+    lines = ["Type\tHost\tPriority\tValue"]
+    for r in recs:
+        lines.append(f"{r.get('type','')}\t{r.get('host','@')}\t{r.get('priority') or ''}\t{r.get('value','')}")
+    return "\n".join(lines)
 
 
 def log_dns(recs: list[DnsRecord], log: LogFn) -> None:

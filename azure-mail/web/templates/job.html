@@ -38,19 +38,26 @@ function checksHtml(st) {
 }
 function dnsTable(records, verified) {
   if (!records || !records.length) return '';
-  const rows = records.map(r => `<tr>
-    <td>${r.type}</td>
+  const rows = records.map(r => {
+    const line = `${r.type}\t${r.host || '@'}\t${r.priority ?? ''}\t${r.value}`;
+    return `<tr>
+    <td>${r.type}${r.kind ? ' <span class="muted">(' + r.kind + ')</span>' : ''}</td>
     <td><code>${r.host || '@'}</code></td>
     <td>${r.priority ?? '—'}</td>
     <td class="val"><code>${r.value}</code></td>
-  </tr>`).join('');
+    <td><button type="button" class="ghost copy-btn" data-copy="${encodeURIComponent(line)}">Copy</button></td>
+  </tr>`;
+  }).join('');
+  const paste = records.map(r => `${r.type}\t${r.host || '@'}\t${r.priority ?? ''}\t${r.value}`).join('\n');
   const title = verified ? 'Already on the domain (reference)' : 'DNS to add at your domain provider';
   const hint = verified
     ? 'You do not need to add these again.'
-    : 'Add every row at the registrar, then Verify again.';
+    : 'Copy Host + Value into the registrar. DS is only if you enable DNSSEC there — Azure does not publish DS.';
   return `<div class="card dns"><h2>${title}</h2><p class="muted">${hint}</p>
-    <table><thead><tr><th>Type</th><th>Host</th><th>Priority</th><th>Value</th></tr></thead>
-    <tbody>${rows}</tbody></table></div>`;
+    <table><thead><tr><th>Type</th><th>Host</th><th>Priority</th><th>Value</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    <label>Paste-all<textarea readonly rows="8" id="paste-all">${paste}</textarea></label>
+    <button type="button" class="ghost" id="copy-all">Copy all rows</button></div>`;
 }
 async function tick() {
   const r = await fetch(url);
@@ -69,6 +76,22 @@ async function tick() {
     const box = document.getElementById('dns');
     box.classList.remove('hidden');
     box.innerHTML = dnsTable(recs, verified);
+    box.querySelectorAll('.copy-btn').forEach(function (b) {
+      b.addEventListener('click', async function () {
+        await navigator.clipboard.writeText(b.getAttribute('data-copy') || '');
+        b.textContent = 'Copied';
+        setTimeout(function () { b.textContent = 'Copy'; }, 1200);
+      });
+    });
+    const all = box.querySelector('#copy-all');
+    const ta = box.querySelector('#paste-all');
+    if (all && ta) {
+      all.addEventListener('click', async function () {
+        await navigator.clipboard.writeText(ta.value);
+        all.textContent = 'Copied all';
+        setTimeout(function () { all.textContent = 'Copy all rows'; }, 1200);
+      });
+    }
   }
   if (j.status === 'running') {
     document.getElementById('status').textContent = 'Working…';

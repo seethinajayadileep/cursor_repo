@@ -3,21 +3,52 @@
   {% if verified %}
   <p class="muted">You do not need to add these again. This is only a copy of what Azure verified.</p>
   {% else %}
-  <p class="muted">Open Hostinger / GoDaddy / Name.com / Spaceship DNS and add every row. Host <code>@</code> is the root. Do not use <code>domain.domain</code>.</p>
+  <p class="muted">Copy Host and Value into Spaceship / Hostinger / GoDaddy. Host <code>@</code> is the root. DS (DNSSEC) is created at the registrar if you turn DNSSEC on — Azure does not give a DS value.</p>
   {% endif %}
   <table>
     <thead>
-      <tr><th>Type</th><th>Host</th><th>Priority</th><th>Value</th></tr>
+      <tr><th>Type</th><th>Host</th><th>Priority</th><th>Value</th><th></th></tr>
     </thead>
     <tbody>
       {% for r in records %}
       <tr>
-        <td>{{ r.type }}</td>
+        <td>{{ r.type }}{% if r.kind %} <span class="muted">({{ r.kind }})</span>{% endif %}</td>
         <td><code>{{ r.host }}</code></td>
         <td>{{ r.priority if r.priority is defined else "—" }}</td>
         <td class="val"><code>{{ r.value }}</code></td>
+        <td><button type="button" class="ghost copy-btn" data-copy="{{ r.type }}	{{ r.host }}	{{ r.priority or '' }}	{{ r.value }}">Copy</button></td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+  <label>Paste-all (tab-separated)
+    <textarea id="paste-all" readonly rows="8">{% for r in records %}{{ r.type }}	{{ r.host }}	{{ r.priority or '' }}	{{ r.value }}
+{% endfor %}</textarea>
+  </label>
+  <button type="button" class="ghost" id="copy-all">Copy all rows</button>
 </div>
+<script>
+(function () {
+  async function copy(t) {
+    try { await navigator.clipboard.writeText(t); } catch (e) {
+      const x = document.createElement('textarea'); x.value = t; document.body.appendChild(x); x.select(); document.execCommand('copy'); x.remove();
+    }
+  }
+  document.querySelectorAll('.copy-btn').forEach(function (b) {
+    b.addEventListener('click', function () {
+      copy(b.getAttribute('data-copy') || '');
+      b.textContent = 'Copied';
+      setTimeout(function () { b.textContent = 'Copy'; }, 1200);
+    });
+  });
+  var all = document.getElementById('copy-all');
+  var box = document.getElementById('paste-all');
+  if (all && box) {
+    all.addEventListener('click', function () {
+      copy(box.value);
+      all.textContent = 'Copied all';
+      setTimeout(function () { all.textContent = 'Copy all rows'; }, 1200);
+    });
+  }
+})();
+</script>
