@@ -15,6 +15,7 @@ from typing import Callable
 
 ENV_PATH = Path(os.environ.get("AZURE_MAIL_ENV", "/etc/azure-mail/brand.env"))
 PROVIDERS_PATH = Path(os.environ.get("AZURE_MAIL_PROVIDERS", "/etc/azure-mail/providers.json"))
+DOMAINS_PATH = Path(os.environ.get("AZURE_MAIL_DOMAINS", "/etc/azure-mail/domains.json"))
 API_EMAIL = "2023-03-31"
 API_ACS = "2025-09-01"
 MGMT = "https://management.azure.com"
@@ -134,6 +135,93 @@ def load_providers(path: Path | None = None) -> dict:
     except json.JSONDecodeError:
         return {}
     return data if isinstance(data, dict) else {}
+
+
+def load_domains(path: Path | None = None) -> dict:
+    path = path or DOMAINS_PATH
+    if not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text())
+    except json.JSONDecodeError:
+        return {}
+    return data if isinstance(data, dict) else {}
+
+
+def save_domain(info: dict, path: Path | None = None) -> None:
+    path = path or DOMAINS_PATH
+    store = load_domains(path)
+    domain = (info.get("domain") or "").lower()
+    if domain:
+        store[domain] = info
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(store, indent=2) + "\n")
+        os.chmod(path, 0o600)
+
+
+def acs_paths(env: dict[str, str], domain: str) -> tuple[str, str, str, str]:
+    sub = env.get("AZURE_SUBSCRIPTION_ID") or ""
+    rg = env.get("RESOURCE_GROUP") or "mailboxRg"
+    email = env.get("EMAIL_NAME") or "mail-box"
+    acs = env.get("ACS_NAME") or "mailboxCs"
+    email_id = (
+        f"/subscriptions/{sub}/resourceGroups/{rg}/providers/"
+        f"Microsoft.Communication/emailServices/{email}"
+    )
+    acs_id = (
+        f"/subscriptions/{sub}/resourceGroups/{rg}/providers/"
+        f"Microsoft.Communication/CommunicationServices/{acs}"
+    )
+    return email_id, acs_id, f"{email_id}/domains/{domain}", f"{email_id}/domains/AzureManagedDomain"
+
+
+def verification_status(env: dict[str, str], domain: str) -> dict[str, str]:
+    _email_id, _acs_id, dom_id, _managed = acs_paths(env, domain)
+    d = az(env, "GET", dom_id, API_EMAIL)
+    vs = (d.get("properties") or {}).get("verificationStates") or {}
+    return {k: (vs.get(k) or {}).get("status") or "Unknown" for k in ("Domain", "SPF", "DKIM", "DKIM2")}
+
+
+def verify_acs(env: dict[str, str], domain: str, locals_: list[str], log: LogFn) -> dict[str, str]:
+    """User clicked Verify after pasting DNS at the registrar."""
+    _email_id, acs_id, dom_id, managed = acs_paths(env, domain)
+    for kind in ("Domain", "SPF", "DKIM", "DKIM2"):
+        try:
+            az(env, "POST", f"{dom_id}/initiateVerification", API_EMAIL, {"verificationType": kind})
+            log(f"Asked Azure to check {kind}")
+        except RuntimeError as e:
+            log(f"  {kind}: {e}")
+    ok = False
+    st: dict[str, str] = {}
+    for i in range(1, 13):
+        st = verification_status(env, domain)
+        log(f"  [{i}] {st}")
+        if all(v == "Verified" for v in st.values()):
+            ok = True
+            break
+        time.sleep(15)
+    if not ok:
+        return st
+    log("Linking domain to Azure send…")
+    cur = az(env, "GET", acs_id, API_ACS)
+    linked = list((cur.get("properties") or {}).get("linkedDomains") or [])
+    for extra in (managed, dom_id):
+        if extra not in linked:
+            linked.append(extra)
+    az(env, "PATCH", acs_id, API_ACS, {"properties": {"linkedDomains": linked}})
+    for user in locals_:
+        try:
+            az(
+                env,
+                "PUT",
+                f"{dom_id}/senderUsernames/{user}",
+                API_EMAIL,
+                {"properties": {"username": user, "displayName": user}},
+            )
+            log(f"  MailFrom {user}@{domain}")
+        except RuntimeError as e:
+            log(f"  MailFrom {user}@{domain}: {e}")
+    return st
 
 
 def save_providers(data: dict, path: Path | None = None) -> None:
@@ -639,24 +727,11 @@ def add_acs(
     provider: str,
     creds: dict,
     log: LogFn,
-    wait: bool = True,
+    wait: bool = False,
 ) -> list[DnsRecord]:
-    sub = env.get("AZURE_SUBSCRIPTION_ID") or ""
-    rg = env.get("RESOURCE_GROUP") or "mailboxRg"
-    email = env.get("EMAIL_NAME") or "mail-box"
-    acs = env.get("ACS_NAME") or "mailboxCs"
-    if not sub:
+    if not env.get("AZURE_SUBSCRIPTION_ID"):
         raise RuntimeError("AZURE_SUBSCRIPTION_ID is missing.")
-    email_id = (
-        f"/subscriptions/{sub}/resourceGroups/{rg}/providers/"
-        f"Microsoft.Communication/emailServices/{email}"
-    )
-    acs_id = (
-        f"/subscriptions/{sub}/resourceGroups/{rg}/providers/"
-        f"Microsoft.Communication/CommunicationServices/{acs}"
-    )
-    dom_id = f"{email_id}/domains/{domain}"
-    managed = f"{email_id}/domains/AzureManagedDomain"
+    _email_id, acs_id, dom_id, managed = acs_paths(env, domain)
 
     log("Creating Azure send domain…")
     az(
@@ -676,55 +751,9 @@ def add_acs(
         return recs
     log_dns(recs, log)
     apply_dns(provider, creds, domain, recs, log)
-
-    for kind in ("Domain", "SPF", "DKIM", "DKIM2"):
-        try:
-            az(env, "POST", f"{dom_id}/initiateVerification", API_EMAIL, {"verificationType": kind})
-        except RuntimeError as e:
-            msg = str(e)
-            if "Accepted" in msg or "409" in msg:
-                log(f"  initiate {kind}: still provisioning — will retry after records are up")
-            else:
-                log(f"  initiate {kind}: {e}")
-
-    def status(kind: str) -> str:
-        d = az(env, "GET", dom_id, API_EMAIL)
-        vs = (d.get("properties") or {}).get("verificationStates") or {}
-        return (vs.get(kind) or {}).get("status") or "Unknown"
-
+    log("Add those rows at the DNS provider, then click Verify on this site.")
     if wait:
-        log("Waiting for Azure Verified (up to 10 min)…")
-        ok = False
-        for i in range(1, 21):
-            st = {k: status(k) for k in ("Domain", "SPF", "DKIM", "DKIM2")}
-            log(f"  [{i}] {st}")
-            if all(v == "Verified" for v in st.values()):
-                ok = True
-                break
-            time.sleep(30)
-        if not ok:
-            log("DNS not verified yet. Paste the records above at the registrar, wait, then Add domain again.")
-            return recs
-        log("Linking domain to Azure Communication Services…")
-        cur = az(env, "GET", acs_id, API_ACS)
-        linked = list((cur.get("properties") or {}).get("linkedDomains") or [])
-        for extra in (managed, dom_id):
-            if extra not in linked:
-                linked.append(extra)
-        az(env, "PATCH", acs_id, API_ACS, {"properties": {"linkedDomains": linked}})
-        log("Adding MailFrom senders…")
-        for user in locals_:
-            try:
-                az(
-                    env,
-                    "PUT",
-                    f"{dom_id}/senderUsernames/{user}",
-                    API_EMAIL,
-                    {"properties": {"username": user, "displayName": user}},
-                )
-                log(f"  {user}@{domain}")
-            except RuntimeError as e:
-                log(f"  {user}@{domain} failed (MailFrom quota is often 1 / DoNotReply): {e}")
+        verify_acs(env, domain, locals_, log)
     return recs
 
 
@@ -757,8 +786,8 @@ def provision(
         log("Azure Setup is empty — send SPF/DKIM will appear after you paste the Entra JSON.")
         log_dns(recs, log)
     else:
-        recs = add_acs(env, domain, [local], mail_host, provider, creds, log)
-    return {
+        recs = add_acs(env, domain, [local], mail_host, provider, creds, log, wait=False)
+    result = {
         "ok": True,
         "domain": domain,
         "email": f"{local}@{domain}",
@@ -769,4 +798,7 @@ def provision(
         "records": format_records(recs),
         "provider": provider,
         "azure_needed": azure_needed,
+        "local_part": local,
     }
+    save_domain(result)
+    return result

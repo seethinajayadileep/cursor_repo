@@ -21,11 +21,15 @@ from lib_brand import (  # noqa: E402
     PROVIDERS,
     azure_ready,
     connected_ids,
+    load_domains,
     load_env,
     load_providers,
     lookup_dns,
     provision,
+    save_domain,
     save_providers,
+    verification_status,
+    verify_acs,
     write_env,
 )
 
@@ -207,7 +211,8 @@ def add():
                 JOBS[job_id]["log"].append(msg)
 
             try:
-                JOBS[job_id]["result"] = provision(env(), domain, local, password, provider, log)
+                result = provision(env(), domain, local, password, provider, log)
+                JOBS[job_id]["result"] = result
                 JOBS[job_id]["status"] = "ok"
             except Exception as exc:  # noqa: BLE001 — surface any provider/Azure error in the UI
                 JOBS[job_id]["error"] = str(exc)
@@ -226,13 +231,71 @@ def dns_page():
         return gate
     e = env()
     domain = (request.args.get("domain") or "").strip().lower().rstrip(".")
+    saved = load_domains()
     records = lookup_dns(e, domain) if domain else []
+    if domain and records:
+        prev = saved.get(domain) or {}
+        prev.update({"domain": domain, "records": records})
+        save_domain(prev)
+    status = {}
+    if domain and azure_ready(e):
+        try:
+            status = verification_status(e, domain)
+        except RuntimeError:
+            status = {}
     return render_template(
         "dns.html",
         domain=domain,
         records=records,
         azure_needed=bool(domain) and not azure_ready(e),
+        status=status,
+        saved=saved,
+        mailbox=saved.get(domain) or {},
+        verified=bool(status) and all(v == "Verified" for v in status.values()),
     )
+
+
+@app.route("/dns/verify", methods=["POST"])
+def dns_verify():
+    gate = require_login()
+    if gate:
+        return gate
+    domain = (request.form.get("domain") or "").strip().lower().rstrip(".")
+    if not domain:
+        flash("Enter a domain first.")
+        return redirect(url_for("dns_page"))
+    saved = load_domains().get(domain) or {}
+    local = (request.form.get("local_part") or saved.get("local_part") or "hi").strip()
+    job_id = uuid.uuid4().hex[:12]
+    JOBS[job_id] = {"status": "running", "log": [], "result": None, "error": None, "kind": "verify"}
+
+    def run() -> None:
+        def log(msg: str) -> None:
+            JOBS[job_id]["log"].append(msg)
+
+        try:
+            log(f"Checking DNS for {domain}…")
+            st = verify_acs(env(), domain, [local], log)
+            ok = all(v == "Verified" for v in st.values())
+            JOBS[job_id]["result"] = {
+                "domain": domain,
+                "email": saved.get("email") or f"{local}@{domain}",
+                "password": saved.get("password") or "",
+                "webmail": saved.get("webmail") or "",
+                "records": lookup_dns(env(), domain),
+                "verify_status": st,
+                "verified": ok,
+            }
+            JOBS[job_id]["status"] = "ok" if ok else "error"
+            if not ok:
+                JOBS[job_id]["error"] = f"Not verified yet: {st}. Add the DNS rows, wait a few minutes, click Verify again."
+        except Exception as exc:  # noqa: BLE001
+            JOBS[job_id]["error"] = str(exc)
+            JOBS[job_id]["status"] = "error"
+            log(f"Error: {exc}")
+
+    threading.Thread(target=run, daemon=True).start()
+    return redirect(url_for("job", job_id=job_id))
 
 
 @app.route("/job/<job_id>")

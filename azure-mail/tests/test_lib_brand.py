@@ -51,6 +51,16 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(len(rows), 4)
         self.assertEqual(rows[2].host, "selector1-azurecomm-net._domainkey")
 
+    def test_save_domain_roundtrip(self):
+        import tempfile
+        from pathlib import Path
+        from lib_brand import load_domains, save_domain
+
+        p = Path(tempfile.mkdtemp()) / "domains.json"
+        save_domain({"domain": "Brand.com", "email": "a@brand.com"}, p)
+        store = load_domains(p)
+        self.assertEqual(store["brand.com"]["email"], "a@brand.com")
+
     def test_lookup_without_azure_is_mx_only(self):
         from lib_brand import lookup_dns
 

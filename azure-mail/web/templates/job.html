@@ -25,6 +25,7 @@
 </div>
 <script>
 const url = {{ url_for('job_json', job_id=job_id) | tojson }};
+const dnsPage = {{ url_for('dns_page') | tojson }};
 function dnsTable(records) {
   if (!records || !records.length) return '';
   const rows = records.map(r => `<tr>
@@ -59,7 +60,12 @@ async function tick() {
         <p>Webmail: <a href="${j.result.webmail}">${j.result.webmail}</a></p>
         <p>Login: <code>${j.result.email}</code></p>
         <p>Password: <code>${j.result.password}</code></p>
-        ${j.result.azure_needed ? '<p class="muted">Fill Setup Azure, then Add domain again for SPF/DKIM rows.</p>' : ''}`;
+        ${j.result.azure_needed ? '<p class="muted">Fill Setup Azure, then Add domain again for SPF/DKIM rows.</p>' : ''}
+        ${j.result.domain ? `<p><a class="btn" href="${dnsPage}?domain=${encodeURIComponent(j.result.domain)}">Open DNS table and Verify</a></p>` : ''}
+        ${j.result.verified ? '<p>Azure Verified.</p>' : ''}`;
+    }
+    if (j.result && j.result.domain && !j.result.azure_needed) {
+      setTimeout(() => { window.location = dnsPage + '?domain=' + encodeURIComponent(j.result.domain); }, 1200);
     }
     return;
   }
