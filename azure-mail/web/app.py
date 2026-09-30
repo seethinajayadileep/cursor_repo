@@ -287,7 +287,11 @@ def dns_verify():
                 "verified": ok,
             }
             JOBS[job_id]["status"] = "ok"
-            if not ok:
+            if ok:
+                prev = dict(saved)
+                prev.update({"domain": domain, "verified": True, "verify_status": st})
+                save_domain(prev)
+            else:
                 JOBS[job_id]["error"] = (
                     f"Not fully verified yet: {st}. SPF is often last. "
                     "Use Verify again on this page or open DNS records."

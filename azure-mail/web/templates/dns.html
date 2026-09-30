@@ -1,8 +1,12 @@
 {% extends "base.html" %}
 {% block title %}DNS records{% endblock %}
 {% block body %}
-<h1>DNS records</h1>
-<p class="muted">Copy every row into Hostinger / GoDaddy / Name.com for that domain. When the records are saved, click <strong>Verify</strong>.</p>
+<h1>{% if verified %}Verified{% else %}DNS records{% endif %}</h1>
+{% if verified %}
+<p class="muted">This domain is linked. You do not need to add DNS again. The table below is only a copy.</p>
+{% else %}
+<p class="muted">Copy every row into Hostinger / GoDaddy / Spaceship for that domain. When the records are saved, click <strong>Verify</strong>.</p>
+{% endif %}
 <form class="card form" method="get">
   <label>Domain
     <input name="domain" value="{{ domain }}" placeholder="arambh.ventures" required>
@@ -17,13 +21,19 @@
 </p>
 {% endif %}
 {% if domain %}
-  {% if not azure_needed %}
+  {% if not azure_needed and not verified %}
   <form class="card form" method="post" action="{{ url_for('dns_verify') }}">
     <input type="hidden" name="domain" value="{{ domain }}">
     <input type="hidden" name="local_part" value="{{ mailbox.local_part or 'akruti' }}">
-    <p>{% if verified %}All checks are Verified. You can still run Verify again.{% else %}After DNS is saved at Spaceship / Hostinger / GoDaddy, click Verify. If SPF stays in progress, wait a few minutes and click again.{% endif %}</p>
-    <button type="submit">Verify again</button>
+    <p>After DNS is saved at the registrar, click Verify.</p>
+    <button type="submit">Verify DNS</button>
   </form>
+  {% endif %}
+  {% if verified %}
+  <div class="card">
+    <h2>Ready</h2>
+    <p>Use webmail: <a href="https://mail.seethinajayadileep.dev/">https://mail.seethinajayadileep.dev/</a></p>
+  </div>
   {% endif %}
   {% if azure_needed %}
   <p class="muted">Azure Setup is empty, so only the receive MX is known.</p>
