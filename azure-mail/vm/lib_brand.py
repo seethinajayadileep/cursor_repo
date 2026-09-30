@@ -507,9 +507,14 @@ def _dns_porkbun(creds: dict, domain: str, recs: list[DnsRecord], log: LogFn) ->
         log(f"  Porkbun added {r.type} {display_host(r.host)}")
 
 
+def _mailcow_already(result: object) -> bool:
+    blob = json.dumps(result).lower() if not isinstance(result, str) else result.lower()
+    return any(x in blob for x in ("exists", "already", "duplicate", "object_exists"))
+
+
 def add_mailcow(env: dict[str, str], domain: str, local: str, password: str, log: LogFn) -> None:
     log("Creating Mailcow domain…")
-    mailcow(
+    result = mailcow(
         env,
         "POST",
         "/api/v1/add/domain",
@@ -525,8 +530,13 @@ def add_mailcow(env: dict[str, str], domain: str, local: str, password: str, log
             "restart_sogo": "1",
         },
     )
+    if isinstance(result, dict) and str(result.get("type") or "").lower() == "error":
+        if _mailcow_already(result):
+            log("Domain already in Mailcow — continuing.")
+        else:
+            raise RuntimeError(f"Mailcow domain: {result}")
     log(f"Creating mailbox {local}@{domain}…")
-    mailcow(
+    result = mailcow(
         env,
         "POST",
         "/api/v1/add/mailbox",
@@ -543,6 +553,11 @@ def add_mailcow(env: dict[str, str], domain: str, local: str, password: str, log
             "tls_enforce_out": "1",
         },
     )
+    if isinstance(result, dict) and str(result.get("type") or "").lower() == "error":
+        if _mailcow_already(result):
+            log("Mailbox already in Mailcow — continuing.")
+        else:
+            raise RuntimeError(f"Mailcow mailbox: {result}")
 
 
 def add_acs(

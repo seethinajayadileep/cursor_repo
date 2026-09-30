@@ -2,6 +2,7 @@
 """Browser UI: connect Hostinger/GoDaddy/… then add a mailbox in one form."""
 from __future__ import annotations
 
+import json
 import os
 import secrets
 import sys
@@ -111,11 +112,27 @@ def setup():
         return gate
     e = env()
     if request.method == "POST":
+        pasted = (request.form.get("AZURE_SP_JSON") or "").strip()
+        parsed = {}
+        if pasted:
+            try:
+                raw = json.loads(pasted)
+            except json.JSONDecodeError:
+                flash("Azure JSON did not parse. Paste the whole Cloud Shell output.")
+                return render_template("setup.html", e=e)
+            parsed = {
+                "AZURE_CLIENT_ID": str(raw.get("appId") or raw.get("clientId") or "").strip(),
+                "AZURE_CLIENT_SECRET": str(raw.get("password") or raw.get("clientSecret") or "").strip(),
+                "AZURE_TENANT_ID": str(raw.get("tenant") or raw.get("tenantId") or "").strip(),
+            }
         write_env(
             {
-                "AZURE_TENANT_ID": request.form.get("AZURE_TENANT_ID", "").strip(),
-                "AZURE_CLIENT_ID": request.form.get("AZURE_CLIENT_ID", "").strip(),
-                "AZURE_CLIENT_SECRET": request.form.get("AZURE_CLIENT_SECRET", "").strip()
+                "AZURE_TENANT_ID": parsed.get("AZURE_TENANT_ID")
+                or request.form.get("AZURE_TENANT_ID", "").strip(),
+                "AZURE_CLIENT_ID": parsed.get("AZURE_CLIENT_ID")
+                or request.form.get("AZURE_CLIENT_ID", "").strip(),
+                "AZURE_CLIENT_SECRET": parsed.get("AZURE_CLIENT_SECRET")
+                or request.form.get("AZURE_CLIENT_SECRET", "").strip()
                 or e.get("AZURE_CLIENT_SECRET", ""),
                 "AZURE_SUBSCRIPTION_ID": request.form.get("AZURE_SUBSCRIPTION_ID", "").strip(),
                 "RESOURCE_GROUP": request.form.get("RESOURCE_GROUP", "").strip() or "mailboxRg",

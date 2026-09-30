@@ -41,7 +41,7 @@ h2 { font-size: 1.2rem; margin: 0 0 0.4rem; }
 .grid.two { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
 .grid.three { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 .form label { display: block; margin: 0.7rem 0; font-size: 0.95rem; }
-input, select {
+input, select, textarea {
   width: 100%;
   margin-top: 0.25rem;
   padding: 0.65rem 0.7rem;

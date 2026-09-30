@@ -19,7 +19,14 @@
     <input name="WEB_ADMIN_PASSWORD" type="password" placeholder="{{ 'unchanged' if e.get('WEB_ADMIN_PASSWORD') else 'choose a password' }}">
   </label>
 
-  <h2>Azure (service principal — not the portal)</h2>
+  <h2>Azure (one Cloud Shell command)</h2>
+  <p class="muted">In <a href="https://shell.azure.com" target="_blank" rel="noreferrer">Cloud Shell</a>:</p>
+  <pre class="log">az ad sp create-for-rbac --name mail-brand-api --role Contributor \
+  --scopes /subscriptions/8ff63f54-fc03-42ad-b01b-b06db0b941aa/resourceGroups/mailboxRg</pre>
+  <label>Paste the JSON Cloud Shell printed
+    <textarea name="AZURE_SP_JSON" rows="8" placeholder='{"appId":"...","password":"...","tenant":"..."}'></textarea>
+  </label>
+  <p class="muted">Or fill the three IDs by hand:</p>
   <label>Tenant ID
     <input name="AZURE_TENANT_ID" value="{{ e.get('AZURE_TENANT_ID', '') }}">
   </label>
