@@ -42,9 +42,13 @@
   {% if status %}
   <p>Azure status:
     {% for k, v in status.items() %}
-      <span class="pill {% if v == 'Verified' %}on{% endif %}">{{ k }}: {{ v }}</span>
+      <span class="pill {% if v == 'Verified' %}on{% else %}wait{% endif %}">{{ k }}: {% if v == 'Verified' %}Verified{% else %}Pending{% endif %}</span>
     {% endfor %}
   </p>
+  {% set pending = status.items() | selectattr('1', 'ne', 'Verified') | list %}
+  {% if pending %}
+  <p class="muted">Still pending: <strong>{% for k, v in pending %}{{ k }}{% if not loop.last %}, {% endif %}{% endfor %}</strong>. Only that check — do not re-add the whole table.</p>
+  {% endif %}
   {% endif %}
   {% if mailbox.get('email') %}
   <div class="card">

@@ -193,13 +193,14 @@ def verify_acs(env: dict[str, str], domain: str, locals_: list[str], log: LogFn)
             log(f"  {kind}: {e}")
     ok = False
     st: dict[str, str] = {}
-    for i in range(1, 21):
+    for i in range(1, 7):
         st = verification_status(env, domain)
-        log(f"  [{i}] {st}")
+        pending = [k for k, v in st.items() if v != "Verified"]
+        log(f"  Check {i}/6  pending: {', '.join(pending) or 'none'}  {st}")
         if all(v == "Verified" for v in st.values()):
             ok = True
             break
-        time.sleep(15)
+        time.sleep(10)
     if not ok:
         return st
     log("Linking domain to Azure send…")
@@ -371,12 +372,12 @@ def dns_rows(domain_obj: dict, domain: str) -> list[DnsRecord]:
 def wait_acs_domain(env: dict[str, str], dom_id: str, log: LogFn) -> dict:
     """PUT is async — records are empty while provisioningState is Accepted."""
     obj: dict = {}
-    for i in range(1, 25):
+    for i in range(1, 9):
         got = az(env, "GET", dom_id, API_EMAIL)
         obj = got if isinstance(got, dict) else {}
         state = provisioning_state(obj)
         ready = records_ready(obj)
-        log(f"  Azure domain state [{i}]: {state or 'unknown'} records={'ready' if ready else 'pending'}")
+        log(f"  Azure domain state {i}/8: {state or 'unknown'} records={'ready' if ready else 'pending'}")
         if ready and state.lower() in ("", "succeeded", "updating"):
             return obj
         time.sleep(5)

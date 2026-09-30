@@ -292,9 +292,10 @@ def dns_verify():
                 prev.update({"domain": domain, "verified": True, "verify_status": st})
                 save_domain(prev)
             else:
+                pending = [k for k, v in st.items() if v != "Verified"]
                 JOBS[job_id]["error"] = (
-                    f"Not fully verified yet: {st}. SPF is often last. "
-                    "Use Verify again on this page or open DNS records."
+                    f"Still pending: {', '.join(pending) or 'unknown'}. "
+                    "Wait a minute and click Verify again. Do not add the other DNS rows again."
                 )
         except Exception as exc:  # noqa: BLE001
             JOBS[job_id]["error"] = str(exc)
