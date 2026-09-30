@@ -1,54 +1,29 @@
 <div class="card dns">
   <h2>{{ table_title or ("Already on the domain" if verified else "DNS to add at your domain provider") }}</h2>
   {% if verified %}
-  <p class="muted">You do not need to add these again. This is only a copy of what Azure verified.</p>
+  <p class="muted">You do not need to add these again.</p>
   {% else %}
-  <p class="muted">Copy Host and Value into Spaceship / Hostinger / GoDaddy. Host <code>@</code> is the root. DS (DNSSEC) is created at the registrar if you turn DNSSEC on — Azure does not give a DS value.</p>
+  <p class="muted">Click <strong>Copy host</strong> or <strong>Copy value</strong>, then paste into Spaceship / Hostinger / GoDaddy. Host <code>@</code> is the root. Azure does not give a DS record.</p>
   {% endif %}
   <table>
     <thead>
-      <tr><th>Type</th><th>Host</th><th>Priority</th><th>Value</th><th></th></tr>
+      <tr><th>Type</th><th>Host</th><th>Priority</th><th>Value</th></tr>
     </thead>
     <tbody>
       {% for r in records %}
       <tr>
-        <td>{{ r.type }}{% if r.kind %} <span class="muted">({{ r.kind }})</span>{% endif %}</td>
-        <td><code>{{ r.host }}</code></td>
+        <td>{{ r.type }}{% if r.kind %}<div class="muted">{{ r.kind }}</div>{% endif %}</td>
+        <td>
+          <input class="copy-field" readonly value="{{ r.host }}">
+          <button type="button" class="ghost" data-copy-text="{{ r.host|e }}">Copy host</button>
+        </td>
         <td>{{ r.priority if r.priority is defined else "—" }}</td>
-        <td class="val"><code>{{ r.value }}</code></td>
-        <td><button type="button" class="ghost copy-btn" data-copy="{{ r.type }}	{{ r.host }}	{{ r.priority or '' }}	{{ r.value }}">Copy</button></td>
+        <td class="val">
+          <input class="copy-field" readonly value="{{ r.value }}">
+          <button type="button" class="ghost" data-copy-text="{{ r.value|e }}">Copy value</button>
+        </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-  <label>Paste-all (tab-separated)
-    <textarea id="paste-all" readonly rows="8">{% for r in records %}{{ r.type }}	{{ r.host }}	{{ r.priority or '' }}	{{ r.value }}
-{% endfor %}</textarea>
-  </label>
-  <button type="button" class="ghost" id="copy-all">Copy all rows</button>
 </div>
-<script>
-(function () {
-  async function copy(t) {
-    try { await navigator.clipboard.writeText(t); } catch (e) {
-      const x = document.createElement('textarea'); x.value = t; document.body.appendChild(x); x.select(); document.execCommand('copy'); x.remove();
-    }
-  }
-  document.querySelectorAll('.copy-btn').forEach(function (b) {
-    b.addEventListener('click', function () {
-      copy(b.getAttribute('data-copy') || '');
-      b.textContent = 'Copied';
-      setTimeout(function () { b.textContent = 'Copy'; }, 1200);
-    });
-  });
-  var all = document.getElementById('copy-all');
-  var box = document.getElementById('paste-all');
-  if (all && box) {
-    all.addEventListener('click', function () {
-      copy(box.value);
-      all.textContent = 'Copied all';
-      setTimeout(function () { all.textContent = 'Copy all rows'; }, 1200);
-    });
-  }
-})();
-</script>
