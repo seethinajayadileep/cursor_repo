@@ -193,7 +193,7 @@ def verify_acs(env: dict[str, str], domain: str, locals_: list[str], log: LogFn)
             log(f"  {kind}: {e}")
     ok = False
     st: dict[str, str] = {}
-    for i in range(1, 13):
+    for i in range(1, 21):
         st = verification_status(env, domain)
         log(f"  [{i}] {st}")
         if all(v == "Verified" for v in st.values()):

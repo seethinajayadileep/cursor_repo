@@ -1,8 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Creating mailbox{% endblock %}
+{% block title %}Working{% endblock %}
 {% block body %}
-<h1>Creating mailbox</h1>
+<h1 id="heading">Working</h1>
 <p class="muted" id="status">Working…</p>
+<div id="again" class="card hidden">
+  <p>SPF can stay “in progress” for a few minutes. Click Verify again — do not stay on this log page.</p>
+  <form method="post" action="{{ url_for('dns_verify') }}" id="again-form">
+    <input type="hidden" name="domain" id="again-domain" value="">
+    <input type="hidden" name="local_part" value="akruti">
+    <button type="submit">Verify again</button>
+    <a class="btn ghost" id="again-link" href="{{ url_for('dns_page') }}">Open DNS page</a>
+  </form>
+</div>
 <pre class="log" id="log">{% for line in job.log %}{{ line }}
 {% endfor %}</pre>
 <div id="dns" class="{% if not job.result or not job.result.records %}hidden{% endif %}">
@@ -11,21 +20,20 @@
     {% include "_dns_table.html" %}
   {% endif %}
 </div>
-<div id="done" class="card {% if job.status != 'ok' %}hidden{% endif %}">
-  {% if job.result %}
-  <h2>Mailbox</h2>
-  <p>Webmail: <a href="{{ job.result.webmail }}">{{ job.result.webmail }}</a></p>
-  <p>Login: <code>{{ job.result.email }}</code></p>
-  <p>Password: <code>{{ job.result.password }}</code></p>
-  {% endif %}
-</div>
-<div id="fail" class="card err-box {% if job.status != 'error' %}hidden{% endif %}">
-  <h2>Stopped</h2>
+<div id="done" class="card {% if job.status != 'ok' %}hidden{% endif %}"></div>
+<div id="fail" class="card {% if job.status != 'error' %}hidden{% endif %}">
   <p id="err">{{ job.error or '' }}</p>
 </div>
 <script>
 const url = {{ url_for('job_json', job_id=job_id) | tojson }};
 const dnsPage = {{ url_for('dns_page') | tojson }};
+function showAgain(domain) {
+  if (!domain) return;
+  const box = document.getElementById('again');
+  box.classList.remove('hidden');
+  document.getElementById('again-domain').value = domain;
+  document.getElementById('again-link').href = dnsPage + '?domain=' + encodeURIComponent(domain);
+}
 function dnsTable(records) {
   if (!records || !records.length) return '';
   const rows = records.map(r => `<tr>
@@ -36,7 +44,6 @@ function dnsTable(records) {
   </tr>`).join('');
   return `<div class="card dns">
     <h2>DNS to add at your domain provider</h2>
-    <p class="muted">Open Hostinger / GoDaddy / Name.com DNS and add every row. Host <code>@</code> is the root. Do not use <code>domain.domain</code>.</p>
     <table><thead><tr><th>Type</th><th>Host</th><th>Priority</th><th>Value</th></tr></thead>
     <tbody>${rows}</tbody></table></div>`;
 }
@@ -44,37 +51,34 @@ async function tick() {
   const r = await fetch(url);
   const j = await r.json();
   document.getElementById('log').textContent = (j.log || []).join('\n');
-  document.getElementById('status').textContent =
-    j.status === 'running' ? 'Working…' : (j.status === 'ok' ? 'Done — copy the DNS table' : 'Stopped');
+  const domain = j.result && j.result.domain;
+  if (domain) showAgain(domain);
   const recs = (j.result && j.result.records) || [];
   if (recs.length) {
     const box = document.getElementById('dns');
     box.classList.remove('hidden');
     box.innerHTML = dnsTable(recs);
   }
-  if (j.status === 'ok') {
-    const box = document.getElementById('done');
-    box.classList.remove('hidden');
-    if (j.result) {
-      box.innerHTML = `<h2>Mailbox</h2>
-        <p>Webmail: <a href="${j.result.webmail}">${j.result.webmail}</a></p>
-        <p>Login: <code>${j.result.email}</code></p>
-        <p>Password: <code>${j.result.password}</code></p>
-        ${j.result.azure_needed ? '<p class="muted">Fill Setup Azure, then Add domain again for SPF/DKIM rows.</p>' : ''}
-        ${j.result.domain ? `<p><a class="btn" href="${dnsPage}?domain=${encodeURIComponent(j.result.domain)}">Open DNS table and Verify</a></p>` : ''}
-        ${j.result.verified ? '<p>Azure Verified.</p>' : ''}`;
-    }
-    if (j.result && j.result.domain && !j.result.azure_needed) {
-      setTimeout(() => { window.location = dnsPage + '?domain=' + encodeURIComponent(j.result.domain); }, 1200);
-    }
+  if (j.status === 'running') {
+    document.getElementById('status').textContent = 'Working…';
+    setTimeout(tick, 1500);
     return;
   }
-  if (j.status === 'error') {
+  document.getElementById('heading').textContent = j.result && j.result.verified ? 'Verified' : 'Check DNS';
+  document.getElementById('status').textContent = j.result && j.result.verified
+    ? 'Azure Verified'
+    : 'Not finished — use Verify again';
+  if (j.error) {
     document.getElementById('fail').classList.remove('hidden');
-    document.getElementById('err').textContent = j.error || '';
-    return;
+    document.getElementById('err').textContent = j.error;
   }
-  setTimeout(tick, 1500);
+  const box = document.getElementById('done');
+  box.classList.remove('hidden');
+  if (j.result) {
+    box.innerHTML = `<h2>Next</h2>
+      ${j.result.email ? `<p>Mailbox <code>${j.result.email}</code></p>` : ''}
+      <p>If SPF is still VerificationInProgress, wait 2 minutes, then Verify again.</p>`;
+  }
 }
 tick();
 </script>

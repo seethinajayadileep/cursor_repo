@@ -286,9 +286,12 @@ def dns_verify():
                 "verify_status": st,
                 "verified": ok,
             }
-            JOBS[job_id]["status"] = "ok" if ok else "error"
+            JOBS[job_id]["status"] = "ok"
             if not ok:
-                JOBS[job_id]["error"] = f"Not verified yet: {st}. Add the DNS rows, wait a few minutes, click Verify again."
+                JOBS[job_id]["error"] = (
+                    f"Not fully verified yet: {st}. SPF is often last. "
+                    "Use Verify again on this page or open DNS records."
+                )
         except Exception as exc:  # noqa: BLE001
             JOBS[job_id]["error"] = str(exc)
             JOBS[job_id]["status"] = "error"
