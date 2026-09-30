@@ -33,10 +33,9 @@ systemctl enable --now azure-mail-web
 MC=/opt/mailcow-dockerized
 if [[ -d "$MC" ]]; then
   install -m 644 "$SRC/web/nginx-brands.conf" "$MC/data/conf/nginx/site.mailbox.custom"
-  if [[ ! -f "$MC/docker-compose.override.yml" ]]; then
-    install -m 644 "$SRC/web/docker-compose.override.yml" "$MC/docker-compose.override.yml"
-  fi
-  (cd "$MC" && docker compose up -d nginx-mailcow && docker compose restart nginx-mailcow)
+  # Reload nginx only. Never compose down / restart the stack (that 502s Mailcow).
+  docker compose -f "$MC/docker-compose.yml" --env-file "$MC/mailcow.conf" \
+    exec -T nginx-mailcow nginx -s reload || true
 fi
 echo
 echo "Panel: https://mail.seethinajayadileep.dev/brands/"

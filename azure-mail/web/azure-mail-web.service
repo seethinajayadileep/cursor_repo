@@ -7,7 +7,7 @@ Type=simple
 User=root
 Environment=AZURE_MAIL_ENV=/etc/azure-mail/brand.env
 Environment=AZURE_MAIL_PROVIDERS=/etc/azure-mail/providers.json
-Environment=WEB_HOST=127.0.0.1
+Environment=WEB_HOST=0.0.0.0
 Environment=WEB_PORT=8787
 WorkingDirectory=/usr/local/lib/azure-mail/web
 ExecStart=/usr/local/lib/azure-mail/venv/bin/python /usr/local/lib/azure-mail/web/app.py
