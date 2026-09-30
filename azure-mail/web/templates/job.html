@@ -47,11 +47,11 @@ function dnsTable(records, verified) {
     const host = r.host || '@';
     const val = r.value || '';
     return `<tr>
-    <td>${esc(r.type)}${r.kind ? '<div class="muted">' + esc(r.kind) + '</div>' : ''}</td>
-    <td><input class="copy-field" readonly value="${esc(host)}">
+    <td data-label="Type">${esc(r.type)}${r.kind ? '<div class="muted">' + esc(r.kind) + '</div>' : ''}</td>
+    <td data-label="Host"><input class="copy-field" readonly value="${esc(host)}">
       <button type="button" class="ghost" data-copy-text="${esc(host)}">Copy host</button></td>
-    <td>${r.priority ?? '—'}</td>
-    <td class="val"><input class="copy-field" readonly value="${esc(val)}">
+    <td data-label="Priority">${r.priority ?? '—'}</td>
+    <td class="val" data-label="Value"><input class="copy-field" readonly value="${esc(val)}">
       <button type="button" class="ghost" data-copy-text="${esc(val)}">Copy value</button></td>
   </tr>`;
   }).join('');
@@ -60,8 +60,8 @@ function dnsTable(records, verified) {
     ? 'You do not need to add these again.'
     : 'Copy host or value, then paste into the registrar. Azure does not publish DS.';
   return `<div class="card dns"><h2>${title}</h2><p class="muted">${hint}</p>
-    <table><thead><tr><th>Type</th><th>Host</th><th>Priority</th><th>Value</th></tr></thead>
-    <tbody>${rows}</tbody></table></div>`;
+    <div class="table-scroll"><table><thead><tr><th>Type</th><th>Host</th><th>Priority</th><th>Value</th></tr></thead>
+    <tbody>${rows}</tbody></table></div></div>`;
 }
 async function tick() {
   const r = await fetch(url);

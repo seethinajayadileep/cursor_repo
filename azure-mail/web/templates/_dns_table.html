@@ -5,6 +5,7 @@
   {% else %}
   <p class="muted">Click <strong>Copy host</strong> or <strong>Copy value</strong>, then paste into Spaceship / Hostinger / GoDaddy. Host <code>@</code> is the root. Azure does not give a DS record.</p>
   {% endif %}
+  <div class="table-scroll">
   <table>
     <thead>
       <tr><th>Type</th><th>Host</th><th>Priority</th><th>Value</th></tr>
@@ -12,13 +13,13 @@
     <tbody>
       {% for r in records %}
       <tr>
-        <td>{{ r.type }}{% if r.kind %}<div class="muted">{{ r.kind }}</div>{% endif %}</td>
-        <td>
+        <td data-label="Type">{{ r.type }}{% if r.kind %}<div class="muted">{{ r.kind }}</div>{% endif %}</td>
+        <td data-label="Host">
           <input class="copy-field" readonly value="{{ r.host }}">
           <button type="button" class="ghost" data-copy-text="{{ r.host|e }}">Copy host</button>
         </td>
-        <td>{{ r.priority if r.priority is defined else "—" }}</td>
-        <td class="val">
+        <td data-label="Priority">{{ r.priority if r.priority is defined else "—" }}</td>
+        <td class="val" data-label="Value">
           <input class="copy-field" readonly value="{{ r.value }}">
           <button type="button" class="ghost" data-copy-text="{{ r.value|e }}">Copy value</button>
         </td>
@@ -26,4 +27,5 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
 </div>

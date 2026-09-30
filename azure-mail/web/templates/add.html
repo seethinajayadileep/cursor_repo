@@ -28,18 +28,20 @@
 <div class="card dns">
   <h2>Records you will add</h2>
   <p class="muted">Receive MX is always this. After Azure Setup, the job page also lists SPF and two DKIM CNAMEs.</p>
+  <div class="table-scroll">
   <table>
     <thead>
       <tr><th>Type</th><th>Host</th><th>Priority</th><th>Value</th></tr>
     </thead>
     <tbody>
       <tr>
-        <td>MX</td>
-        <td><code>@</code></td>
-        <td>10</td>
-        <td class="val"><code id="mx">{{ mail_host }}.</code></td>
+        <td data-label="Type">MX</td>
+        <td data-label="Host"><code>@</code></td>
+        <td data-label="Priority">10</td>
+        <td class="val" data-label="Value"><code id="mx">{{ mail_host }}.</code></td>
       </tr>
     </tbody>
   </table>
+  </div>
 </div>
 {% endblock %}
