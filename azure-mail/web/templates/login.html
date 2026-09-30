@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mailbox sign in</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-body">
+  <form class="card login" method="post">
+    <h1>Mailbox</h1>
+    <p class="muted">Add Hostinger, GoDaddy, and other domains from this page. No Azure portal.</p>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}<p class="err">{{ messages[0] }}</p>{% endif %}
+    {% endwith %}
+    {% if not has_password %}
+      <p class="err">Set WEB_ADMIN_PASSWORD or MAILCOW_API_KEY in /etc/azure-mail/brand.env first.</p>
+    {% endif %}
+    <label>Admin password
+      <input type="password" name="password" autofocus required>
+    </label>
+    <button type="submit">Open panel</button>
+  </form>
+</body>
+</html>

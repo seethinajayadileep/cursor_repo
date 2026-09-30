@@ -1,0 +1,17 @@
+[Unit]
+Description=Mailbox brand panel (multi-provider)
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=root
+Environment=AZURE_MAIL_ENV=/etc/azure-mail/brand.env
+Environment=AZURE_MAIL_PROVIDERS=/etc/azure-mail/providers.json
+Environment=WEB_HOST=127.0.0.1
+Environment=WEB_PORT=8787
+WorkingDirectory=/usr/local/lib/azure-mail/web
+ExecStart=/usr/bin/python3 /usr/local/lib/azure-mail/web/app.py
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

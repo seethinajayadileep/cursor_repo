@@ -1,0 +1,29 @@
+{% extends "base.html" %}
+{% block title %}Mailbox{% endblock %}
+{% block body %}
+<section class="hero">
+  <h1>One page to add a mailbox</h1>
+  <p>Connect Hostinger, GoDaddy, Cloudflare, Name.com, Namecheap, or Porkbun once. Then type a domain and we create the mailbox, DNS, and Azure send link.</p>
+  <div class="row">
+    <a class="btn" href="{{ url_for('add') }}">Add a domain</a>
+    <a class="btn ghost" href="{{ url_for('providers') }}">Connect a provider</a>
+  </div>
+</section>
+<div class="grid three">
+  <article class="card">
+    <h2>1. Setup</h2>
+    <p>Mailcow API + Azure app, one time.{% if setup_done %} Done.{% else %} Not finished.{% endif %}</p>
+    <a href="{{ url_for('setup') }}">Open setup</a>
+  </article>
+  <article class="card">
+    <h2>2. Providers</h2>
+    <p>{% if connected %}Connected: {{ connected | join(', ') }}.{% else %}None connected — you can still add a domain and copy DNS.{% endif %}</p>
+    <a href="{{ url_for('providers') }}">Connect Hostinger / GoDaddy</a>
+  </article>
+  <article class="card">
+    <h2>3. Mailbox</h2>
+    <p>Users sign in at <code>https://{{ mail_host }}/</code> with the address you create.</p>
+    <a href="{{ url_for('add') }}">Create mailbox</a>
+  </article>
+</div>
+{% endblock %}

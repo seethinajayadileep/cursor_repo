@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Mailbox{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="{{ url_for('home') }}">Mailbox</a>
+    <nav>
+      <a href="{{ url_for('add') }}">Add domain</a>
+      <a href="{{ url_for('providers') }}">Providers</a>
+      <a href="{{ url_for('setup') }}">Setup</a>
+      <a href="{{ url_for('logout') }}">Log out</a>
+    </nav>
+  </header>
+  <main class="wrap">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul class="flash">{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>
+      {% endif %}
+    {% endwith %}
+    {% block body %}{% endblock %}
+  </main>
+</body>
+</html>

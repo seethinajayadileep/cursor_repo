@@ -114,36 +114,27 @@ Default admin: `admin` / `moohoo` — **change immediately**.
 Then: **Mail setup → Domains → add domain → Mailboxes → hello@…**  
 Optional catch-all. For each domain, set the Mailcow “sender-dependent transport” is not required; `extra.cf` already relays **all** outgoing mail through ACS.
 
-## Extra domains (one command on the mail VM)
+## Extra domains (web panel — Hostinger, GoDaddy, …)
 
-Mailcow is the mail panel. Azure is only the outbound relay. For 10+ brands you do **not** open the portal and you do **not** re-link SMTP.
+Users stay in the browser. Azure stays in the background.
 
-**Once** on `mail.seethinajayadileep.dev`:
+After a one-time install on the mail VM:
 
-1. Mailcow admin → **Configuration → Access → API** → enable, generate key, allow `127.0.0.1`.
-2. Entra app + client secret with **Contributor** on resource group `mailboxRg`.
-3. Install the helper:
-
-```bash
-sudo mkdir -p /etc/azure-mail /usr/local/lib/azure-mail
-sudo cp azure-mail/vm/add_brand.py /usr/local/lib/azure-mail/
-sudo cp azure-mail/vm/add-brand /usr/local/sbin/add-brand
-sudo chmod 755 /usr/local/sbin/add-brand
-sudo cp azure-mail/vm/brand.env.example /etc/azure-mail/brand.env
-sudo chmod 600 /etc/azure-mail/brand.env
-sudo nano /etc/azure-mail/brand.env   # AZURE_*, MAILCOW_API_KEY, optional NAMECOM_*
-```
-
-Then each brand:
+1. Open `https://mail.seethinajayadileep.dev/brands/`
+2. Sign in (panel password or Mailcow API key)
+3. **Setup** — Mailcow API + Azure app (once)
+4. **Providers** — connect Hostinger, GoDaddy, Cloudflare, Name.com, Namecheap, and/or Porkbun
+5. **Add domain** — type `brand.com` + `hi` + pick where DNS lives → mailbox, MX/SPF/DKIM, Azure link, MailFrom
 
 ```bash
-sudo add-brand otherbrand.com hi
-sudo add-brand third.com support --password 'YourPass12'
+# on the mail VM
+cd azure-mail/web
+sudo ./install-web.sh
 ```
 
-That creates the Mailcow domain + mailbox (and restarts SOGo), creates the ACS custom domain, applies MX/SPF/DKIM at Name.com if `NAMECOM_USER`/`NAMECOM_TOKEN` are set, waits until Verified, **appends** `linkedDomains` on `mailboxCs`, and adds MailFrom. It prints the webmail URL and password.
+If a domain’s DNS is not at a connected provider, pick **I will paste DNS myself**. Apex SPF must be on `@`, not `domain.domain`.
 
-If Name.com is not set, paste the printed DNS rows once at the registrar (apex SPF on `@`, not `domain.domain`). Re-run the same command if verify was still pending.
+CLI still works: `sudo add-brand otherbrand.com hi --provider hostinger`
 
 Cloud Shell fallback (Azure only): `./add-send-domain.sh otherbrand.com hi`
 
@@ -167,7 +158,8 @@ Azure-managed `*.azurecomm.net` is enough to prove send before you add real doma
 | `verify.sh` | Port 25 vs 587 checks |
 | `test_acs_send.py` | Authenticated send test |
 | `add-send-domain.sh` | Extra domain: ACS verify + link + MailFrom (Cloud Shell) |
-| `vm/add_brand.py` | One command on the mail VM: Mailcow + ACS + optional Name.com |
+| `vm/add_brand.py` | CLI: Mailcow + ACS + chosen DNS provider |
+| `web/app.py` | Browser panel at `/brands/` — Hostinger, GoDaddy, Cloudflare, Name.com, Namecheap, Porkbun |
 
 If `az ad app create` is denied, create an app registration in Entra, add a client secret, assign **Contributor** on the ACS resource, create an **SMTP username** on ACS, then put username/secret in the VM file `/opt/mailcow-dockerized/data/conf/postfix/sasl_passwd` and restart:
 

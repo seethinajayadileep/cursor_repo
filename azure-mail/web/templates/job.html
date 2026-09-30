@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Creating mailbox{% endblock %}
+{% block body %}
+<h1>Creating mailbox</h1>
+<p class="muted" id="status">Working… Azure verify can take a few minutes after DNS lands.</p>
+<pre class="log" id="log">{% for line in job.log %}{{ line }}
+{% endfor %}</pre>
+<div id="done" class="card {% if job.status != 'ok' %}hidden{% endif %}">
+  {% if job.result %}
+  <h2>Ready</h2>
+  <p>Webmail: <a href="{{ job.result.webmail }}">{{ job.result.webmail }}</a></p>
+  <p>Login: <code>{{ job.result.email }}</code></p>
+  <p>Password: <code>{{ job.result.password }}</code></p>
+  {% endif %}
+</div>
+<div id="fail" class="card err-box {% if job.status != 'error' %}hidden{% endif %}">
+  <h2>Stopped</h2>
+  <p id="err">{{ job.error or '' }}</p>
+  <p>If DNS is still propagating, wait and click Add domain again with the same name.</p>
+</div>
+<script>
+const url = {{ url_for('job_json', job_id=job_id) | tojson }};
+async function tick() {
+  const r = await fetch(url);
+  const j = await r.json();
+  document.getElementById('log').textContent = (j.log || []).join('\n');
+  document.getElementById('status').textContent =
+    j.status === 'running' ? 'Working…' : (j.status === 'ok' ? 'Done' : 'Stopped');
+  if (j.status === 'ok') {
+    const box = document.getElementById('done');
+    box.classList.remove('hidden');
+    if (j.result) {
+      box.innerHTML = `<h2>Ready</h2>
+        <p>Webmail: <a href="${j.result.webmail}">${j.result.webmail}</a></p>
+        <p>Login: <code>${j.result.email}</code></p>
+        <p>Password: <code>${j.result.password}</code></p>`;
+    }
+    return;
+  }
+  if (j.status === 'error') {
+    document.getElementById('fail').classList.remove('hidden');
+    document.getElementById('err').textContent = j.error || '';
+    return;
+  }
+  setTimeout(tick, 1500);
+}
+tick();
+</script>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Add domain{% endblock %}
+{% block body %}
+<h1>Add a domain</h1>
+<p class="muted">This creates the Mailcow mailbox, writes DNS at the provider you pick, then links Azure send. Users never open Azure.</p>
+<form class="card form" method="post">
+  <label>Domain
+    <input name="domain" placeholder="shop.example.com" required>
+  </label>
+  <label>Mailbox (before @)
+    <input name="local_part" value="hi">
+  </label>
+  <label>Password (blank = generate)
+    <input name="password" type="password" autocomplete="new-password">
+  </label>
+  <label>DNS is at
+    <select name="provider">
+      {% for p in providers %}
+        <option value="{{ p.id }}" {% if p.id not in connected %}disabled{% endif %}>
+          {{ p.name }}{% if p.id not in connected %} — connect first{% endif %}
+        </option>
+      {% endfor %}
+      <option value="manual">I will paste DNS myself</option>
+    </select>
+  </label>
+  <button type="submit">Create mailbox</button>
+</form>
+{% endblock %}
