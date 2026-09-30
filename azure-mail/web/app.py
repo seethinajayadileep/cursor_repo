@@ -12,7 +12,9 @@ from pathlib import Path
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "vm"))
+for extra in (ROOT / "vm", ROOT, Path("/usr/local/lib/azure-mail")):
+    if extra.is_dir():
+        sys.path.insert(0, str(extra))
 
 from lib_brand import (  # noqa: E402
     PROVIDERS,
