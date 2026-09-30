@@ -8,7 +8,7 @@
 </head>
 <body class="login-body">
   <form class="card login" method="post">
-    <h1>Mailbox</h1>
+    <h1><span class="mark" aria-hidden="true"></span> Mailbox</h1>
     <p class="muted">Add Hostinger, GoDaddy, and other domains from this page. No Azure portal.</p>
     {% with messages = get_flashed_messages() %}
       {% if messages %}<p class="err">{{ messages[0] }}</p>{% endif %}
