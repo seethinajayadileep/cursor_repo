@@ -126,10 +126,19 @@ After a one-time install on the mail VM:
 4. **Providers** — connect Hostinger, GoDaddy, Cloudflare, Name.com, Namecheap, and/or Porkbun
 5. **Add domain** — type `brand.com` + `hi` + pick where DNS lives → mailbox, MX/SPF/DKIM, Azure link, MailFrom
 
+The mail VM does **not** already contain `azure-mail/`. From `root@mail:~` clone it, then install:
+
 ```bash
-# on the mail VM
-cd azure-mail/web
-sudo ./install-web.sh
+apt-get update && apt-get install -y git python3 python3-pip
+git clone --depth 1 --branch cursor/azure-mail-acs-relay-9a02 \
+  https://github.com/seethinajayadileep/cursor_repo.git /opt/cursor_repo
+/opt/cursor_repo/azure-mail/web/install-web.sh
+```
+
+Or one line:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/seethinajayadileep/cursor_repo/cursor/azure-mail-acs-relay-9a02/azure-mail/web/bootstrap.sh | bash
 ```
 
 If a domain’s DNS is not at a connected provider, pick **I will paste DNS myself**. Apex SPF must be on `@`, not `domain.domain`.

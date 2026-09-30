@@ -1,7 +1,15 @@
 #!/usr/bin/env bash
-# Run on the mail VM as root.
+# Run from a checkout of this repo:
+#   /opt/cursor_repo/azure-mail/web/install-web.sh
+# If this folder is missing on the mail VM, use bootstrap.sh instead.
 set -euo pipefail
 SRC="$(cd "$(dirname "$0")/.." && pwd)"
+if [[ ! -f "$SRC/vm/lib_brand.py" ]]; then
+  echo "This is not a full azure-mail checkout ($SRC/vm/lib_brand.py missing)."
+  echo "On the mail VM run:"
+  echo "  curl -fsSL https://raw.githubusercontent.com/seethinajayadileep/cursor_repo/cursor/azure-mail-acs-relay-9a02/azure-mail/web/bootstrap.sh | sudo bash"
+  exit 1
+fi
 install -d /etc/azure-mail /usr/local/lib/azure-mail/web /usr/local/lib/azure-mail
 install -m 644 "$SRC/vm/lib_brand.py" /usr/local/lib/azure-mail/lib_brand.py
 install -m 755 "$SRC/vm/add_brand.py" /usr/local/lib/azure-mail/add_brand.py
