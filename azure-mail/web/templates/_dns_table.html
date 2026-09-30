@@ -1,0 +1,19 @@
+<div class="card dns">
+  <h2>DNS to add at your domain provider</h2>
+  <p class="muted">Open Hostinger / GoDaddy / Name.com DNS for this domain and add every row. Host <code>@</code> means the root (blank name). Do not put <code>domain.domain</code>.</p>
+  <table>
+    <thead>
+      <tr><th>Type</th><th>Host</th><th>Priority</th><th>Value</th></tr>
+    </thead>
+    <tbody>
+      {% for r in records %}
+      <tr>
+        <td>{{ r.type }}</td>
+        <td><code>{{ r.host }}</code></td>
+        <td>{{ r.priority if r.priority is defined else "—" }}</td>
+        <td class="val"><code>{{ r.value }}</code></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

@@ -19,9 +19,11 @@ for extra in (ROOT / "vm", ROOT, Path("/usr/local/lib/azure-mail")):
 
 from lib_brand import (  # noqa: E402
     PROVIDERS,
+    azure_ready,
     connected_ids,
     load_env,
     load_providers,
+    lookup_dns,
     provision,
     save_providers,
     write_env,
@@ -215,6 +217,22 @@ def add():
         threading.Thread(target=run, daemon=True).start()
         return redirect(url_for("job", job_id=job_id))
     return render_template("add.html", connected=connected_ids())
+
+
+@app.route("/dns")
+def dns_page():
+    gate = require_login()
+    if gate:
+        return gate
+    e = env()
+    domain = (request.args.get("domain") or "").strip().lower().rstrip(".")
+    records = lookup_dns(e, domain) if domain else []
+    return render_template(
+        "dns.html",
+        domain=domain,
+        records=records,
+        azure_needed=bool(domain) and not azure_ready(e),
+    )
 
 
 @app.route("/job/<job_id>")

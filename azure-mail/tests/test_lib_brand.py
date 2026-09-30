@@ -21,6 +21,14 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(recs[0].priority, 10)
         self.assertEqual(format_records(recs)[0]["host"], "@")
 
+    def test_lookup_without_azure_is_mx_only(self):
+        from lib_brand import lookup_dns
+
+        rows = lookup_dns({"MAIL_HOSTNAME": "mail.example.com"}, "brand.com")
+        self.assertEqual(rows[0]["type"], "MX")
+        self.assertEqual(rows[0]["value"], "mail.example.com.")
+        self.assertEqual(len(rows), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

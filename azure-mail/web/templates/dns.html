@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}DNS records{% endblock %}
+{% block body %}
+<h1>DNS records</h1>
+<p class="muted">Type a domain to see the MX / SPF / DKIM rows to paste at that domain’s DNS provider.</p>
+<form class="card form" method="get">
+  <label>Domain
+    <input name="domain" value="{{ domain }}" placeholder="brand.com" required>
+  </label>
+  <button type="submit">Show records</button>
+</form>
+{% if domain %}
+  {% if azure_needed %}
+  <p class="muted">Azure Setup is empty, so only the receive MX is known. After you paste the Entra JSON, SPF and DKIM appear here.</p>
+  {% endif %}
+  {% include "_dns_table.html" %}
+{% endif %}
+{% endblock %}

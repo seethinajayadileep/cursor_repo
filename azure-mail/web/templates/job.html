@@ -2,12 +2,18 @@
 {% block title %}Creating mailbox{% endblock %}
 {% block body %}
 <h1>Creating mailbox</h1>
-<p class="muted" id="status">Working… Azure verify can take a few minutes after DNS lands.</p>
+<p class="muted" id="status">Working…</p>
 <pre class="log" id="log">{% for line in job.log %}{{ line }}
 {% endfor %}</pre>
+<div id="dns" class="{% if not job.result or not job.result.records %}hidden{% endif %}">
+  {% if job.result and job.result.records %}
+    {% set records = job.result.records %}
+    {% include "_dns_table.html" %}
+  {% endif %}
+</div>
 <div id="done" class="card {% if job.status != 'ok' %}hidden{% endif %}">
   {% if job.result %}
-  <h2>Ready</h2>
+  <h2>Mailbox</h2>
   <p>Webmail: <a href="{{ job.result.webmail }}">{{ job.result.webmail }}</a></p>
   <p>Login: <code>{{ job.result.email }}</code></p>
   <p>Password: <code>{{ job.result.password }}</code></p>
@@ -16,24 +22,44 @@
 <div id="fail" class="card err-box {% if job.status != 'error' %}hidden{% endif %}">
   <h2>Stopped</h2>
   <p id="err">{{ job.error or '' }}</p>
-  <p>If DNS is still propagating, wait and click Add domain again with the same name.</p>
 </div>
 <script>
 const url = {{ url_for('job_json', job_id=job_id) | tojson }};
+function dnsTable(records) {
+  if (!records || !records.length) return '';
+  const rows = records.map(r => `<tr>
+    <td>${r.type}</td>
+    <td><code>${r.host || '@'}</code></td>
+    <td>${r.priority ?? '—'}</td>
+    <td class="val"><code>${r.value}</code></td>
+  </tr>`).join('');
+  return `<div class="card dns">
+    <h2>DNS to add at your domain provider</h2>
+    <p class="muted">Open Hostinger / GoDaddy / Name.com DNS and add every row. Host <code>@</code> is the root. Do not use <code>domain.domain</code>.</p>
+    <table><thead><tr><th>Type</th><th>Host</th><th>Priority</th><th>Value</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>`;
+}
 async function tick() {
   const r = await fetch(url);
   const j = await r.json();
   document.getElementById('log').textContent = (j.log || []).join('\n');
   document.getElementById('status').textContent =
-    j.status === 'running' ? 'Working…' : (j.status === 'ok' ? 'Done' : 'Stopped');
+    j.status === 'running' ? 'Working…' : (j.status === 'ok' ? 'Done — copy the DNS table' : 'Stopped');
+  const recs = (j.result && j.result.records) || [];
+  if (recs.length) {
+    const box = document.getElementById('dns');
+    box.classList.remove('hidden');
+    box.innerHTML = dnsTable(recs);
+  }
   if (j.status === 'ok') {
     const box = document.getElementById('done');
     box.classList.remove('hidden');
     if (j.result) {
-      box.innerHTML = `<h2>Ready</h2>
+      box.innerHTML = `<h2>Mailbox</h2>
         <p>Webmail: <a href="${j.result.webmail}">${j.result.webmail}</a></p>
         <p>Login: <code>${j.result.email}</code></p>
-        <p>Password: <code>${j.result.password}</code></p>`;
+        <p>Password: <code>${j.result.password}</code></p>
+        ${j.result.azure_needed ? '<p class="muted">Fill Setup Azure, then Add domain again for SPF/DKIM rows.</p>' : ''}`;
     }
     return;
   }

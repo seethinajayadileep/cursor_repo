@@ -269,6 +269,46 @@ def mail_records(domain: str, mail_host: str, acs_rows: list[DnsRecord]) -> list
     return [mx, *acs_rows]
 
 
+def log_dns(recs: list[DnsRecord], log: LogFn) -> None:
+    log("Add these DNS records at Hostinger / GoDaddy / Name.com (or any DNS panel):")
+    log("  Type    Host   Priority  Value")
+    for r in format_records(recs):
+        pri = str(r.get("priority") or "")
+        log(f"  {r['type']:6}  {r['host']:8}  {pri:8}  {r['value']}")
+    log("Apex SPF and MX go on @ (blank host), not domain.domain.")
+
+
+def azure_ready(env: dict[str, str]) -> bool:
+    return bool(
+        env.get("AZURE_TENANT_ID")
+        and env.get("AZURE_CLIENT_ID")
+        and env.get("AZURE_CLIENT_SECRET")
+        and env.get("AZURE_SUBSCRIPTION_ID")
+    )
+
+
+def lookup_dns(env: dict[str, str], domain: str) -> list[dict]:
+    domain = domain.lower().strip().rstrip(".")
+    mail_host = env.get("MAIL_HOSTNAME") or "mail.seethinajayadileep.dev"
+    recs = mail_records(domain, mail_host, [])
+    if not azure_ready(env):
+        return format_records(recs)
+    try:
+        sub = env["AZURE_SUBSCRIPTION_ID"]
+        rg = env.get("RESOURCE_GROUP") or "mailboxRg"
+        email = env.get("EMAIL_NAME") or "mail-box"
+        path = (
+            f"/subscriptions/{sub}/resourceGroups/{rg}/providers/"
+            f"Microsoft.Communication/emailServices/{email}/domains/{domain}"
+        )
+        obj = az(env, "GET", path, API_EMAIL)
+        if isinstance(obj, dict):
+            recs = mail_records(domain, mail_host, dns_rows(obj, domain))
+    except RuntimeError:
+        pass
+    return format_records(recs)
+
+
 def format_records(recs: list[DnsRecord]) -> list[dict]:
     out = []
     for r in recs:
@@ -597,6 +637,7 @@ def add_acs(
     )
     acs_rows = dns_rows(obj if isinstance(obj, dict) else {}, domain)
     recs = mail_records(domain, mail_host, acs_rows)
+    log_dns(recs, log)
     apply_dns(provider, creds, domain, recs, log)
 
     for kind in ("Domain", "SPF", "DKIM", "DKIM2"):
@@ -621,9 +662,8 @@ def add_acs(
                 break
             time.sleep(30)
         if not ok:
-            raise RuntimeError(
-                "DNS not verified yet. Check the registrar records (apex SPF on @) and run again."
-            )
+            log("DNS not verified yet. Paste the records above at the registrar, wait, then Add domain again.")
+            return recs
         log("Linking domain to Azure Communication Services…")
         cur = az(env, "GET", acs_id, API_ACS)
         linked = list((cur.get("properties") or {}).get("linkedDomains") or [])
@@ -665,10 +705,17 @@ def provision(
     creds = dict(store.get(provider) or {})
     if provider == "namecom" and not provider_connected(creds):
         creds = {"user": env.get("NAMECOM_USER") or "", "token": env.get("NAMECOM_TOKEN") or ""}
-    recs: list[DnsRecord] = []
+    recs: list[DnsRecord] = mail_records(domain, mail_host, [])
+    azure_needed = False
     if not skip_mailcow:
         add_mailcow(env, domain, local, password, log)
-    if not skip_acs:
+    if skip_acs:
+        log_dns(recs, log)
+    elif not azure_ready(env):
+        azure_needed = True
+        log("Azure Setup is empty — send SPF/DKIM will appear after you paste the Entra JSON.")
+        log_dns(recs, log)
+    else:
         recs = add_acs(env, domain, [local], mail_host, provider, creds, log)
     return {
         "ok": True,
@@ -680,4 +727,5 @@ def provision(
         "smtp": f"{mail_host}:587",
         "records": format_records(recs),
         "provider": provider,
+        "azure_needed": azure_needed,
     }

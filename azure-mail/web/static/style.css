@@ -84,3 +84,6 @@ button, .btn {
 }
 .hidden { display: none; }
 code { font-size: 0.9em; }
+table { width: 100%; border-collapse: collapse; margin-top: 0.6rem; font-size: 0.95rem; }
+th, td { text-align: left; padding: 0.45rem 0.35rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.val code { word-break: break-all; }
