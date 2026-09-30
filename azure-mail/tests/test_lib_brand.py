@@ -21,6 +21,36 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(recs[0].priority, 10)
         self.assertEqual(format_records(recs)[0]["host"], "@")
 
+    def test_dns_rows_skip_empty(self):
+        from lib_brand import dns_rows, records_ready
+
+        empty = {"properties": {"verificationRecords": {"Domain": {"value": ""}, "SPF": {}}}}
+        self.assertFalse(records_ready(empty))
+        self.assertEqual(dns_rows(empty, "brand.com"), [])
+        ready = {
+            "properties": {
+                "provisioningState": "Succeeded",
+                "verificationRecords": {
+                    "Domain": {"type": "TXT", "name": "brand.com", "value": "ms-domain-verification=abc"},
+                    "SPF": {"type": "TXT", "name": "@", "value": "v=spf1 include:spf.protection.outlook.com -all"},
+                    "DKIM": {
+                        "type": "CNAME",
+                        "name": "selector1-azurecomm-net._domainkey.brand.com",
+                        "value": "selector1-azurecomm-net._domainkey.contoso.azurecomm.net",
+                    },
+                    "DKIM2": {
+                        "type": "CNAME",
+                        "name": "selector2-azurecomm-net._domainkey.brand.com",
+                        "value": "selector2-azurecomm-net._domainkey.contoso.azurecomm.net",
+                    },
+                },
+            }
+        }
+        self.assertTrue(records_ready(ready))
+        rows = dns_rows(ready, "brand.com")
+        self.assertEqual(len(rows), 4)
+        self.assertEqual(rows[2].host, "selector1-azurecomm-net._domainkey")
+
     def test_lookup_without_azure_is_mx_only(self):
         from lib_brand import lookup_dns
 

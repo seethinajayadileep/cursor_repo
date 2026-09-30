@@ -252,16 +252,47 @@ def display_host(host: str) -> str:
     return host or "@"
 
 
+def provisioning_state(obj: dict) -> str:
+    props = obj.get("properties") or {}
+    return str(props.get("provisioningState") or obj.get("provisioningState") or "")
+
+
+def records_ready(obj: dict) -> bool:
+    vr = (obj.get("properties") or {}).get("verificationRecords") or {}
+    for kind in ("Domain", "SPF", "DKIM", "DKIM2"):
+        val = ((vr.get(kind) or {}).get("value") or "").strip()
+        if not val:
+            return False
+    return True
+
+
 def dns_rows(domain_obj: dict, domain: str) -> list[DnsRecord]:
     vr = (domain_obj.get("properties") or {}).get("verificationRecords") or {}
     rows: list[DnsRecord] = []
     for kind in ("Domain", "SPF", "DKIM", "DKIM2"):
         x = vr.get(kind) or {}
+        val = (x.get("value") or "").strip()
+        if not val:
+            continue
         typ = x.get("type") or ("CNAME" if kind.startswith("DKIM") else "TXT")
         name = apex_host(x.get("name") or "", domain)
-        val = x.get("value") or ""
         rows.append(DnsRecord(type=typ, host=name, value=val, kind=kind))
     return rows
+
+
+def wait_acs_domain(env: dict[str, str], dom_id: str, log: LogFn) -> dict:
+    """PUT is async — records are empty while provisioningState is Accepted."""
+    obj: dict = {}
+    for i in range(1, 25):
+        got = az(env, "GET", dom_id, API_EMAIL)
+        obj = got if isinstance(got, dict) else {}
+        state = provisioning_state(obj)
+        ready = records_ready(obj)
+        log(f"  Azure domain state [{i}]: {state or 'unknown'} records={'ready' if ready else 'pending'}")
+        if ready and state.lower() in ("", "succeeded", "updating"):
+            return obj
+        time.sleep(5)
+    return obj
 
 
 def mail_records(domain: str, mail_host: str, acs_rows: list[DnsRecord]) -> list[DnsRecord]:
@@ -628,15 +659,21 @@ def add_acs(
     managed = f"{email_id}/domains/AzureManagedDomain"
 
     log("Creating Azure send domain…")
-    obj = az(
+    az(
         env,
         "PUT",
         dom_id,
         API_EMAIL,
         {"location": "global", "properties": {"domainManagement": "CustomerManaged"}},
     )
-    acs_rows = dns_rows(obj if isinstance(obj, dict) else {}, domain)
+    log("Waiting until Azure publishes SPF/DKIM values (domain is Accepted until then)…")
+    obj = wait_acs_domain(env, dom_id, log)
+    acs_rows = dns_rows(obj, domain)
     recs = mail_records(domain, mail_host, acs_rows)
+    if not records_ready(obj):
+        log("Azure has not published DNS values yet. Wait a minute and Add domain again.")
+        log_dns(recs, log)
+        return recs
     log_dns(recs, log)
     apply_dns(provider, creds, domain, recs, log)
 
@@ -644,7 +681,11 @@ def add_acs(
         try:
             az(env, "POST", f"{dom_id}/initiateVerification", API_EMAIL, {"verificationType": kind})
         except RuntimeError as e:
-            log(f"  initiate {kind}: {e}")
+            msg = str(e)
+            if "Accepted" in msg or "409" in msg:
+                log(f"  initiate {kind}: still provisioning — will retry after records are up")
+            else:
+                log(f"  initiate {kind}: {e}")
 
     def status(kind: str) -> str:
         d = az(env, "GET", dom_id, API_EMAIL)
