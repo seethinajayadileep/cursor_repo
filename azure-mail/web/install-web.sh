@@ -36,6 +36,7 @@ if [[ -d "$MC" ]]; then
   # Reload nginx only. Never compose down / restart the stack (that 502s Mailcow).
   docker compose -f "$MC/docker-compose.yml" --env-file "$MC/mailcow.conf" \
     exec -T nginx-mailcow nginx -s reload || true
+  bash "$SRC/web/allow-mailcow-api-ip.sh" || true
 fi
 echo
 echo "Panel: https://mail.seethinajayadileep.dev/brands/"
