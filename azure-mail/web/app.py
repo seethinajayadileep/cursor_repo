@@ -26,8 +26,28 @@ from lib_brand import (  # noqa: E402
     write_env,
 )
 
+class PrefixMiddleware:
+    """Keep links under /brands/ when nginx strips that prefix."""
+
+    def __init__(self, app, prefix: str):
+        self.app = app
+        self.prefix = prefix.rstrip("/") or "/brands"
+
+    def __call__(self, environ, start_response):
+        environ["SCRIPT_NAME"] = self.prefix
+        path = environ.get("PATH_INFO") or ""
+        if path.startswith(self.prefix):
+            environ["PATH_INFO"] = path[len(self.prefix) :] or "/"
+        return self.app(environ, start_response)
+
+
 app = Flask(__name__)
 app.secret_key = os.environ.get("WEB_SECRET") or secrets.token_hex(24)
+PREFIX = os.environ.get("WEB_PREFIX", "/brands")
+if PREFIX:
+    app.wsgi_app = PrefixMiddleware(app.wsgi_app, PREFIX)
+    app.config["APPLICATION_ROOT"] = PREFIX.rstrip("/") or "/brands"
+    app.config["SESSION_COOKIE_PATH"] = PREFIX.rstrip("/") or "/brands"
 JOBS: dict[str, dict] = {}
 
 

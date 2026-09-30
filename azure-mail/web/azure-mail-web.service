@@ -8,6 +8,7 @@ User=root
 Environment=AZURE_MAIL_ENV=/etc/azure-mail/brand.env
 Environment=AZURE_MAIL_PROVIDERS=/etc/azure-mail/providers.json
 Environment=PYTHONPATH=/usr/local/lib/azure-mail
+Environment=WEB_PREFIX=/brands
 Environment=WEB_HOST=0.0.0.0
 Environment=WEB_PORT=8787
 WorkingDirectory=/usr/local/lib/azure-mail/web

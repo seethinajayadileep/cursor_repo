@@ -19,6 +19,7 @@ class WebAppTests(unittest.TestCase):
         )
         os.environ["AZURE_MAIL_ENV"] = str(env_path)
         os.environ["AZURE_MAIL_PROVIDERS"] = str(Path(self.tmp.name) / "providers.json")
+        os.environ["WEB_PREFIX"] = ""
         import importlib
 
         import app as webapp
@@ -47,6 +48,23 @@ class WebAppTests(unittest.TestCase):
         prov = self.client.get("/providers")
         self.assertIn(b"Cloudflare", prov.data)
         self.assertIn(b"Namecheap", prov.data)
+
+
+class PrefixTests(unittest.TestCase):
+    def test_unauthenticated_redirect_stays_under_brands(self):
+        os.environ["WEB_PREFIX"] = "/brands"
+        os.environ["AZURE_MAIL_ENV"] = "/dev/null"
+        os.environ["AZURE_MAIL_PROVIDERS"] = "/dev/null"
+        import importlib
+
+        import app as webapp
+
+        importlib.reload(webapp)
+        webapp.app.config["TESTING"] = True
+        client = webapp.app.test_client()
+        resp = client.get("/")
+        self.assertEqual(resp.status_code, 302)
+        self.assertTrue(resp.headers["Location"].endswith("/brands/login"))
 
 
 if __name__ == "__main__":
