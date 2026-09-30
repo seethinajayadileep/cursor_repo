@@ -15,7 +15,11 @@ install -m 644 "$SRC/vm/lib_brand.py" /usr/local/lib/azure-mail/lib_brand.py
 install -m 755 "$SRC/vm/add_brand.py" /usr/local/lib/azure-mail/add_brand.py
 install -m 755 "$SRC/vm/add-brand" /usr/local/sbin/add-brand
 cp -a "$SRC/web/." /usr/local/lib/azure-mail/web/
-python3 -m pip install -q -r /usr/local/lib/azure-mail/web/requirements.txt
+export DEBIAN_FRONTEND=noninteractive
+apt-get install -y -qq python3-venv python3-pip
+VENV=/usr/local/lib/azure-mail/venv
+python3 -m venv "$VENV"
+"$VENV/bin/pip" install -q -r /usr/local/lib/azure-mail/web/requirements.txt
 if [[ ! -f /etc/azure-mail/brand.env ]]; then
   install -m 600 "$SRC/vm/brand.env.example" /etc/azure-mail/brand.env
 fi
