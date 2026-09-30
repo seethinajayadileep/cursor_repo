@@ -20,7 +20,9 @@ for extra in (ROOT / "vm", ROOT, Path("/usr/local/lib/azure-mail")):
 from lib_brand import (  # noqa: E402
     PROVIDERS,
     azure_ready,
+    can_link_sender,
     connected_ids,
+    domain_linked,
     load_domains,
     load_env,
     load_providers,
@@ -232,17 +234,26 @@ def dns_page():
     e = env()
     domain = (request.args.get("domain") or "").strip().lower().rstrip(".")
     saved = load_domains()
-    records = lookup_dns(e, domain) if domain else []
+    try:
+        records = lookup_dns(e, domain) if domain else []
+    except Exception:  # noqa: BLE001
+        records = []
     if domain and records:
         prev = saved.get(domain) or {}
         prev.update({"domain": domain, "records": records})
         save_domain(prev)
     status = {}
+    linked = False
     if domain and azure_ready(e):
         try:
             status = verification_status(e, domain)
-        except RuntimeError:
+        except Exception:  # noqa: BLE001 — Azure outage must not 500 the DNS page
             status = {}
+        try:
+            linked = domain_linked(e, domain)
+        except Exception:  # noqa: BLE001
+            linked = False
+    send_ready = can_link_sender(status) and linked
     return render_template(
         "dns.html",
         domain=domain,
@@ -251,7 +262,9 @@ def dns_page():
         status=status,
         saved=saved,
         mailbox=saved.get(domain) or {},
-        verified=bool(status) and all(v == "Verified" for v in status.values()),
+        verified=send_ready,
+        send_ready=send_ready,
+        linked=linked,
     )
 
 
@@ -276,27 +289,36 @@ def dns_verify():
         try:
             log(f"Checking DNS for {domain}…")
             st = verify_acs(env(), domain, [local], log)
-            ok = all(v == "Verified" for v in st.values())
+            send_ok = can_link_sender(st)
+            try:
+                send_ok = send_ok and domain_linked(env(), domain)
+            except RuntimeError:
+                pass
+            all_ok = all(v == "Verified" for v in st.values())
             JOBS[job_id]["result"] = {
                 "domain": domain,
+                "local_part": local,
                 "email": saved.get("email") or f"{local}@{domain}",
                 "password": saved.get("password") or "",
                 "webmail": saved.get("webmail") or "",
                 "records": lookup_dns(env(), domain),
                 "verify_status": st,
-                "verified": ok,
+                "verified": send_ok,
+                "send_ready": send_ok,
             }
             JOBS[job_id]["status"] = "ok"
-            if ok:
-                prev = dict(saved)
-                prev.update({"domain": domain, "verified": True, "verify_status": st})
-                save_domain(prev)
-            else:
+            prev = dict(saved)
+            prev.update({"domain": domain, "local_part": local, "verify_status": st, "verified": send_ok})
+            save_domain(prev)
+            if not send_ok:
                 pending = [k for k, v in st.items() if v != "Verified"]
                 JOBS[job_id]["error"] = (
-                    f"Still pending: {', '.join(pending) or 'unknown'}. "
-                    "Wait a minute and click Verify again. Do not add the other DNS rows again."
+                    f"Do not send yet. Still pending: {', '.join(pending) or 'Domain'}. "
+                    "Gmail will bounce 501 until Domain is Verified and linked. Click Verify again."
                 )
+            elif not all_ok:
+                extra = [k for k, v in st.items() if v != "Verified"]
+                log(f"Send is linked. Still finishing: {', '.join(extra)}")
         except Exception as exc:  # noqa: BLE001
             JOBS[job_id]["error"] = str(exc)
             JOBS[job_id]["status"] = "error"

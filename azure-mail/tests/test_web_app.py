@@ -19,6 +19,7 @@ class WebAppTests(unittest.TestCase):
         )
         os.environ["AZURE_MAIL_ENV"] = str(env_path)
         os.environ["AZURE_MAIL_PROVIDERS"] = str(Path(self.tmp.name) / "providers.json")
+        os.environ["AZURE_MAIL_DOMAINS"] = str(Path(self.tmp.name) / "domains.json")
         os.environ["WEB_PREFIX"] = ""
         import importlib
 
@@ -49,6 +50,44 @@ class WebAppTests(unittest.TestCase):
         prov = self.client.get("/providers")
         self.assertIn(b"Cloudflare", prov.data)
         self.assertIn(b"Namecheap", prov.data)
+
+    def test_dns_verify_form_uses_saved_mailbox_not_akruti(self):
+        from lib_brand import save_domain
+
+        env_path = Path(os.environ["AZURE_MAIL_ENV"])
+        env_path.write_text(
+            env_path.read_text()
+            + "AZURE_TENANT_ID=t\nAZURE_CLIENT_ID=c\nAZURE_CLIENT_SECRET=s\nAZURE_SUBSCRIPTION_ID=sub\n"
+        )
+        save_domain(
+            {
+                "domain": "phronen.com",
+                "local_part": "ruthwik",
+                "email": "ruthwik@phronen.com",
+            }
+        )
+        self.webapp.lookup_dns = lambda _e, _d: [
+            {"kind": "MX", "type": "MX", "host": "@", "value": "mail.example.", "priority": 10}
+        ]
+        self.webapp.verification_status = lambda _e, _d: {
+            "Domain": "VerificationFailed",
+            "SPF": "NotStarted",
+            "DKIM": "NotStarted",
+            "DKIM2": "NotStarted",
+        }
+        self.webapp.domain_linked = lambda _e, _d: False
+        self.client.post("/login", data={"password": "panel-pass"})
+        page = self.client.get("/dns?domain=phronen.com")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b'name="local_part"', page.data)
+        self.assertIn(b"ruthwik", page.data)
+        self.assertNotIn(b"akruti", page.data)
+        self.assertIn(b"501 5.1.7", page.data)
+
+    def test_templates_have_no_hardcoded_mailbox(self):
+        for name in ("job.html", "dns.html"):
+            html = (ROOT / "web" / "templates" / name).read_text()
+            self.assertNotIn("akruti", html)
 
 
 class PrefixTests(unittest.TestCase):

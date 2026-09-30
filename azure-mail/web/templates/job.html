@@ -14,7 +14,7 @@
   <p id="again-why">Not finished yet.</p>
   <form method="post" action="{{ url_for('dns_verify') }}" id="again-form">
     <input type="hidden" name="domain" id="again-domain" value="">
-    <input type="hidden" name="local_part" value="akruti">
+    <input type="hidden" name="local_part" id="again-local" value="hi">
     <button type="submit">Verify again</button>
     <a class="btn ghost" id="again-link" href="{{ url_for('dns_page') }}">Open DNS page</a>
   </form>
@@ -25,19 +25,21 @@
 <script>
 const url = {{ url_for('job_json', job_id=job_id) | tojson }};
 const dnsPage = {{ url_for('dns_page') | tojson }};
-function checksHtml(st) {
-  if (!st) return '';
-  const labels = {Domain: 'Domain TXT', SPF: 'SPF TXT', DKIM: 'DKIM 1', DKIM2: 'DKIM 2'};
-  const pending = Object.entries(st).filter(([, v]) => v !== 'Verified').map(([k]) => labels[k] || k);
-  const pills = Object.entries(st).map(([k, v]) => {
-    const on = v === 'Verified';
-    return `<span class="pill ${on ? 'on' : 'wait'}">${labels[k] || k}: ${on ? 'Verified' : 'Pending'}</span>`;
-  }).join(' ');
-  return `<h2>Azure checks</h2><p>${pills}</p>
-    <p class="muted">${pending.length ? 'Still pending: <strong>' + pending.join(', ') + '</strong>. Only that row must finish — do not re-add the whole table.' : 'All four passed.'}</p>`;
-}
 function esc(s) {
   return String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+function checksHtml(st, linked) {
+  if (!st) return '';
+  const labels = {Domain: 'Domain TXT', SPF: 'SPF TXT', DKIM: 'DKIM 1', DKIM2: 'DKIM 2'};
+  const failed = new Set(['VerificationFailed', 'Failed', 'Canceled', 'Cancelled']);
+  const pending = Object.entries(st).filter(([, v]) => v !== 'Verified').map(([k]) => labels[k] || k);
+  const pills = Object.entries(st).map(([k, v]) => {
+    const cls = v === 'Verified' ? 'on' : (failed.has(v) ? 'fail' : 'wait');
+    return `<span class="pill ${cls}">${labels[k] || k}: ${esc(v)}</span>`;
+  }).join(' ');
+  const linkPill = `<span class="pill ${linked ? 'on' : 'wait'}">${linked ? 'Linked' : 'Not linked'}</span>`;
+  return `<h2>Azure checks</h2><p>${pills} ${linkPill}</p>
+    <p class="muted">${pending.length ? 'Still pending: <strong>' + pending.join(', ') + '</strong>. Only that row must finish — do not re-add the whole table.' : 'All four passed.'}</p>`;
 }
 function dnsTable(records, verified) {
   if (!records || !records.length) return '';
@@ -67,11 +69,12 @@ async function tick() {
   document.getElementById('log').textContent = (j.log || []).join('\n');
   const domain = j.result && j.result.domain;
   const verified = !!(j.result && j.result.verified);
+  const localPart = (j.result && j.result.local_part) || 'hi';
   const st = (j.result && j.result.verify_status) || null;
   if (st) {
     const c = document.getElementById('checks');
     c.classList.remove('hidden');
-    c.innerHTML = checksHtml(st);
+    c.innerHTML = checksHtml(st, verified);
   }
   const recs = (j.result && j.result.records) || [];
   if (recs.length) {
@@ -84,29 +87,37 @@ async function tick() {
     setTimeout(tick, 1500);
     return;
   }
+  const pending = st ? Object.entries(st).filter(([, v]) => v !== 'Verified').map(([k]) => k) : [];
   if (verified) {
-    document.getElementById('heading').textContent = 'Verified';
-    document.getElementById('status').textContent = 'Mailbox is ready. DNS is already done.';
-    document.getElementById('again').classList.add('hidden');
+    document.getElementById('heading').textContent = 'Ready to send';
+    document.getElementById('status').textContent = pending.length
+      ? ('Send is linked. Still finishing ' + pending.join(', ') + '.')
+      : 'Mailbox is ready. DNS is already done.';
     const ok = document.getElementById('success');
     ok.classList.remove('hidden');
     if (j.result && j.result.email) {
       document.getElementById('success-mail').innerHTML =
-        `Sign in at webmail as <code>${j.result.email}</code>`;
+        `Sign in at webmail as <code>${esc(j.result.email)}</code>`;
     }
-    return;
+    if (!pending.length) {
+      document.getElementById('again').classList.add('hidden');
+      return;
+    }
+  } else {
+    document.getElementById('heading').textContent = pending.length ? ('Pending: ' + pending.join(', ')) : 'Check DNS';
+    document.getElementById('status').textContent = pending.length
+      ? ('Do not send yet. Waiting on ' + pending.join(', ') + ' — Gmail will bounce 501 until Domain is Verified and linked.')
+      : 'Not finished. Do not send yet.';
   }
-  const pending = st ? Object.entries(st).filter(([, v]) => v !== 'Verified').map(([k]) => k) : [];
-  document.getElementById('heading').textContent = pending.length ? ('Pending: ' + pending.join(', ')) : 'Check DNS';
-  document.getElementById('status').textContent = pending.length
-    ? ('Waiting on ' + pending.join(', ') + ' only')
-    : 'Not finished';
   if (domain) {
     document.getElementById('again').classList.remove('hidden');
-    document.getElementById('again-why').textContent = pending.length
-      ? ('Azure is still checking ' + pending.join(', ') + '. Click Verify again after a minute. Do not add the other records again.')
-      : 'Not finished yet. After DNS is saved, click Verify again.';
+    document.getElementById('again-why').textContent = verified
+      ? ('Send already works. Click Verify again to finish ' + pending.join(', ') + '.')
+      : (pending.length
+        ? ('Azure is still checking ' + pending.join(', ') + '. If Domain failed, wait until the TXT is public, then Verify again. Do not add the other records again.')
+        : 'Not finished yet. After DNS is saved, click Verify again.');
     document.getElementById('again-domain').value = domain;
+    document.getElementById('again-local').value = localPart;
     document.getElementById('again-link').href = dnsPage + '?domain=' + encodeURIComponent(domain);
   }
 }

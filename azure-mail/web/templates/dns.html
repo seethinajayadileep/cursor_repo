@@ -1,15 +1,16 @@
 {% extends "base.html" %}
 {% block title %}DNS records{% endblock %}
 {% block body %}
-<h1>{% if verified %}Verified{% else %}DNS records{% endif %}</h1>
+{% set pending = status.items() | selectattr('1', 'ne', 'Verified') | list if status else [] %}
+<h1>{% if verified %}Ready to send{% else %}DNS records{% endif %}</h1>
 {% if verified %}
-<p class="muted">This domain is linked. You do not need to add DNS again. The table below is only a copy.</p>
+<p class="muted">Azure Domain is Verified and linked. You can send mail. The table below is only a copy — do not add those rows again.</p>
 {% else %}
-<p class="muted">Copy every row into Hostinger / GoDaddy / Spaceship for that domain. When the records are saved, click <strong>Verify</strong>.</p>
+<p class="muted">Copy every row into Hostinger / GoDaddy / Spaceship for that domain. When the records are saved, click <strong>Verify</strong>. Do not send until Domain TXT is Verified and linked (Gmail 501 5.1.7).</p>
 {% endif %}
 <form class="card form" method="get">
   <label>Domain
-    <input name="domain" value="{{ domain }}" placeholder="arambh.ventures" required>
+    <input name="domain" value="{{ domain }}" placeholder="brand.com" required>
   </label>
   <button type="submit">Show records</button>
 </form>
@@ -22,10 +23,17 @@
 {% endif %}
 {% if domain %}
   {% if not azure_needed and not verified %}
+  <div class="card warn">
+    <p>Do not send from this domain yet. Gmail returns <strong>501 5.1.7</strong> until Azure Domain TXT is Verified and the domain is linked. Add the Domain TXT if it is missing, then Verify.</p>
+  </div>
+  {% endif %}
+  {% if not azure_needed and (not verified or pending) %}
   <form class="card form" method="post" action="{{ url_for('dns_verify') }}">
     <input type="hidden" name="domain" value="{{ domain }}">
-    <input type="hidden" name="local_part" value="{{ mailbox.local_part or 'akruti' }}">
-    <p>After DNS is saved at the registrar, click Verify.</p>
+    <label>Mailbox (before @)
+      <input name="local_part" value="{{ mailbox.local_part or 'hi' }}" required>
+    </label>
+    <p>{% if verified %}Send is already linked. Click Verify to finish remaining Azure checks.{% else %}After DNS is saved at the registrar, click Verify.{% endif %}</p>
     <button type="submit">Verify DNS</button>
   </form>
   {% endif %}
@@ -42,12 +50,12 @@
   {% if status %}
   <p>Azure status:
     {% for k, v in status.items() %}
-      <span class="pill {% if v == 'Verified' %}on{% else %}wait{% endif %}">{{ k }}: {% if v == 'Verified' %}Verified{% else %}Pending{% endif %}</span>
+      <span class="pill {% if v == 'Verified' %}on{% elif v in ('VerificationFailed', 'Failed', 'Canceled', 'Cancelled') %}fail{% else %}wait{% endif %}">{{ k }}: {{ v }}</span>
     {% endfor %}
+    <span class="pill {% if linked %}on{% else %}wait{% endif %}">{% if linked %}Linked{% else %}Not linked{% endif %}</span>
   </p>
-  {% set pending = status.items() | selectattr('1', 'ne', 'Verified') | list %}
   {% if pending %}
-  <p class="muted">Still pending: <strong>{% for k, v in pending %}{{ k }}{% if not loop.last %}, {% endif %}{% endfor %}</strong>. Only that check — do not re-add the whole table.</p>
+  <p class="muted">Still pending: <strong>{% for k, v in pending %}{{ k }}{% if not loop.last %}, {% endif %}{% endfor %}</strong>. Only that check — do not re-add the whole table. Failed Domain TXT must be retried after the record is public.</p>
   {% endif %}
   {% endif %}
   {% if mailbox.get('email') %}

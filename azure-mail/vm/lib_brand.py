@@ -182,35 +182,51 @@ def verification_status(env: dict[str, str], domain: str) -> dict[str, str]:
     return {k: (vs.get(k) or {}).get("status") or "Unknown" for k in ("Domain", "SPF", "DKIM", "DKIM2")}
 
 
-def verify_acs(env: dict[str, str], domain: str, locals_: list[str], log: LogFn) -> dict[str, str]:
-    """User clicked Verify after pasting DNS at the registrar."""
+FAILED_STATES = ("VerificationFailed", "Failed", "Canceled", "Cancelled")
+
+
+def can_link_sender(st: dict[str, str]) -> bool:
+    """ACS 501 5.1.7 happens until Domain ownership is Verified and linked."""
+    return (st.get("Domain") or "") == "Verified"
+
+
+def check_failed(status: str) -> bool:
+    return (status or "") in FAILED_STATES
+
+
+def domain_linked(env: dict[str, str], domain: str) -> bool:
+    _email_id, acs_id, dom_id, _managed = acs_paths(env, domain)
+    cur = az(env, "GET", acs_id, API_ACS)
+    linked = (cur.get("properties") or {}).get("linkedDomains") or []
+    return dom_id in linked
+
+
+def _initiate(env: dict[str, str], dom_id: str, kind: str, log: LogFn) -> None:
+    try:
+        az(env, "POST", f"{dom_id}/initiateVerification", API_EMAIL, {"verificationType": kind})
+        log(f"Asked Azure to check {kind}")
+    except RuntimeError as e:
+        log(f"  {kind}: {e}")
+
+
+def link_and_mailfrom(env: dict[str, str], domain: str, locals_: list[str], log: LogFn) -> None:
+    """GET current linkedDomains, then append. Never replace the list."""
     _email_id, acs_id, dom_id, managed = acs_paths(env, domain)
-    for kind in ("Domain", "SPF", "DKIM", "DKIM2"):
-        try:
-            az(env, "POST", f"{dom_id}/initiateVerification", API_EMAIL, {"verificationType": kind})
-            log(f"Asked Azure to check {kind}")
-        except RuntimeError as e:
-            log(f"  {kind}: {e}")
-    ok = False
-    st: dict[str, str] = {}
-    for i in range(1, 7):
-        st = verification_status(env, domain)
-        pending = [k for k, v in st.items() if v != "Verified"]
-        log(f"  Check {i}/6  pending: {', '.join(pending) or 'none'}  {st}")
-        if all(v == "Verified" for v in st.values()):
-            ok = True
-            break
-        time.sleep(10)
-    if not ok:
-        return st
-    log("Linking domain to Azure send…")
     cur = az(env, "GET", acs_id, API_ACS)
     linked = list((cur.get("properties") or {}).get("linkedDomains") or [])
+    changed = False
     for extra in (managed, dom_id):
         if extra not in linked:
             linked.append(extra)
-    az(env, "PATCH", acs_id, API_ACS, {"properties": {"linkedDomains": linked}})
+            changed = True
+    if changed:
+        az(env, "PATCH", acs_id, API_ACS, {"properties": {"linkedDomains": linked}})
+        log("Linked domain for Azure send (stops 501 5.1.7).")
+    else:
+        log("Domain already linked for Azure send.")
     for user in locals_:
+        if not user:
+            continue
         try:
             az(
                 env,
@@ -222,6 +238,35 @@ def verify_acs(env: dict[str, str], domain: str, locals_: list[str], log: LogFn)
             log(f"  MailFrom {user}@{domain}")
         except RuntimeError as e:
             log(f"  MailFrom {user}@{domain}: {e}")
+
+
+def verify_acs(env: dict[str, str], domain: str, locals_: list[str], log: LogFn) -> dict[str, str]:
+    """Retry Failed checks (TXT added late) and link as soon as Domain is Verified."""
+    _email_id, _acs_id, dom_id, _managed = acs_paths(env, domain)
+    st = verification_status(env, domain)
+    for kind, status in st.items():
+        if status == "Verified":
+            continue
+        _initiate(env, dom_id, kind, log)
+    linked_ok = False
+    for i in range(1, 7):
+        st = verification_status(env, domain)
+        pending = [k for k, v in st.items() if v != "Verified"]
+        log(f"  Check {i}/6  pending: {', '.join(pending) or 'none'}  {st}")
+        if can_link_sender(st) and not linked_ok:
+            link_and_mailfrom(env, domain, locals_, log)
+            linked_ok = True
+        if all(v == "Verified" for v in st.values()):
+            if not linked_ok:
+                link_and_mailfrom(env, domain, locals_, log)
+            return st
+        for kind, status in st.items():
+            if check_failed(status):
+                log(f"{kind} failed ({status}) — DNS may have been added late. Retrying.")
+                _initiate(env, dom_id, kind, log)
+        time.sleep(10)
+    if can_link_sender(st) and not linked_ok:
+        link_and_mailfrom(env, domain, locals_, log)
     return st
 
 
@@ -432,7 +477,7 @@ def lookup_dns(env: dict[str, str], domain: str) -> list[dict]:
         obj = az(env, "GET", path, API_EMAIL)
         if isinstance(obj, dict):
             recs = mail_records(domain, mail_host, dns_rows(obj, domain))
-    except RuntimeError:
+    except Exception:  # noqa: BLE001 — still show MX/DMARC if Azure is unreachable
         pass
     return format_records(recs)
 

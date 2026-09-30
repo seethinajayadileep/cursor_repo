@@ -1,6 +1,7 @@
 import sys
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "vm"))
 from lib_brand import DnsRecord, apex_host, format_records, mail_records  # noqa: E402
@@ -71,6 +72,80 @@ class RecordTests(unittest.TestCase):
         self.assertEqual(rows[0]["value"], "mail.example.com.")
         self.assertEqual(len(rows), 2)
         self.assertEqual(rows[-1]["host"], "_dmarc")
+
+
+class VerifyLinkTests(unittest.TestCase):
+    def test_can_link_sender_only_needs_domain(self):
+        from lib_brand import can_link_sender, check_failed
+
+        self.assertTrue(can_link_sender({"Domain": "Verified", "SPF": "NotStarted"}))
+        self.assertFalse(can_link_sender({"Domain": "VerificationFailed", "SPF": "Verified"}))
+        self.assertFalse(can_link_sender({"Domain": "VerificationInProgress"}))
+        self.assertFalse(can_link_sender({}))
+        self.assertTrue(check_failed("VerificationFailed"))
+        self.assertFalse(check_failed("Verified"))
+
+    @patch("lib_brand.time.sleep")
+    @patch("lib_brand.link_and_mailfrom")
+    @patch("lib_brand._initiate")
+    @patch("lib_brand.verification_status")
+    def test_verify_acs_retries_failed_domain_and_links_early(self, status, initiate, link, _sleep):
+        from lib_brand import verify_acs
+
+        status.side_effect = [
+            {
+                "Domain": "VerificationFailed",
+                "SPF": "NotStarted",
+                "DKIM": "NotStarted",
+                "DKIM2": "NotStarted",
+            },
+            {
+                "Domain": "Verified",
+                "SPF": "VerificationInProgress",
+                "DKIM": "NotStarted",
+                "DKIM2": "NotStarted",
+            },
+            {
+                "Domain": "Verified",
+                "SPF": "Verified",
+                "DKIM": "Verified",
+                "DKIM2": "Verified",
+            },
+        ]
+        logs: list[str] = []
+        out = verify_acs({"AZURE_SUBSCRIPTION_ID": "sub"}, "phronen.com", ["ruthwik"], logs.append)
+        self.assertEqual(out["Domain"], "Verified")
+        link.assert_called()
+        self.assertEqual(link.call_args.args[1], "phronen.com")
+        self.assertEqual(link.call_args.args[2], ["ruthwik"])
+        kinds = [c.args[2] for c in initiate.call_args_list]
+        self.assertIn("Domain", kinds)
+        self.assertLess(link.call_count, 3)
+
+    @patch("lib_brand.az")
+    def test_link_and_mailfrom_appends_and_keeps_other_domains(self, az):
+        from lib_brand import link_and_mailfrom
+
+        existing = (
+            "/subscriptions/sub/resourceGroups/mailboxRg/providers/"
+            "Microsoft.Communication/emailServices/mail-box/domains/other.com"
+        )
+        az.side_effect = [
+            {"properties": {"linkedDomains": [existing]}},
+            {},
+            {},
+        ]
+        logs: list[str] = []
+        env = {"AZURE_SUBSCRIPTION_ID": "sub", "RESOURCE_GROUP": "mailboxRg"}
+        link_and_mailfrom(env, "phronen.com", ["ruthwik"], logs.append)
+        patch = az.call_args_list[1]
+        self.assertEqual(patch.args[1], "PATCH")
+        linked = patch.args[4]["properties"]["linkedDomains"]
+        self.assertIn(existing, linked)
+        self.assertTrue(any("phronen.com" in item for item in linked))
+        mailfrom = az.call_args_list[2]
+        self.assertEqual(mailfrom.args[1], "PUT")
+        self.assertIn("senderUsernames/ruthwik", mailfrom.args[2])
 
 
 if __name__ == "__main__":
