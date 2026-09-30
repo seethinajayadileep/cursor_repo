@@ -38,32 +38,20 @@ a:hover { text-decoration: underline; }
   font-weight: 700;
   color: #fff;
   text-decoration: none;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
-  font-size: 0.82rem;
+  font-size: 0.84rem;
 }
 .brand:hover { text-decoration: none; color: #fff; }
 .mark {
   width: 18px;
   height: 12px;
-  border: 1.5px solid currentColor;
-  position: relative;
-  display: inline-block;
+  display: block;
   flex: 0 0 auto;
 }
-.mark::before,
-.mark::after {
-  content: "";
-  position: absolute;
-  background: currentColor;
-  height: 1.5px;
-  width: 12px;
-  top: 1px;
-  transform-origin: left center;
-}
-.mark::before { left: 0; transform: rotate(32deg); }
-.mark::after { right: 0; left: auto; transform-origin: right center; transform: rotate(-32deg); }
-nav { display: flex; gap: 1.1rem; flex-wrap: wrap; }
+.mark path,
+.mark rect { fill: none; stroke: currentColor; stroke-width: 1.7; }
+nav { display: flex; gap: 1.35rem; flex-wrap: wrap; }
 nav a {
   color: #c8c8c8;
   text-decoration: none;
@@ -94,8 +82,8 @@ h2 {
   box-shadow: var(--shadow);
 }
 .grid { display: grid; gap: 1rem; }
-.grid.two { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
-.grid.three { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.grid.two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 .grid .card { height: 100%; }
 .form label { display: block; margin: 0.75rem 0; font-size: 0.92rem; font-weight: 560; }
 input, select, textarea {
@@ -189,7 +177,7 @@ button:hover, .btn:hover { text-decoration: none; background: #000; }
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   font-size: 1.05rem;
 }
@@ -233,4 +221,5 @@ td.val code { word-break: break-all; background: none; padding: 0; }
   .top { flex-direction: column; align-items: flex-start; box-shadow: 0 6px 0 #111; }
   h1 { font-size: 1.65rem; }
   .wrap { padding: 1.4rem 5vw 3rem; }
+  .grid.two, .grid.three { grid-template-columns: 1fr; }
 }
