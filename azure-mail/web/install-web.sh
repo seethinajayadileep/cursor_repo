@@ -40,4 +40,5 @@ if [[ -d "$MC" ]]; then
 fi
 echo
 echo "Panel: https://mail.seethinajayadileep.dev/brands/"
-echo "Sign in with WEB_ADMIN_PASSWORD or the Mailcow API key from /etc/azure-mail/brand.env"
+echo "Admin only: WEB_ADMIN_PASSWORD in /etc/azure-mail/brand.env"
+echo "Mailbox users sign in at https://mail.seethinajayadileep.dev/ — they cannot open this panel."

@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import json
 import os
-import secrets
 import sys
 import threading
 import uuid
 from pathlib import Path
 
+from datetime import timedelta
+
 from flask import Flask, flash, redirect, render_template, request, session, url_for
 
 ROOT = Path(__file__).resolve().parents[1]
-for extra in (ROOT / "vm", ROOT, Path("/usr/local/lib/azure-mail")):
+for extra in (ROOT / "web", ROOT / "vm", ROOT, Path("/usr/local/lib/azure-mail")):
     if extra.is_dir():
         sys.path.insert(0, str(extra))
 
@@ -35,6 +36,20 @@ from lib_brand import (  # noqa: E402
     verify_acs,
     write_env,
 )
+from security import (  # noqa: E402
+    PUBLIC_ENDPOINTS,
+    SESSION_MAX_AGE,
+    admin_password,
+    clear_failures,
+    client_ip,
+    establish_admin_session,
+    locked_out,
+    password_ok,
+    persist_web_secret,
+    record_failure,
+    same_origin,
+    session_valid,
+)
 
 class PrefixMiddleware:
     """Keep links under /brands/ when nginx strips that prefix."""
@@ -52,12 +67,19 @@ class PrefixMiddleware:
 
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("WEB_SECRET") or secrets.token_hex(24)
+app.secret_key = persist_web_secret(write_env, load_env)
 PREFIX = os.environ.get("WEB_PREFIX", "/brands")
 if PREFIX:
     app.wsgi_app = PrefixMiddleware(app.wsgi_app, PREFIX)
     app.config["APPLICATION_ROOT"] = PREFIX.rstrip("/") or "/brands"
     app.config["SESSION_COOKIE_PATH"] = PREFIX.rstrip("/") or "/brands"
+app.config.update(
+    PERMANENT_SESSION_LIFETIME=timedelta(seconds=SESSION_MAX_AGE),
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Strict",
+    SESSION_COOKIE_SECURE=os.environ.get("WEB_COOKIE_SECURE", "1") not in ("0", "false"),
+    SESSION_COOKIE_NAME="mailbox_admin",
+)
 JOBS: dict[str, dict] = {}
 
 
@@ -71,9 +93,40 @@ def setup_done(e: dict[str, str] | None = None) -> bool:
 
 
 def require_login():
-    if not session.get("ok"):
+    if not session_valid():
+        session.clear()
         return redirect(url_for("login"))
     return None
+
+
+@app.before_request
+def enforce_admin_only():
+    if request.endpoint in PUBLIC_ENDPOINTS or (request.endpoint or "").startswith("static"):
+        return None
+    if request.method in ("POST", "PUT", "PATCH", "DELETE"):
+        if not app.config.get("TESTING") and not same_origin(request):
+            return ("Forbidden", 403)
+    if request.endpoint == "login":
+        return None
+    if not session_valid():
+        session.clear()
+        if request.endpoint == "job_json":
+            return {"error": "login"}, 401
+        return redirect(url_for("login"))
+    return None
+
+
+@app.after_request
+def harden_headers(resp):
+    resp.headers["X-Frame-Options"] = "DENY"
+    resp.headers["X-Content-Type-Options"] = "nosniff"
+    resp.headers["Referrer-Policy"] = "no-referrer"
+    resp.headers["Cache-Control"] = "no-store"
+    resp.headers["Content-Security-Policy"] = (
+        "default-src 'self'; img-src 'self' data:; style-src 'self'; "
+        "script-src 'self' 'unsafe-inline'; form-action 'self'; frame-ancestors 'none'"
+    )
+    return resp
 
 
 @app.context_processor
@@ -90,13 +143,22 @@ def inject():
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
+    if session_valid():
+        return redirect(url_for("home"))
     e = env()
-    expected = e.get("WEB_ADMIN_PASSWORD") or e.get("MAILCOW_API_KEY") or ""
+    expected = admin_password(e)
+    ip = client_ip(request)
     if request.method == "POST":
-        if expected and request.form.get("password") == expected:
-            session["ok"] = True
+        if locked_out(ip):
+            flash("Too many failed sign-ins. Wait and try again.")
+            return render_template("login.html", has_password=bool(expected)), 429
+        given = request.form.get("password") or ""
+        if password_ok(given, expected):
+            clear_failures(ip)
+            establish_admin_session()
             return redirect(url_for("home"))
-        flash("Wrong password. Use WEB_ADMIN_PASSWORD from brand.env (or the Mailcow API key).")
+        record_failure(ip)
+        flash("Wrong admin password. Mailbox users sign in at webmail, not here.")
     return render_template("login.html", has_password=bool(expected))
 
 
@@ -376,10 +438,13 @@ def job_json(job_id: str):
     data = JOBS.get(job_id)
     if not data:
         return {"error": "missing"}, 404
+    result = data["result"]
+    if isinstance(result, dict):
+        result = {k: v for k, v in result.items() if k != "password"}
     return {
         "status": data["status"],
         "log": data["log"],
-        "result": data["result"],
+        "result": result,
         "error": data["error"],
     }
 

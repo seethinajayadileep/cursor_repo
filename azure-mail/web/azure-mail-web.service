@@ -9,8 +9,9 @@ Environment=AZURE_MAIL_ENV=/etc/azure-mail/brand.env
 Environment=AZURE_MAIL_PROVIDERS=/etc/azure-mail/providers.json
 Environment=PYTHONPATH=/usr/local/lib/azure-mail
 Environment=WEB_PREFIX=/brands
-Environment=WEB_HOST=0.0.0.0
+Environment=WEB_HOST=172.22.1.1
 Environment=WEB_PORT=8787
+Environment=WEB_COOKIE_SECURE=1
 WorkingDirectory=/usr/local/lib/azure-mail/web
 ExecStart=/usr/local/lib/azure-mail/venv/bin/python /usr/local/lib/azure-mail/web/app.py
 Restart=on-failure

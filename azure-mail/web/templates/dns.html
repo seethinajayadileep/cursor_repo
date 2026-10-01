@@ -61,9 +61,7 @@
   {% if mailbox.get('email') %}
   <div class="card">
     <h2>Mailbox</h2>
-    <p>Login: <code>{{ mailbox.email }}</code>
-      {% if mailbox.password %} · password <code>{{ mailbox.password }}</code>{% endif %}
-    </p>
+    <p>Login: <code>{{ mailbox.email }}</code> at webmail. The mailbox password is not shown here.</p>
     {% if mailbox.webmail %}<p>Webmail: <a href="{{ mailbox.webmail }}">{{ mailbox.webmail }}</a></p>{% endif %}
   </div>
   {% endif %}

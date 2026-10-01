@@ -114,6 +114,7 @@ def write_env(values: dict[str, str], path: Path | None = None) -> None:
         "MAILCOW_API_KEY",
         "MAIL_HOSTNAME",
         "WEB_ADMIN_PASSWORD",
+        "WEB_SECRET",
         "NAMECOM_USER",
         "NAMECOM_TOKEN",
     ]

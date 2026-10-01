@@ -21,12 +21,16 @@ class WebAppTests(unittest.TestCase):
         os.environ["AZURE_MAIL_PROVIDERS"] = str(Path(self.tmp.name) / "providers.json")
         os.environ["AZURE_MAIL_DOMAINS"] = str(Path(self.tmp.name) / "domains.json")
         os.environ["WEB_PREFIX"] = ""
+        os.environ["WEB_COOKIE_SECURE"] = "0"
+        os.environ["WEB_LOGIN_FAIL_LIMIT"] = "20"
         import importlib
 
         import app as webapp
         import lib_brand
+        import security
 
         importlib.reload(lib_brand)
+        importlib.reload(security)
         importlib.reload(webapp)
         webapp.app.config["TESTING"] = True
         webapp.app.secret_key = "test"
@@ -38,7 +42,7 @@ class WebAppTests(unittest.TestCase):
 
     def test_login_then_home(self):
         bad = self.client.post("/login", data={"password": "nope"}, follow_redirects=True)
-        self.assertIn(b"Wrong password", bad.data)
+        self.assertIn(b"Wrong admin password", bad.data)
         ok = self.client.post("/login", data={"password": "panel-pass"}, follow_redirects=True)
         self.assertEqual(ok.status_code, 200)
         self.assertIn(b"Add a domain", ok.data)
@@ -125,6 +129,22 @@ class WebAppTests(unittest.TestCase):
         self.assertIn(b"ruthwik@phronen.com", found.data)
         missing = self.client.get("/mailboxes?q=no-such-box")
         self.assertIn(b"No mailboxes yet", missing.data)
+
+
+    def test_mailboxes_requires_admin_session(self):
+        anon = self.client.get("/mailboxes")
+        self.assertEqual(anon.status_code, 302)
+        self.assertIn("/login", anon.headers["Location"])
+        job = self.client.get("/job/x.json")
+        self.assertEqual(job.status_code, 401)
+
+    def test_api_key_and_mailbox_password_cannot_open_panel(self):
+        for secret in ("test-key", "ruthwik-mailbox", ""):
+            denied = self.client.post("/login", data={"password": secret}, follow_redirects=True)
+            self.assertIn(b"Wrong admin password", denied.data)
+            home = self.client.get("/")
+            self.assertEqual(home.status_code, 302)
+            self.assertIn("/login", home.headers["Location"])
 
 
 class PrefixTests(unittest.TestCase):
