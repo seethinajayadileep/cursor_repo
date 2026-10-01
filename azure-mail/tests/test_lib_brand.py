@@ -1,4 +1,5 @@
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -146,6 +147,56 @@ class VerifyLinkTests(unittest.TestCase):
         mailfrom = az.call_args_list[2]
         self.assertEqual(mailfrom.args[1], "PUT")
         self.assertIn("senderUsernames/ruthwik", mailfrom.args[2])
+
+    @patch("lib_brand.mailcow")
+    def test_mail_directory_groups_mailboxes_by_domain(self, mailcow_api):
+        from lib_brand import mail_directory, save_domain
+
+        mailcow_api.side_effect = [
+            [
+                {"domain_name": "phronen.com", "active": "1"},
+                {"domain_name": "arambh.ventures", "active": "1"},
+            ],
+            [
+                {
+                    "username": "ruthwik@phronen.com",
+                    "local_part": "ruthwik",
+                    "domain": "phronen.com",
+                    "name": "ruthwik",
+                    "active": "1",
+                },
+                {
+                    "username": "akruti@arambh.ventures",
+                    "local_part": "akruti",
+                    "domain": "arambh.ventures",
+                    "name": "akruti",
+                    "active": "1",
+                },
+            ],
+        ]
+        p = Path(tempfile.mkdtemp()) / "domains.json"
+        import lib_brand
+
+        prev = lib_brand.DOMAINS_PATH
+        lib_brand.DOMAINS_PATH = p
+        try:
+            save_domain({"domain": "phronen.com", "email": "ruthwik@phronen.com", "verified": True}, p)
+            data = mail_directory(
+                {
+                    "MAIL_HOSTNAME": "mail.example",
+                    "MAILCOW_API_URL": "https://mail.example",
+                    "MAILCOW_API_KEY": "k",
+                }
+            )
+            names = [d["domain"] for d in data["domains"]]
+            self.assertEqual(names, ["arambh.ventures", "phronen.com"])
+            phronen = next(d for d in data["domains"] if d["domain"] == "phronen.com")
+            self.assertEqual(phronen["mailboxes"][0]["email"], "ruthwik@phronen.com")
+            self.assertTrue(phronen["send_ready"])
+            self.assertEqual(data["mailbox_count"], 2)
+            self.assertIsNone(data["error"])
+        finally:
+            lib_brand.DOMAINS_PATH = prev
 
 
 if __name__ == "__main__":

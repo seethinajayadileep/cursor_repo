@@ -11,6 +11,7 @@
   <header class="top">
     <a class="brand" href="{{ url_for('home') }}"><svg class="mark" viewBox="0 0 24 16" aria-hidden="true"><rect x="1.2" y="1.2" width="21.6" height="13.6"/><path d="M1.2 2.2 12 9.2 22.8 2.2"/></svg>Mailbox</a>
     <nav>
+      <a href="{{ url_for('mailboxes') }}">Mailboxes</a>
       <a href="{{ url_for('add') }}">Add domain</a>
       <a href="{{ url_for('dns_page') }}">DNS records</a>
       <a href="{{ url_for('providers') }}">Providers</a>

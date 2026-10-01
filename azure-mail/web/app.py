@@ -27,6 +27,7 @@ from lib_brand import (  # noqa: E402
     load_env,
     load_providers,
     lookup_dns,
+    mail_directory,
     provision,
     save_domain,
     save_providers,
@@ -111,6 +112,34 @@ def home():
     if gate:
         return gate
     return render_template("home.html")
+
+
+@app.route("/mailboxes")
+def mailboxes():
+    gate = require_login()
+    if gate:
+        return gate
+    data = mail_directory(env())
+    query = (request.args.get("q") or "").strip().lower()
+    rows = data["domains"]
+    if query:
+        rows = [
+            row
+            for row in rows
+            if query in row["domain"]
+            or any(query in (box.get("email") or "").lower() for box in row["mailboxes"])
+        ]
+    return render_template(
+        "mailboxes.html",
+        domains=rows,
+        domain_count=data["domain_count"],
+        mailbox_count=data["mailbox_count"],
+        shown_domains=len(rows),
+        shown_mailboxes=sum(len(r["mailboxes"]) for r in rows),
+        query=query,
+        error=data.get("error"),
+        webmail=data.get("webmail") or f"https://{env().get('MAIL_HOSTNAME') or 'mail.seethinajayadileep.dev'}/",
+    )
 
 
 @app.route("/setup", methods=["GET", "POST"])

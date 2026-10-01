@@ -372,6 +372,130 @@ def mailcow(env: dict[str, str], method: str, route: str, body: dict | None = No
     )[1]
 
 
+def _as_rows(result: object) -> list:
+    if isinstance(result, list):
+        return [x for x in result if isinstance(x, dict)]
+    if isinstance(result, dict):
+        for key in ("items", "data"):
+            if isinstance(result.get(key), list):
+                return [x for x in result[key] if isinstance(x, dict)]
+    return []
+
+
+def _is_on(value: object) -> bool:
+    return str(value).strip().lower() in ("1", "true", "yes", "active")
+
+
+def list_mailcow_domains(env: dict[str, str]) -> list[dict]:
+    rows = []
+    for item in _as_rows(mailcow(env, "GET", "/api/v1/get/domain/all")):
+        name = (item.get("domain_name") or item.get("domain") or "").strip().lower().rstrip(".")
+        if "." not in name:
+            continue
+        rows.append({"domain": name, "active": _is_on(item.get("active", "1"))})
+    return rows
+
+
+def list_mailcow_mailboxes(env: dict[str, str]) -> list[dict]:
+    rows = []
+    for item in _as_rows(mailcow(env, "GET", "/api/v1/get/mailbox/all")):
+        user = str(item.get("username") or "").strip()
+        local = str(item.get("local_part") or "").strip()
+        domain = str(item.get("domain") or "").strip().lower().rstrip(".")
+        if "@" in user:
+            local = local or user.split("@", 1)[0]
+            domain = domain or user.split("@", 1)[1].lower()
+        if not domain or "." not in domain:
+            continue
+        if not user:
+            user = f"{local}@{domain}" if local else ""
+        if not user:
+            continue
+        rows.append(
+            {
+                "email": user,
+                "local_part": local or user.split("@", 1)[0],
+                "domain": domain,
+                "name": str(item.get("name") or local or user.split("@", 1)[0]),
+                "active": _is_on(item.get("active", "1")),
+            }
+        )
+    return rows
+
+
+def mail_directory(env: dict[str, str]) -> dict:
+    """Central view: Mailcow domains + mailboxes, plus saved Azure send state."""
+    saved = load_domains()
+    mail_host = env.get("MAIL_HOSTNAME") or "mail.seethinajayadileep.dev"
+    error = None
+    cow_domains: list[dict] = []
+    cow_boxes: list[dict] = []
+    try:
+        cow_domains = list_mailcow_domains(env)
+        cow_boxes = list_mailcow_mailboxes(env)
+    except Exception as exc:  # noqa: BLE001 — still show saved domains if Mailcow is down
+        error = str(exc)
+
+    by_domain: dict[str, dict] = {}
+
+    def ensure(name: str, source: str) -> dict:
+        name = name.lower().strip().rstrip(".")
+        row = by_domain.get(name)
+        if not row:
+            info = saved.get(name) or {}
+            row = {
+                "domain": name,
+                "active": True,
+                "mailboxes": [],
+                "source": source,
+                "send_ready": bool(info.get("send_ready") or info.get("verified")),
+                "saved": info,
+            }
+            by_domain[name] = row
+        return row
+
+    for item in cow_domains:
+        row = ensure(item["domain"], "mailcow")
+        row["active"] = item["active"]
+        row["source"] = "mailcow"
+    for box in cow_boxes:
+        row = ensure(box["domain"], "mailcow")
+        row["mailboxes"].append(box)
+    for name, info in saved.items():
+        if "." not in name:
+            continue
+        row = ensure(name, "saved")
+        if not row["mailboxes"] and info.get("email"):
+            row["mailboxes"].append(
+                {
+                    "email": info["email"],
+                    "local_part": info.get("local_part") or str(info["email"]).split("@")[0],
+                    "domain": name,
+                    "name": info.get("local_part") or "",
+                    "active": True,
+                    "from_saved": True,
+                }
+            )
+    for row in by_domain.values():
+        seen: set[str] = set()
+        unique = []
+        for box in sorted(row["mailboxes"], key=lambda x: x.get("email") or ""):
+            email = (box.get("email") or "").lower()
+            if not email or email in seen:
+                continue
+            seen.add(email)
+            unique.append(box)
+        row["mailboxes"] = unique
+    rows = sorted(by_domain.values(), key=lambda x: x["domain"])
+    return {
+        "domains": rows,
+        "domain_count": len(rows),
+        "mailbox_count": sum(len(r["mailboxes"]) for r in rows),
+        "error": error,
+        "webmail": f"https://{mail_host}/",
+    }
+
+
 def apex_host(host: str, domain: str) -> str:
     host = (host or "").strip()
     suffix = "." + domain

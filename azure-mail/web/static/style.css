@@ -271,6 +271,13 @@ td.val code { word-break: break-all; background: none; padding: 0; }
   background: #fafafa;
 }
 .dns .ghost { padding: 0.3rem 0.65rem; font-size: 0.82rem; }
+.stats { margin: 0.2rem 0 0; }
+.domain-card .row { margin-top: 0.7rem; }
+.mailbox-table th:nth-child(1),
+.mailbox-table td:nth-child(1) { width: 56%; }
+.mailbox-table th:nth-child(2),
+.mailbox-table td:nth-child(2) { width: 22%; }
+.mailbox-table .ghost { padding: 0.3rem 0.65rem; font-size: 0.82rem; }
 @media (max-width: 720px) {
   .top { flex-direction: column; align-items: flex-start; box-shadow: 0 6px 0 #111; }
   h1 { font-size: 1.65rem; }
@@ -284,7 +291,8 @@ td.val code { word-break: break-all; background: none; padding: 0; }
   .dns td { display: block; width: 100%; }
   .dns tr { border-bottom: 1px solid var(--line); padding: 0.75rem 0; }
   .dns td { border-bottom: 0; padding: 0.28rem 0; }
-  .dns td::before {
+  .dns td::before,
+  .mailbox-table td::before {
     content: attr(data-label);
     display: block;
     font-size: 0.72rem;
@@ -293,4 +301,12 @@ td.val code { word-break: break-all; background: none; padding: 0; }
     font-weight: 650;
     margin-bottom: 0.15rem;
   }
+  .mailbox-table { table-layout: auto; }
+  .mailbox-table thead { display: none; }
+  .mailbox-table,
+  .mailbox-table tbody,
+  .mailbox-table tr,
+  .mailbox-table td { display: block; width: 100%; }
+  .mailbox-table tr { border-bottom: 1px solid var(--line); padding: 0.75rem 0; }
+  .mailbox-table td { border-bottom: 0; padding: 0.28rem 0; }
 }

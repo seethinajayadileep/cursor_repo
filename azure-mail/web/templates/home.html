@@ -5,7 +5,8 @@
   <h1>One page to add a mailbox</h1>
   <p class="muted">Connect Hostinger, GoDaddy, Cloudflare, Name.com, Namecheap, or Porkbun once. Then type a domain and we create the mailbox, DNS, and Azure send link.</p>
   <div class="row">
-    <a class="btn" href="{{ url_for('add') }}">Add a domain</a>
+    <a class="btn" href="{{ url_for('mailboxes') }}">View mailboxes</a>
+    <a class="btn ghost" href="{{ url_for('add') }}">Add a domain</a>
     <a class="btn ghost" href="{{ url_for('providers') }}">Connect a provider</a>
   </div>
 </section>

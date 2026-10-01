@@ -89,6 +89,43 @@ class WebAppTests(unittest.TestCase):
             html = (ROOT / "web" / "templates" / name).read_text()
             self.assertNotIn("akruti", html)
 
+    def test_central_mail_lists_domains_and_mailboxes(self):
+        self.webapp.mail_directory = lambda _e: {
+            "domains": [
+                {
+                    "domain": "phronen.com",
+                    "active": True,
+                    "source": "mailcow",
+                    "send_ready": True,
+                    "saved": {},
+                    "mailboxes": [
+                        {
+                            "email": "ruthwik@phronen.com",
+                            "local_part": "ruthwik",
+                            "domain": "phronen.com",
+                            "name": "ruthwik",
+                            "active": True,
+                        }
+                    ],
+                }
+            ],
+            "domain_count": 1,
+            "mailbox_count": 1,
+            "error": None,
+            "webmail": "https://mail.example/",
+        }
+        self.client.post("/login", data={"password": "panel-pass"})
+        page = self.client.get("/mailboxes")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b"Central mail", page.data)
+        self.assertIn(b"phronen.com", page.data)
+        self.assertIn(b"ruthwik@phronen.com", page.data)
+        self.assertIn(b"Send ready", page.data)
+        found = self.client.get("/mailboxes?q=ruthwik")
+        self.assertIn(b"ruthwik@phronen.com", found.data)
+        missing = self.client.get("/mailboxes?q=no-such-box")
+        self.assertIn(b"No mailboxes yet", missing.data)
+
 
 class PrefixTests(unittest.TestCase):
     def test_unauthenticated_redirect_stays_under_brands(self):
