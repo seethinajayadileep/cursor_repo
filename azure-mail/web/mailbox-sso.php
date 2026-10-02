@@ -38,10 +38,6 @@ if (!is_string($sig) || !hash_equals($calc, $sig)) {
 
 require_once $_SERVER['DOCUMENT_ROOT'] . '/inc/prerequisites.inc.php';
 
-if (function_exists('user_get_alias_details') && user_get_alias_details($email) === false) {
-    $fail();
-}
-
 if (function_exists('session_regenerate_id')) {
     session_regenerate_id(true);
 }
