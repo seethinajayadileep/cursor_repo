@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Providers{% endblock %}
+{% block body %}
+<h1>Connect where the domain lives</h1>
+<p class="muted">Pick the company that holds DNS for that domain. You can connect several. Website DNS is left alone except MX / SPF / DKIM.</p>
+<div class="grid two">
+  {% for p in providers %}
+  {% set creds = store.get(p.id) or {} %}
+  {% set on = creds and creds.values() | select | list | length == p.fields | length %}
+  <form class="card form" method="post">
+    <div class="row between">
+      <h2>{{ p.name }}</h2>
+      <span class="pill {% if on %}on{% endif %}">{% if on %}Connected{% else %}Not connected{% endif %}</span>
+    </div>
+    <p class="muted">{{ p.help }}</p>
+    <input type="hidden" name="provider" value="{{ p.id }}">
+    {% for key, label, typ in p.fields %}
+    <label>{{ label }}
+      <input name="{{ key }}" type="{{ typ }}" placeholder="{{ 'saved' if creds.get(key) else '' }}" value="{{ '' if typ == 'password' else creds.get(key, '') }}">
+    </label>
+    {% endfor %}
+    <div class="row">
+      <button type="submit">Save {{ p.name }}</button>
+      {% if on %}
+      <button class="ghost" type="submit" name="disconnect" value="1">Disconnect</button>
+      {% endif %}
+    </div>
+  </form>
+  {% endfor %}
+</div>
+{% endblock %}

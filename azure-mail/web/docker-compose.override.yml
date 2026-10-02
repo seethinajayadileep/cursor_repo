@@ -1,0 +1,6 @@
+# Merge into /opt/mailcow-dockerized/docker-compose.override.yml
+# so nginx-mailcow can reach the Mailbox panel on the host.
+services:
+  nginx-mailcow:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

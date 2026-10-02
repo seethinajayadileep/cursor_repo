@@ -1,3 +1,7 @@
+azure-mail/.env
+azure-mail/keys/
+azure-mail/out/
+
 __pycache__/
 *.pyc
 .venv/

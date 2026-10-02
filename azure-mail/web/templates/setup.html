@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Setup{% endblock %}
+{% block body %}
+<h1>One-time setup</h1>
+<p class="muted">Same values as <code>/etc/azure-mail/brand.env</code>. Azure stays hidden after this — users only see Add domain.</p>
+<form class="card form" method="post">
+  <h2>Mailcow</h2>
+  <label>Mailcow URL
+    <input name="MAILCOW_API_URL" value="{{ e.get('MAILCOW_API_URL', 'https://mail.seethinajayadileep.dev') }}">
+  </label>
+  <label>Mailcow API key
+    <input name="MAILCOW_API_KEY" type="password" placeholder="{{ 'saved' if e.get('MAILCOW_API_KEY') else 'from admin → Access → API' }}" value="">
+  </label>
+  <p class="muted">Read-Write API must allow <code>127.0.0.1</code> and <code>172.22.1.1</code> (the panel). The installer adds those IPs in MySQL.</p>
+  <label>Mail hostname
+    <input name="MAIL_HOSTNAME" value="{{ e.get('MAIL_HOSTNAME', 'mail.seethinajayadileep.dev') }}">
+  </label>
+  <label>Panel password
+    <input name="WEB_ADMIN_PASSWORD" type="password" placeholder="{{ 'unchanged' if e.get('WEB_ADMIN_PASSWORD') else 'choose a password' }}">
+  </label>
+
+  <h2>Azure (one Cloud Shell command)</h2>
+  <p class="muted">In <a href="https://shell.azure.com" target="_blank" rel="noreferrer">Cloud Shell</a>:</p>
+  <pre class="log">az ad sp create-for-rbac --name mail-brand-api --role Contributor \
+  --scopes /subscriptions/8ff63f54-fc03-42ad-b01b-b06db0b941aa/resourceGroups/mailboxRg</pre>
+  <label>Paste the JSON Cloud Shell printed
+    <textarea name="AZURE_SP_JSON" rows="8" placeholder='{"appId":"...","password":"...","tenant":"..."}'></textarea>
+  </label>
+  <p class="muted">Or fill the three IDs by hand:</p>
+  <label>Tenant ID
+    <input name="AZURE_TENANT_ID" value="{{ e.get('AZURE_TENANT_ID', '') }}">
+  </label>
+  <label>Client ID
+    <input name="AZURE_CLIENT_ID" value="{{ e.get('AZURE_CLIENT_ID', '') }}">
+  </label>
+  <label>Client secret
+    <input name="AZURE_CLIENT_SECRET" type="password" placeholder="{{ 'saved' if e.get('AZURE_CLIENT_SECRET') else '' }}">
+  </label>
+  <label>Subscription
+    <input name="AZURE_SUBSCRIPTION_ID" value="{{ e.get('AZURE_SUBSCRIPTION_ID', '8ff63f54-fc03-42ad-b01b-b06db0b941aa') }}">
+  </label>
+  <label>Resource group
+    <input name="RESOURCE_GROUP" value="{{ e.get('RESOURCE_GROUP', 'mailboxRg') }}">
+  </label>
+  <label>Communication service
+    <input name="ACS_NAME" value="{{ e.get('ACS_NAME', 'mailboxCs') }}">
+  </label>
+  <label>Email service
+    <input name="EMAIL_NAME" value="{{ e.get('EMAIL_NAME', 'mail-box') }}">
+  </label>
+  <button type="submit">Save setup</button>
+</form>
+{% endblock %}
