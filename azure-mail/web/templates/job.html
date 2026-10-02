@@ -7,7 +7,7 @@
   <h2>Verified</h2>
   <p>Azure send is linked. You do not need to add DNS again.</p>
   <p id="success-mail"></p>
-  <p><a class="btn" href="https://mail.seethinajayadileep.dev/">Open webmail</a></p>
+  <p><a class="btn" id="open-webmail" href="{{ url_for('mailboxes') }}">Open webmail</a></p>
 </div>
 <div id="checks" class="card hidden"></div>
 <div id="again" class="card hidden">
@@ -97,7 +97,11 @@ async function tick() {
     ok.classList.remove('hidden');
     if (j.result && j.result.email) {
       document.getElementById('success-mail').innerHTML =
-        `Sign in at webmail as <code>${esc(j.result.email)}</code>`;
+        `Opens <code>${esc(j.result.email)}</code> already signed in.`;
+      const btn = document.getElementById('open-webmail');
+      if (btn) {
+        btn.href = {{ url_for('open_webmail') | tojson }} + '?email=' + encodeURIComponent(j.result.email);
+      }
     }
     if (!pending.length) {
       document.getElementById('again').classList.add('hidden');

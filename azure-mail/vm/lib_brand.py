@@ -1,8 +1,11 @@
 """Shared Azure + Mailcow + multi-registrar DNS helpers."""
 from __future__ import annotations
 
+import hashlib
+import hmac
 import json
 import os
+import secrets
 import ssl
 import time
 import urllib.error
@@ -16,6 +19,8 @@ from typing import Callable
 ENV_PATH = Path(os.environ.get("AZURE_MAIL_ENV", "/etc/azure-mail/brand.env"))
 PROVIDERS_PATH = Path(os.environ.get("AZURE_MAIL_PROVIDERS", "/etc/azure-mail/providers.json"))
 DOMAINS_PATH = Path(os.environ.get("AZURE_MAIL_DOMAINS", "/etc/azure-mail/domains.json"))
+SSO_KEY_PATH = Path(os.environ.get("MAILCOW_SSO_KEY", "/opt/mailcow-dockerized/data/web/inc/.mailbox-sso.key"))
+SSO_TTL = 90
 API_EMAIL = "2023-03-31"
 API_ACS = "2025-09-01"
 MGMT = "https://management.azure.com"
@@ -115,6 +120,7 @@ def write_env(values: dict[str, str], path: Path | None = None) -> None:
         "MAIL_HOSTNAME",
         "WEB_ADMIN_PASSWORD",
         "WEB_SECRET",
+        "WEB_SSO_SECRET",
         "NAMECOM_USER",
         "NAMECOM_TOKEN",
     ]
@@ -495,6 +501,55 @@ def mail_directory(env: dict[str, str]) -> dict:
         "error": error,
         "webmail": f"https://{mail_host}/",
     }
+
+
+def persist_sso_secret(env: dict[str, str] | None = None) -> str:
+    """Keep a HMAC key in brand.env and in Mailcow's web tree for mailbox-sso.php."""
+    env = dict(env or load_env())
+    secret = (env.get("WEB_SSO_SECRET") or "").strip()
+    if not secret:
+        secret = secrets.token_hex(32)
+        write_env({"WEB_SSO_SECRET": secret})
+    try:
+        if SSO_KEY_PATH.parent.is_dir():
+            current = SSO_KEY_PATH.read_text().strip() if SSO_KEY_PATH.is_file() else ""
+            if current != secret:
+                SSO_KEY_PATH.write_text(secret + "\n")
+                os.chmod(SSO_KEY_PATH, 0o644)
+    except OSError:
+        pass
+    return secret
+
+
+def webmail_ticket(email: str, secret: str, now: int | None = None, ttl: int = SSO_TTL) -> str:
+    email = (email or "").strip().lower()
+    exp = str((now if now is not None else int(time.time())) + int(ttl))
+    sig = hmac.new(secret.encode(), f"{email}.{exp}".encode(), hashlib.sha256).hexdigest()
+    return f"{exp}.{sig}"
+
+
+def webmail_sso_url(env: dict[str, str], email: str, now: int | None = None) -> str:
+    email = (email or "").strip().lower()
+    host = env.get("MAIL_HOSTNAME") or "mail.seethinajayadileep.dev"
+    secret = persist_sso_secret(env)
+    ticket = webmail_ticket(email, secret, now=now)
+    return f"https://{host}/mailbox-sso.php?{urllib.parse.urlencode({'u': email, 't': ticket})}"
+
+
+def mailbox_known(env: dict[str, str], email: str) -> bool:
+    email = (email or "").strip().lower()
+    if "@" not in email or "." not in email.split("@", 1)[1]:
+        return False
+    try:
+        for box in list_mailcow_mailboxes(env):
+            if (box.get("email") or "").lower() == email:
+                return True
+    except Exception:
+        pass
+    for info in load_domains().values():
+        if (info.get("email") or "").lower() == email:
+            return True
+    return False
 
 
 def apex_host(host: str, domain: str) -> str:

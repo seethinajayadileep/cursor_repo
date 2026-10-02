@@ -2,7 +2,7 @@
 {% block title %}Mailboxes{% endblock %}
 {% block body %}
 <h1>Central mail</h1>
-<p class="muted">Every connected domain and the mailboxes on it. Users sign in at <a href="{{ webmail }}">{{ webmail }}</a>.</p>
+<p class="muted">Every connected domain and the mailboxes on it. Webmail from this page opens that mailbox already signed in. Users can also sign in at <a href="{{ webmail }}">{{ webmail }}</a>.</p>
 <div class="row stats">
   <span class="pill on">{{ domain_count }} domain{{ 's' if domain_count != 1 else '' }}</span>
   <span class="pill on">{{ mailbox_count }} mailbox{{ 'es' if mailbox_count != 1 else '' }}</span>
@@ -55,7 +55,7 @@
           <td data-label="Mailbox"><code>{{ box.email }}</code></td>
           <td data-label="Status">{% if box.active %}Active{% else %}Off{% endif %}{% if box.from_saved %} · saved{% endif %}</td>
           <td data-label="">
-            <a class="btn ghost" href="{{ webmail }}">Webmail</a>
+            <a class="btn ghost" href="{{ url_for('open_webmail', email=box.email) }}">Webmail</a>
           </td>
         </tr>
         {% endfor %}

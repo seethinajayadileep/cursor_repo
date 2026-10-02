@@ -198,6 +198,36 @@ class VerifyLinkTests(unittest.TestCase):
         finally:
             lib_brand.DOMAINS_PATH = prev
 
+    def test_webmail_ticket_is_signed_and_mailbox_known(self):
+        from lib_brand import mailbox_known, webmail_sso_url, webmail_ticket
+
+        secret = "a" * 32
+        ticket = webmail_ticket("ruthwik@phronen.com", secret, now=1_700_000_000, ttl=90)
+        self.assertTrue(ticket.startswith("1700000090."))
+        other = webmail_ticket("ashish@ciphrix.org", secret, now=1_700_000_000, ttl=90)
+        self.assertNotEqual(ticket, other)
+        env = {
+            "MAIL_HOSTNAME": "mail.example",
+            "WEB_SSO_SECRET": secret,
+            "MAILCOW_API_URL": "",
+            "MAILCOW_API_KEY": "",
+        }
+        url = webmail_sso_url(env, "ruthwik@phronen.com", now=1_700_000_000)
+        self.assertIn("https://mail.example/mailbox-sso.php?", url)
+        self.assertIn("u=ruthwik%40phronen.com", url)
+        self.assertIn("t=1700000090.", url)
+        p = Path(tempfile.mkdtemp()) / "domains.json"
+        import lib_brand
+
+        prev = lib_brand.DOMAINS_PATH
+        lib_brand.DOMAINS_PATH = p
+        try:
+            lib_brand.save_domain({"domain": "phronen.com", "email": "ruthwik@phronen.com"}, p)
+            self.assertTrue(mailbox_known({"MAILCOW_API_URL": ""}, "ruthwik@phronen.com"))
+            self.assertFalse(mailbox_known({"MAILCOW_API_URL": ""}, "nobody@phronen.com"))
+        finally:
+            lib_brand.DOMAINS_PATH = prev
+
 
 if __name__ == "__main__":
     unittest.main()

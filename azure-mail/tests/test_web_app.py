@@ -125,10 +125,29 @@ class WebAppTests(unittest.TestCase):
         self.assertIn(b"phronen.com", page.data)
         self.assertIn(b"ruthwik@phronen.com", page.data)
         self.assertIn(b"Send ready", page.data)
+        self.assertIn(b"/mailboxes/webmail", page.data)
+        self.assertIn(b"email=ruthwik", page.data)
         found = self.client.get("/mailboxes?q=ruthwik")
         self.assertIn(b"ruthwik@phronen.com", found.data)
         missing = self.client.get("/mailboxes?q=no-such-box")
         self.assertIn(b"No mailboxes yet", missing.data)
+
+    def test_webmail_sso_requires_admin_and_known_mailbox(self):
+        anon = self.client.get("/mailboxes/webmail?email=ruthwik@phronen.com")
+        self.assertEqual(anon.status_code, 302)
+        self.assertIn("/login", anon.headers["Location"])
+        self.client.post("/login", data={"password": "panel-pass"})
+        unknown = self.client.get("/mailboxes/webmail?email=nobody@phronen.com", follow_redirects=True)
+        self.assertIn(b"not a mailbox", unknown.data)
+        self.webapp.mailbox_known = lambda _e, email: email == "ruthwik@phronen.com"
+        self.webapp.persist_sso_secret = lambda _e=None: "s" * 32
+        self.webapp.webmail_sso_url = (
+            lambda _e, email: f"https://mail.example/mailbox-sso.php?u={email}&t=ticket"
+        )
+        opened = self.client.get("/mailboxes/webmail?email=ruthwik@phronen.com")
+        self.assertEqual(opened.status_code, 302)
+        self.assertIn("mailbox-sso.php", opened.headers["Location"])
+        self.assertIn("ruthwik@phronen.com", opened.headers["Location"])
 
 
     def test_mailboxes_requires_admin_session(self):

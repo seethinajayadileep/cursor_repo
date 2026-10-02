@@ -29,11 +29,14 @@ from lib_brand import (  # noqa: E402
     load_providers,
     lookup_dns,
     mail_directory,
+    mailbox_known,
+    persist_sso_secret,
     provision,
     save_domain,
     save_providers,
     verification_status,
     verify_acs,
+    webmail_sso_url,
     write_env,
 )
 from security import (  # noqa: E402
@@ -202,6 +205,23 @@ def mailboxes():
         error=data.get("error"),
         webmail=data.get("webmail") or f"https://{env().get('MAIL_HOSTNAME') or 'mail.seethinajayadileep.dev'}/",
     )
+
+
+@app.route("/mailboxes/webmail")
+def open_webmail():
+    gate = require_login()
+    if gate:
+        return gate
+    email = (request.args.get("email") or "").strip().lower()
+    if "@" not in email or "." not in email.split("@", 1)[1]:
+        flash("Pick a mailbox first.")
+        return redirect(url_for("mailboxes"))
+    e = env()
+    if not mailbox_known(e, email):
+        flash(f"{email} is not a mailbox on this server.")
+        return redirect(url_for("mailboxes"))
+    persist_sso_secret(e)
+    return redirect(webmail_sso_url(e, email))
 
 
 @app.route("/setup", methods=["GET", "POST"])

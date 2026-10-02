@@ -40,7 +40,7 @@
   {% if verified %}
   <div class="card">
     <h2>Ready</h2>
-    <p>Use webmail: <a href="https://mail.seethinajayadileep.dev/">https://mail.seethinajayadileep.dev/</a></p>
+    <p>{% if mailbox.get('email') %}<a class="btn ghost" href="{{ url_for('open_webmail', email=mailbox.email) }}">Open webmail as {{ mailbox.email }}</a>{% else %}Use webmail after you open the mailbox from Central mail.{% endif %}</p>
   </div>
   {% endif %}
   {% if azure_needed %}
@@ -61,8 +61,8 @@
   {% if mailbox.get('email') %}
   <div class="card">
     <h2>Mailbox</h2>
-    <p>Login: <code>{{ mailbox.email }}</code> at webmail. The mailbox password is not shown here.</p>
-    {% if mailbox.webmail %}<p>Webmail: <a href="{{ mailbox.webmail }}">{{ mailbox.webmail }}</a></p>{% endif %}
+    <p>Login: <code>{{ mailbox.email }}</code>. The mailbox password is not shown here.</p>
+    <p><a class="btn ghost" href="{{ url_for('open_webmail', email=mailbox.email) }}">Open webmail</a></p>
   </div>
   {% endif %}
 {% endif %}

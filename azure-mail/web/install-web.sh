@@ -33,6 +33,9 @@ systemctl enable --now azure-mail-web
 MC=/opt/mailcow-dockerized
 if [[ -d "$MC" ]]; then
   install -m 644 "$SRC/web/nginx-brands.conf" "$MC/data/conf/nginx/site.mailbox.custom"
+  install -m 644 "$SRC/web/mailbox-sso.php" "$MC/data/web/mailbox-sso.php"
+  PYTHONPATH=/usr/local/lib/azure-mail AZURE_MAIL_ENV=/etc/azure-mail/brand.env \
+    /usr/local/lib/azure-mail/venv/bin/python -c 'from lib_brand import persist_sso_secret; persist_sso_secret()'
   # Reload nginx only. Never compose down / restart the stack (that 502s Mailcow).
   docker compose -f "$MC/docker-compose.yml" --env-file "$MC/mailcow.conf" \
     exec -T nginx-mailcow nginx -s reload || true
