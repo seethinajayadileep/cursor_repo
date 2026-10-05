@@ -77,14 +77,22 @@ class RecordTests(unittest.TestCase):
 
 class VerifyLinkTests(unittest.TestCase):
     def test_can_link_sender_only_needs_domain(self):
-        from lib_brand import can_link_sender, check_failed
+        from lib_brand import can_link_domain, can_link_sender, check_failed, link_refused
 
         self.assertTrue(can_link_sender({"Domain": "Verified", "SPF": "NotStarted"}))
         self.assertFalse(can_link_sender({"Domain": "VerificationFailed", "SPF": "Verified"}))
         self.assertFalse(can_link_sender({"Domain": "VerificationInProgress"}))
         self.assertFalse(can_link_sender({}))
+        self.assertFalse(
+            can_link_domain({"Domain": "Verified", "SPF": "VerificationInProgress", "DKIM": "Verified", "DKIM2": "Verified"})
+        )
+        self.assertTrue(
+            can_link_domain({"Domain": "Verified", "SPF": "Verified", "DKIM": "Verified", "DKIM2": "Verified"})
+        )
         self.assertTrue(check_failed("VerificationFailed"))
         self.assertFalse(check_failed("Verified"))
+        self.assertTrue(link_refused(RuntimeError("PATCH ... PatchDomainLinkingError ... could not be linked")))
+        self.assertFalse(link_refused(RuntimeError("401 unauthorized")))
 
     @patch("lib_brand.time.sleep")
     @patch("lib_brand.link_and_mailfrom")
@@ -117,11 +125,12 @@ class VerifyLinkTests(unittest.TestCase):
         out = verify_acs({"AZURE_SUBSCRIPTION_ID": "sub"}, "phronen.com", ["ruthwik"], logs.append)
         self.assertEqual(out["Domain"], "Verified")
         link.assert_called()
+        self.assertEqual(link.call_count, 1)
         self.assertEqual(link.call_args.args[1], "phronen.com")
         self.assertEqual(link.call_args.args[2], ["ruthwik"])
         kinds = [c.args[2] for c in initiate.call_args_list]
         self.assertIn("Domain", kinds)
-        self.assertLess(link.call_count, 3)
+        self.assertTrue(any("will not link mailboxCs" in line for line in logs))
 
     @patch("lib_brand.az")
     def test_link_and_mailfrom_appends_and_keeps_other_domains(self, az):
@@ -147,6 +156,23 @@ class VerifyLinkTests(unittest.TestCase):
         mailfrom = az.call_args_list[2]
         self.assertEqual(mailfrom.args[1], "PUT")
         self.assertIn("senderUsernames/ruthwik", mailfrom.args[2])
+
+    @patch("lib_brand.az")
+    def test_link_and_mailfrom_explains_patch_domain_linking_error(self, az):
+        from lib_brand import link_and_mailfrom
+
+        az.side_effect = [
+            {"properties": {"linkedDomains": []}},
+            RuntimeError(
+                "PATCH https://management.azure.com/... -> 400 "
+                "b'{\"error\":{\"code\":\"PatchDomainLinkingError\",\"message\":\"Requested domain could not be linked\"}}'"
+            ),
+        ]
+        logs: list[str] = []
+        env = {"AZURE_SUBSCRIPTION_ID": "sub", "RESOURCE_GROUP": "mailboxRg"}
+        link_and_mailfrom(env, "talentql.org", ["hi"], logs.append)
+        self.assertTrue(any("PatchDomainLinkingError" in line for line in logs))
+        self.assertTrue(any("SPF" in line and "DKIM" in line for line in logs))
 
     @patch("lib_brand.mailcow")
     def test_mail_directory_groups_mailboxes_by_domain(self, mailcow_api):

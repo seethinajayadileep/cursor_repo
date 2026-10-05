@@ -6,7 +6,7 @@
 {% if verified %}
 <p class="muted">Azure Domain is Verified and linked. You can send mail. The table below is only a copy — do not add those rows again.</p>
 {% else %}
-<p class="muted">Copy every row into Hostinger / GoDaddy / Spaceship for that domain. When the records are saved, click <strong>Verify</strong>. Do not send until Domain TXT is Verified and linked (Gmail 501 5.1.7).</p>
+<p class="muted">Copy every row into Hostinger / GoDaddy / Spaceship for that domain. When the records are saved, click <strong>Verify</strong>. Azure links the domain only after Domain, SPF, DKIM, and DKIM2 are Verified. Gmail 501 5.1.7 until then.</p>
 {% endif %}
 <form class="card form" method="get">
   <label>Domain
@@ -24,7 +24,7 @@
 {% if domain %}
   {% if not azure_needed and not verified %}
   <div class="card warn">
-    <p>Do not send from this domain yet. Gmail returns <strong>501 5.1.7</strong> until Azure Domain TXT is Verified and the domain is linked. Add the Domain TXT if it is missing, then Verify.</p>
+    <p>Do not send from this domain yet. Gmail returns <strong>501 5.1.7</strong> until Azure Domain, SPF, DKIM, and DKIM2 are Verified and the domain is linked to mailboxCs. Add any missing row, then Verify.</p>
   </div>
   {% endif %}
   {% if not azure_needed and (not verified or pending) %}

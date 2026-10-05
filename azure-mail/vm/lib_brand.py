@@ -190,11 +190,22 @@ def verification_status(env: dict[str, str], domain: str) -> dict[str, str]:
 
 
 FAILED_STATES = ("VerificationFailed", "Failed", "Canceled", "Cancelled")
+LINK_KEYS = ("Domain", "SPF", "DKIM", "DKIM2")
 
 
 def can_link_sender(st: dict[str, str]) -> bool:
-    """ACS 501 5.1.7 happens until Domain ownership is Verified and linked."""
+    """Domain TXT proved ownership. Azure still will not attach the domain until SPF/DKIM pass."""
     return (st.get("Domain") or "") == "Verified"
+
+
+def can_link_domain(st: dict[str, str]) -> bool:
+    """ACS PATCH linkedDomains only accepts a fully verified custom domain."""
+    return all((st.get(k) or "") == "Verified" for k in LINK_KEYS)
+
+
+def link_refused(exc: BaseException) -> bool:
+    text = str(exc)
+    return "PatchDomainLinkingError" in text or "could not be linked" in text.lower()
 
 
 def check_failed(status: str) -> bool:
@@ -227,8 +238,18 @@ def link_and_mailfrom(env: dict[str, str], domain: str, locals_: list[str], log:
             linked.append(extra)
             changed = True
     if changed:
-        az(env, "PATCH", acs_id, API_ACS, {"properties": {"linkedDomains": linked}})
-        log("Linked domain for Azure send (stops 501 5.1.7).")
+        try:
+            az(env, "PATCH", acs_id, API_ACS, {"properties": {"linkedDomains": linked}})
+            log("Linked domain for Azure send (stops 501 5.1.7).")
+        except RuntimeError as exc:
+            if link_refused(exc):
+                log(
+                    "Azure refused to link yet (PatchDomainLinkingError). "
+                    "mailboxCs only accepts a domain after Domain, SPF, DKIM, and DKIM2 are all Verified. "
+                    "Finish those DNS checks, then click Verify again."
+                )
+                return
+            raise
     else:
         log("Domain already linked for Azure send.")
     for user in locals_:
@@ -248,7 +269,7 @@ def link_and_mailfrom(env: dict[str, str], domain: str, locals_: list[str], log:
 
 
 def verify_acs(env: dict[str, str], domain: str, locals_: list[str], log: LogFn) -> dict[str, str]:
-    """Retry Failed checks (TXT added late) and link as soon as Domain is Verified."""
+    """Retry Failed checks (TXT added late). Link only after Azure will accept the domain."""
     _email_id, _acs_id, dom_id, _managed = acs_paths(env, domain)
     st = verification_status(env, domain)
     for kind, status in st.items():
@@ -260,9 +281,14 @@ def verify_acs(env: dict[str, str], domain: str, locals_: list[str], log: LogFn)
         st = verification_status(env, domain)
         pending = [k for k, v in st.items() if v != "Verified"]
         log(f"  Check {i}/6  pending: {', '.join(pending) or 'none'}  {st}")
-        if can_link_sender(st) and not linked_ok:
+        if can_link_domain(st) and not linked_ok:
             link_and_mailfrom(env, domain, locals_, log)
             linked_ok = True
+        elif can_link_sender(st) and pending and not linked_ok:
+            log(
+                "Domain TXT is Verified. Azure will not link mailboxCs until "
+                f"{', '.join(pending)} are Verified too."
+            )
         if all(v == "Verified" for v in st.values()):
             if not linked_ok:
                 link_and_mailfrom(env, domain, locals_, log)
@@ -272,7 +298,7 @@ def verify_acs(env: dict[str, str], domain: str, locals_: list[str], log: LogFn)
                 log(f"{kind} failed ({status}) — DNS may have been added late. Retrying.")
                 _initiate(env, dom_id, kind, log)
         time.sleep(10)
-    if can_link_sender(st) and not linked_ok:
+    if can_link_domain(st) and not linked_ok:
         link_and_mailfrom(env, domain, locals_, log)
     return st
 

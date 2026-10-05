@@ -111,7 +111,7 @@ async function tick() {
   } else {
     document.getElementById('heading').textContent = pending.length ? ('Pending: ' + pending.join(', ')) : 'Check DNS';
     document.getElementById('status').textContent = pending.length
-      ? ('Do not send yet. Waiting on ' + pending.join(', ') + ' — Gmail will bounce 501 until Domain is Verified and linked.')
+      ? ('Do not send yet. Waiting on ' + pending.join(', ') + ' — Azure will not link until Domain, SPF, DKIM, and DKIM2 are Verified.')
       : 'Not finished. Do not send yet.';
   }
   if (domain) {

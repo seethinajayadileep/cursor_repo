@@ -21,7 +21,7 @@ for extra in (ROOT / "web", ROOT / "vm", ROOT, Path("/usr/local/lib/azure-mail")
 from lib_brand import (  # noqa: E402
     PROVIDERS,
     azure_ready,
-    can_link_sender,
+    can_link_domain,
     connected_ids,
     domain_linked,
     load_domains,
@@ -372,7 +372,7 @@ def dns_page():
             linked = domain_linked(e, domain)
         except Exception:  # noqa: BLE001
             linked = False
-    send_ready = can_link_sender(status) and linked
+    send_ready = can_link_domain(status) and linked
     return render_template(
         "dns.html",
         domain=domain,
@@ -408,7 +408,7 @@ def dns_verify():
         try:
             log(f"Checking DNS for {domain}…")
             st = verify_acs(env(), domain, [local], log)
-            send_ok = can_link_sender(st)
+            send_ok = can_link_domain(st)
             try:
                 send_ok = send_ok and domain_linked(env(), domain)
             except RuntimeError:
@@ -433,7 +433,8 @@ def dns_verify():
                 pending = [k for k, v in st.items() if v != "Verified"]
                 JOBS[job_id]["error"] = (
                     f"Do not send yet. Still pending: {', '.join(pending) or 'Domain'}. "
-                    "Gmail will bounce 501 until Domain is Verified and linked. Click Verify again."
+                    "Azure will not link mailboxCs until Domain, SPF, DKIM, and DKIM2 are Verified. "
+                    "Gmail will bounce 501 until then. Click Verify again."
                 )
             elif not all_ok:
                 extra = [k for k, v in st.items() if v != "Verified"]
