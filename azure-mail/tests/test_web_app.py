@@ -166,6 +166,91 @@ class WebAppTests(unittest.TestCase):
             self.assertIn("/login", home.headers["Location"])
 
 
+class CsrfAddTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        env_path = Path(self.tmp.name) / "brand.env"
+        env_path.write_text(
+            "MAILCOW_API_KEY=test-key\nWEB_ADMIN_PASSWORD=panel-pass\n"
+            "MAILCOW_API_URL=https://mail.example\nMAIL_HOSTNAME=mail.example\n"
+        )
+        os.environ["AZURE_MAIL_ENV"] = str(env_path)
+        os.environ["AZURE_MAIL_PROVIDERS"] = str(Path(self.tmp.name) / "providers.json")
+        os.environ["AZURE_MAIL_DOMAINS"] = str(Path(self.tmp.name) / "domains.json")
+        os.environ["WEB_PREFIX"] = ""
+        os.environ["WEB_COOKIE_SECURE"] = "0"
+        os.environ["WEB_LOGIN_FAIL_LIMIT"] = "20"
+        import importlib
+
+        import app as webapp
+        import lib_brand
+        import security
+
+        importlib.reload(lib_brand)
+        importlib.reload(security)
+        importlib.reload(webapp)
+        webapp.app.config["TESTING"] = False
+        webapp.app.secret_key = "test"
+        self.client = webapp.app.test_client()
+        self.webapp = webapp
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _login(self):
+        return self.client.post(
+            "/login",
+            data={"password": "panel-pass"},
+            headers={"Origin": "http://localhost"},
+            follow_redirects=True,
+        )
+
+    def test_add_form_includes_csrf(self):
+        self._login()
+        page = self.client.get("/add")
+        self.assertEqual(page.status_code, 200)
+        self.assertIn(b'name="csrf"', page.data)
+
+    def test_add_post_origin_null_without_csrf_is_blocked(self):
+        self._login()
+        blocked = self.client.post(
+            "/add",
+            data={"domain": "blocked.example", "local_part": "hi", "provider": "manual"},
+            headers={"Origin": "null"},
+        )
+        self.assertEqual(blocked.status_code, 302)
+        self.assertIn("/add", blocked.headers["Location"])
+        follow = self.client.get("/add")
+        self.assertIn(b"That submit was blocked", follow.data)
+
+    def test_add_post_csrf_works_without_origin(self):
+        self._login()
+        page = self.client.get("/add")
+        start = page.data.find(b'name="csrf" value="') + len(b'name="csrf" value="')
+        token = page.data[start : page.data.find(b'"', start)].decode()
+        self.assertTrue(token)
+        started = {"ran": False}
+
+        def fake_provision(*_a, **_k):
+            started["ran"] = True
+            return {
+                "ok": True,
+                "domain": "ok.example",
+                "email": "hi@ok.example",
+                "local_part": "hi",
+                "password": "",
+                "records": [],
+            }
+
+        self.webapp.provision = fake_provision
+        opened = self.client.post(
+            "/add",
+            data={"domain": "ok.example", "local_part": "hi", "provider": "manual", "csrf": token},
+        )
+        self.assertEqual(opened.status_code, 302)
+        self.assertIn("/job/", opened.headers["Location"])
+
+
 class PrefixTests(unittest.TestCase):
     def test_unauthenticated_redirect_stays_under_brands(self):
         os.environ["WEB_PREFIX"] = "/brands"

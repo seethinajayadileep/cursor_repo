@@ -4,6 +4,7 @@
 <h1>One-time setup</h1>
 <p class="muted">Same values as <code>/etc/azure-mail/brand.env</code>. Azure stays hidden after this — users only see Add domain.</p>
 <form class="card form" method="post">
+  {% include "_csrf.html" %}
   <h2>Mailcow</h2>
   <label>Mailcow URL
     <input name="MAILCOW_API_URL" value="{{ e.get('MAILCOW_API_URL', 'https://mail.seethinajayadileep.dev') }}">

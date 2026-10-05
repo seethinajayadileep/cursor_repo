@@ -56,15 +56,45 @@ def clear_failures(ip: str) -> None:
     _fails.pop(ip, None)
 
 
+def _request_hosts(req: Request) -> set[str]:
+    hosts = set()
+    for raw in (req.host, req.headers.get("X-Forwarded-Host") or ""):
+        host = raw.split(",")[0].strip().split(":")[0].lower()
+        if host:
+            hosts.add(host)
+    return hosts
+
+
 def same_origin(req: Request) -> bool:
-    host = (req.host or "").split(":")[0]
+    """True when Origin/Referer match this host. Ignore null Origin (no-referrer)."""
+    allowed = _request_hosts(req)
+    if not allowed:
+        return False
     for header in ("Origin", "Referer"):
-        raw = req.headers.get(header) or ""
-        if not raw:
+        raw = (req.headers.get(header) or "").strip()
+        if not raw or raw.lower() == "null":
             continue
         parsed = urlparse(raw)
-        return (parsed.hostname or "") == host
+        host = (parsed.hostname or "").lower()
+        if host:
+            return host in allowed
     return False
+
+
+def csrf_token() -> str:
+    tok = (session.get("csrf") or "").strip()
+    if not tok:
+        tok = secrets.token_urlsafe(32)
+        session["csrf"] = tok
+    return tok
+
+
+def csrf_ok(req: Request) -> bool:
+    given = (req.form.get("csrf") or req.headers.get("X-CSRF-Token") or "").strip()
+    expected = (session.get("csrf") or "").strip()
+    if not given or not expected:
+        return False
+    return hmac.compare_digest(given.encode(), expected.encode())
 
 
 def session_valid() -> bool:

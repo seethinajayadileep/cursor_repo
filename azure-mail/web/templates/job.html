@@ -13,6 +13,7 @@
 <div id="again" class="card hidden">
   <p id="again-why">Not finished yet.</p>
   <form method="post" action="{{ url_for('dns_verify') }}" id="again-form">
+    {% include "_csrf.html" %}
     <input type="hidden" name="domain" id="again-domain" value="">
     <input type="hidden" name="local_part" id="again-local" value="hi">
     <button type="submit">Verify again</button>

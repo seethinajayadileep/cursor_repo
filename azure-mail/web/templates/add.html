@@ -4,6 +4,7 @@
 <h1>Add a domain</h1>
 <p class="muted">Creates the mailbox, then shows the DNS rows to paste at Hostinger, GoDaddy, or any DNS panel. Connecting a provider API is optional — it only writes those rows for you.</p>
 <form class="card form" method="post">
+  {% include "_csrf.html" %}
   <label>Domain
     <input id="domain" name="domain" placeholder="shop.example.com" required>
   </label>

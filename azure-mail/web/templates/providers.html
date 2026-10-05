@@ -8,6 +8,7 @@
   {% set creds = store.get(p.id) or {} %}
   {% set on = creds and creds.values() | select | list | length == p.fields | length %}
   <form class="card form" method="post">
+    {% include "_csrf.html" %}
     <div class="row between">
       <h2>{{ p.name }}</h2>
       <span class="pill {% if on %}on{% endif %}">{% if on %}Connected{% else %}Not connected{% endif %}</span>

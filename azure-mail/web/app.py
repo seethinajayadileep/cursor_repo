@@ -45,6 +45,8 @@ from security import (  # noqa: E402
     admin_password,
     clear_failures,
     client_ip,
+    csrf_ok,
+    csrf_token,
     establish_admin_session,
     locked_out,
     password_ok,
@@ -107,8 +109,13 @@ def enforce_admin_only():
     if request.endpoint in PUBLIC_ENDPOINTS or (request.endpoint or "").startswith("static"):
         return None
     if request.method in ("POST", "PUT", "PATCH", "DELETE"):
-        if not app.config.get("TESTING") and not same_origin(request):
-            return ("Forbidden", 403)
+        if not app.config.get("TESTING") and not (same_origin(request) or csrf_ok(request)):
+            flash("That submit was blocked. Refresh the page and try again.")
+            target = request.endpoint if request.endpoint and request.endpoint != "login" else "home"
+            try:
+                return redirect(url_for(target))
+            except Exception:  # noqa: BLE001
+                return redirect(url_for("home"))
     if request.endpoint == "login":
         return None
     if not session_valid():
@@ -123,7 +130,7 @@ def enforce_admin_only():
 def harden_headers(resp):
     resp.headers["X-Frame-Options"] = "DENY"
     resp.headers["X-Content-Type-Options"] = "nosniff"
-    resp.headers["Referrer-Policy"] = "no-referrer"
+    resp.headers["Referrer-Policy"] = "same-origin"
     resp.headers["Cache-Control"] = "no-store"
     resp.headers["Content-Security-Policy"] = (
         "default-src 'self'; img-src 'self' data:; style-src 'self'; "
@@ -141,6 +148,7 @@ def inject():
         "connected": connected_ids(store),
         "providers": PROVIDERS,
         "mail_host": e.get("MAIL_HOSTNAME") or "mail.seethinajayadileep.dev",
+        "csrf": csrf_token(),
     }
 
 
