@@ -931,6 +931,16 @@ def _mailcow_already(result: object) -> bool:
     return any(x in blob for x in ("exists", "already", "duplicate", "object_exists"))
 
 
+def _mailcow_failed(result: object) -> object | None:
+    rows = result if isinstance(result, list) else [result] if isinstance(result, dict) else []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        if str(row.get("type") or "").lower() in ("error", "danger"):
+            return row
+    return None
+
+
 def add_mailcow(env: dict[str, str], domain: str, local: str, password: str, log: LogFn) -> None:
     log("Creating Mailcow domain…")
     result = mailcow(
@@ -949,7 +959,8 @@ def add_mailcow(env: dict[str, str], domain: str, local: str, password: str, log
             "restart_sogo": "1",
         },
     )
-    if isinstance(result, dict) and str(result.get("type") or "").lower() == "error":
+    failed = _mailcow_failed(result)
+    if failed:
         if _mailcow_already(result):
             log("Domain already in Mailcow — continuing.")
         else:
@@ -972,7 +983,8 @@ def add_mailcow(env: dict[str, str], domain: str, local: str, password: str, log
             "tls_enforce_out": "1",
         },
     )
-    if isinstance(result, dict) and str(result.get("type") or "").lower() == "error":
+    failed = _mailcow_failed(result)
+    if failed:
         if _mailcow_already(result):
             log("Mailbox already in Mailcow — continuing.")
         else:
@@ -1017,6 +1029,30 @@ def add_acs(
     return recs
 
 
+def attach_send_state(env: dict[str, str], domain: str, locals_: list[str], log: LogFn) -> dict:
+    """After Add, reuse live Azure state so an already-verified domain is not left 'unfinished'."""
+    st: dict[str, str] = {}
+    linked = False
+    if not azure_ready(env):
+        return {"verify_status": st, "verified": False, "send_ready": False, "linked": False}
+    try:
+        st = verification_status(env, domain)
+    except Exception as exc:  # noqa: BLE001
+        log(f"Azure status: {exc}")
+        return {"verify_status": st, "verified": False, "send_ready": False, "linked": False}
+    if st:
+        log("Checking whether Azure can already link this domain…")
+        st = verify_acs(env, domain, locals_, log)
+    try:
+        linked = domain_linked(env, domain)
+    except Exception:  # noqa: BLE001
+        linked = False
+    send_ok = can_link_domain(st) and linked
+    if send_ok:
+        log("Azure send is ready. You do not need to add those DNS rows again.")
+    return {"verify_status": st, "verified": send_ok, "send_ready": send_ok, "linked": linked}
+
+
 def provision(
     env: dict[str, str],
     domain: str,
@@ -1047,6 +1083,9 @@ def provision(
         log_dns(recs, log)
     else:
         recs = add_acs(env, domain, [local], mail_host, provider, creds, log, wait=False)
+    send_state = (
+        attach_send_state(env, domain, [local], log) if azure_ready(env) and not skip_acs else {}
+    )
     result = {
         "ok": True,
         "domain": domain,
@@ -1059,6 +1098,7 @@ def provision(
         "provider": provider,
         "azure_needed": azure_needed,
         "local_part": local,
+        **send_state,
     }
     save_domain(result)
     return result

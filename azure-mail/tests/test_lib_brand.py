@@ -174,6 +174,40 @@ class VerifyLinkTests(unittest.TestCase):
         self.assertTrue(any("PatchDomainLinkingError" in line for line in logs))
         self.assertTrue(any("SPF" in line and "DKIM" in line for line in logs))
 
+    @patch("lib_brand.domain_linked", return_value=True)
+    @patch("lib_brand.verify_acs")
+    @patch("lib_brand.verification_status")
+    def test_attach_send_state_marks_ready(self, status, verify, _linked):
+        from lib_brand import attach_send_state
+
+        done = {"Domain": "Verified", "SPF": "Verified", "DKIM": "Verified", "DKIM2": "Verified"}
+        status.return_value = done
+        verify.return_value = done
+        logs: list[str] = []
+        extra = attach_send_state(
+            {
+                "AZURE_TENANT_ID": "t",
+                "AZURE_CLIENT_ID": "c",
+                "AZURE_CLIENT_SECRET": "s",
+                "AZURE_SUBSCRIPTION_ID": "sub",
+            },
+            "talentql.org",
+            ["adewale"],
+            logs.append,
+        )
+        self.assertTrue(extra["verified"])
+        self.assertTrue(extra["send_ready"])
+        self.assertEqual(extra["verify_status"]["SPF"], "Verified")
+        self.assertTrue(any("already" in line.lower() or "ready" in line.lower() for line in logs))
+
+    def test_mailcow_failed_reads_list(self):
+        from lib_brand import _mailcow_already, _mailcow_failed
+
+        exists = [{"type": "danger", "msg": "object_exists"}]
+        self.assertTrue(_mailcow_already(exists))
+        self.assertEqual(_mailcow_failed(exists)["type"], "danger")
+        self.assertIsNone(_mailcow_failed([{"type": "success"}]))
+
     @patch("lib_brand.mailcow")
     def test_mail_directory_groups_mailboxes_by_domain(self, mailcow_api):
         from lib_brand import mail_directory, save_domain

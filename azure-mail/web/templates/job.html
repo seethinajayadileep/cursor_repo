@@ -69,7 +69,7 @@ async function tick() {
   const j = await r.json();
   document.getElementById('log').textContent = (j.log || []).join('\n');
   const domain = j.result && j.result.domain;
-  const verified = !!(j.result && j.result.verified);
+  const verified = !!(j.result && (j.result.verified || j.result.send_ready));
   const localPart = (j.result && j.result.local_part) || 'hi';
   const st = (j.result && j.result.verify_status) || null;
   if (st) {
@@ -89,7 +89,10 @@ async function tick() {
     return;
   }
   const pending = st ? Object.entries(st).filter(([, v]) => v !== 'Verified').map(([k]) => k) : [];
-  if (verified) {
+  if (j.status === 'error') {
+    document.getElementById('heading').textContent = 'Check failed';
+    document.getElementById('status').textContent = j.error || 'The job failed.';
+  } else if (verified) {
     document.getElementById('heading').textContent = 'Ready to send';
     document.getElementById('status').textContent = pending.length
       ? ('Send is linked. Still finishing ' + pending.join(', ') + '.')

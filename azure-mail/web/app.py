@@ -462,7 +462,7 @@ def job(job_id: str):
 
 @app.route("/job/<job_id>.json")
 def job_json(job_id: str):
-    if not session.get("ok"):
+    if not session_valid():
         return {"error": "login"}, 401
     data = JOBS.get(job_id)
     if not data:
