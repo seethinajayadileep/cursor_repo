@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Mailbox{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="{{ url_for('static', filename='copy.js') }}" defer></script>
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="{{ url_for('home') }}"><svg class="mark" viewBox="0 0 24 16" aria-hidden="true"><rect x="1.2" y="1.2" width="21.6" height="13.6"/><path d="M1.2 2.2 12 9.2 22.8 2.2"/></svg>Mailbox</a>
+    <nav>
+      <a href="{{ url_for('mailboxes') }}">Mailboxes</a>
+      <a href="{{ url_for('add') }}">Add domain</a>
+      <a href="{{ url_for('dns_page') }}">DNS records</a>
+      <a href="{{ url_for('providers') }}">Providers</a>
+      <a href="{{ url_for('setup') }}">Setup</a>
+      <a href="{{ url_for('logout') }}">Log out</a>
+    </nav>
+  </header>
+  <main class="wrap">
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <ul class="flash">{% for m in messages %}<li>{{ m }}</li>{% endfor %}</ul>
+      {% endif %}
+    {% endwith %}
+    {% block body %}{% endblock %}
+  </main>
+</body>
+</html>

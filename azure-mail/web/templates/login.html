@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mailbox sign in</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body class="login-body">
+  <form class="card login" method="post">
+    {% include "_csrf.html" %}
+    <h1><svg class="mark" viewBox="0 0 24 16" aria-hidden="true"><rect x="1.2" y="1.2" width="21.6" height="13.6"/><path d="M1.2 2.2 12 9.2 22.8 2.2"/></svg>Mailbox</h1>
+    <p class="muted">Admin panel only. Mailbox users sign in at webmail. This page does not open mail.</p>
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}<p class="err">{{ messages[0] }}</p>{% endif %}
+    {% endwith %}
+    {% if not has_password %}
+      <p class="err">Admin sign-in is disabled until WEB_ADMIN_PASSWORD is set in /etc/azure-mail/brand.env.</p>
+    {% endif %}
+    <label>Admin password
+      <input type="password" name="password" autocomplete="current-password" autofocus required>
+    </label>
+    <button type="submit">Open panel</button>
+  </form>
+</body>
+</html>

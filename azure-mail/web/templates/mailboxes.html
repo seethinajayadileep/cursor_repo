@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}Mailboxes{% endblock %}
+{% block body %}
+<h1>Central mail</h1>
+<p class="muted">Every connected domain and the mailboxes on it. Webmail from this page opens that mailbox already signed in. Users can also sign in at <a href="{{ webmail }}">{{ webmail }}</a>.</p>
+<div class="row stats">
+  <span class="pill on">{{ domain_count }} domain{{ 's' if domain_count != 1 else '' }}</span>
+  <span class="pill on">{{ mailbox_count }} mailbox{{ 'es' if mailbox_count != 1 else '' }}</span>
+  {% if query %}
+  <span class="pill">Showing {{ shown_domains }} / {{ shown_mailboxes }}</span>
+  {% endif %}
+</div>
+<form class="card form" method="get">
+  <label>Find a domain or address
+    <input name="q" value="{{ query }}" placeholder="phronen.com or ruthwik@">
+  </label>
+  <div class="row">
+    <button type="submit">Search</button>
+    {% if query %}<a class="btn ghost" href="{{ url_for('mailboxes') }}">Clear</a>{% endif %}
+    <a class="btn ghost" href="{{ url_for('add') }}">Add a domain</a>
+  </div>
+</form>
+{% if error %}
+<div class="card warn">
+  <p>Mailcow list failed, so this page uses saved domains. {{ error }}</p>
+</div>
+{% endif %}
+{% if not domains %}
+<div class="card">
+  <h2>No mailboxes yet</h2>
+  <p class="muted">{% if query %}Nothing matches <code>{{ query }}</code>.{% else %}Add a domain to create the first mailbox.{% endif %}</p>
+  <a class="btn" href="{{ url_for('add') }}">Add a domain</a>
+</div>
+{% endif %}
+{% for row in domains %}
+<article class="card domain-card">
+  <div class="row between">
+    <h2>{{ row.domain }}</h2>
+    <div class="row">
+      <span class="pill {% if row.source == 'mailcow' %}on{% endif %}">{% if row.source == 'mailcow' %}Connected{% else %}Saved{% endif %}</span>
+      <span class="pill {% if row.send_ready %}on{% else %}wait{% endif %}">{% if row.send_ready %}Send ready{% else %}Send pending{% endif %}</span>
+      {% if not row.active %}<span class="pill fail">Inactive</span>{% endif %}
+    </div>
+  </div>
+  <p class="muted">{{ row.mailboxes | length }} mailbox{{ 'es' if row.mailboxes | length != 1 else '' }}</p>
+  {% if row.mailboxes %}
+  <div class="table-scroll">
+    <table class="mailbox-table">
+      <thead>
+        <tr><th>Mailbox</th><th>Status</th><th></th></tr>
+      </thead>
+      <tbody>
+        {% for box in row.mailboxes %}
+        <tr>
+          <td data-label="Mailbox"><code>{{ box.email }}</code></td>
+          <td data-label="Status">{% if box.active %}Active{% else %}Off{% endif %}{% if box.from_saved %} · saved{% endif %}</td>
+          <td data-label="">
+            <a class="btn ghost" href="{{ url_for('open_webmail', email=box.email) }}">Webmail</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="muted">No mailbox on this domain yet.</p>
+  {% endif %}
+  <div class="row">
+    <a class="btn ghost" href="{{ url_for('dns_page', domain=row.domain) }}">DNS</a>
+    <a class="btn ghost" href="{{ url_for('add') }}">Add mailbox</a>
+  </div>
+</article>
+{% endfor %}
+{% endblock %}
