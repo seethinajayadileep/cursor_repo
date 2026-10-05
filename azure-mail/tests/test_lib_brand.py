@@ -232,6 +232,51 @@ class VerifyLinkTests(unittest.TestCase):
         self.assertEqual(extra["verify_status"], {})
         self.assertTrue(any("click verify" in line.lower() for line in logs))
 
+    @patch("lib_brand.apply_dns")
+    @patch("lib_brand.wait_acs_domain")
+    @patch("lib_brand.az")
+    def test_add_acs_waits_when_put_already_in_progress(self, az, wait, apply):
+        from lib_brand import add_acs
+
+        az.side_effect = RuntimeError(
+            "PUT https://management.azure.com/.../domains/paleblueapps.org -> 409 "
+            "b'{\"error\":{\"code\":\"InvalidResourceOperation\"}}'"
+        )
+        wait.return_value = {
+            "properties": {
+                "provisioningState": "Succeeded",
+                "verificationRecords": {
+                    "Domain": {"type": "TXT", "name": "paleblueapps.org", "value": "ms-domain-verification=abc"},
+                    "SPF": {"type": "TXT", "name": "@", "value": "v=spf1 include:spf.protection.outlook.com -all"},
+                    "DKIM": {
+                        "type": "CNAME",
+                        "name": "selector1-azurecomm-net._domainkey.paleblueapps.org",
+                        "value": "selector1-azurecomm-net._domainkey.contoso.azurecomm.net",
+                    },
+                    "DKIM2": {
+                        "type": "CNAME",
+                        "name": "selector2-azurecomm-net._domainkey.paleblueapps.org",
+                        "value": "selector2-azurecomm-net._domainkey.contoso.azurecomm.net",
+                    },
+                },
+            }
+        }
+        logs: list[str] = []
+        recs = add_acs(
+            {"AZURE_SUBSCRIPTION_ID": "sub"},
+            "paleblueapps.org",
+            ["mike"],
+            "mail.example",
+            "manual",
+            {},
+            logs.append,
+        )
+        self.assertTrue(any(r.kind == "MX" for r in recs))
+        self.assertTrue(any(r.kind == "SPF" for r in recs))
+        self.assertTrue(any("already being created" in line for line in logs))
+        self.assertTrue(any("click Verify" in line for line in logs))
+        apply.assert_called()
+
     def test_mailcow_failed_reads_list(self):
         from lib_brand import _mailcow_already, _mailcow_failed
 

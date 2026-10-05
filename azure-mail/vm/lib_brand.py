@@ -1056,13 +1056,20 @@ def add_acs(
     _email_id, acs_id, dom_id, managed = acs_paths(env, domain)
 
     log("Creating Azure send domain…")
-    az(
-        env,
-        "PUT",
-        dom_id,
-        API_EMAIL,
-        {"location": "global", "properties": {"domainManagement": "CustomerManaged"}},
-    )
+    try:
+        az(
+            env,
+            "PUT",
+            dom_id,
+            API_EMAIL,
+            {"location": "global", "properties": {"domainManagement": "CustomerManaged"}},
+        )
+    except RuntimeError as exc:
+        text = str(exc)
+        busy = "409" in text or "InvalidResourceOperation" in text or "already exist" in text.lower()
+        if not busy:
+            raise
+        log("Azure domain is already being created. Waiting for DNS values…")
     log("Waiting until Azure publishes SPF/DKIM values (domain is Accepted until then)…")
     obj = wait_acs_domain(env, dom_id, log)
     acs_rows = dns_rows(obj, domain)
