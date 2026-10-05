@@ -277,6 +277,29 @@ class VerifyLinkTests(unittest.TestCase):
         self.assertTrue(any("click Verify" in line for line in logs))
         apply.assert_called()
 
+    @patch("lib_brand.time.sleep")
+    @patch("lib_brand.az")
+    def test_wait_acs_domain_returns_when_records_ready(self, az, sleep):
+        from lib_brand import wait_acs_domain
+
+        ready = {
+            "properties": {
+                "provisioningState": "Accepted",
+                "verificationRecords": {
+                    "Domain": {"value": "ms-domain-verification=abc"},
+                    "SPF": {"value": "v=spf1 include:spf.protection.outlook.com -all"},
+                    "DKIM": {"value": "selector1.azurecomm.net"},
+                    "DKIM2": {"value": "selector2.azurecomm.net"},
+                },
+            }
+        }
+        az.return_value = ready
+        logs: list[str] = []
+        out = wait_acs_domain({"AZURE_SUBSCRIPTION_ID": "sub"}, "/domains/x.com", logs.append)
+        self.assertEqual(out, ready)
+        sleep.assert_not_called()
+        az.assert_called_once()
+
     def test_mailcow_failed_reads_list(self):
         from lib_brand import _mailcow_already, _mailcow_failed
 

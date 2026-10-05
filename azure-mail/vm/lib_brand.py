@@ -679,7 +679,7 @@ def wait_acs_domain(env: dict[str, str], dom_id: str, log: LogFn) -> dict:
         state = provisioning_state(obj)
         ready = records_ready(obj)
         log(f"  Azure domain state {i}/8: {state or 'unknown'} records={'ready' if ready else 'pending'}")
-        if ready and state.lower() in ("", "succeeded", "updating"):
+        if ready:
             return obj
         time.sleep(5)
     return obj
