@@ -427,7 +427,16 @@ def dns_verify():
             }
             JOBS[job_id]["status"] = "ok"
             prev = dict(saved)
-            prev.update({"domain": domain, "local_part": local, "verify_status": st, "verified": send_ok})
+            prev.update(
+                {
+                    "domain": domain,
+                    "local_part": local,
+                    "verify_status": st,
+                    "verified": send_ok,
+                    "send_ready": send_ok,
+                    "linked": send_ok,
+                }
+            )
             save_domain(prev)
             if not send_ok:
                 pending = [k for k, v in st.items() if v != "Verified"]

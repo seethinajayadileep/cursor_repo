@@ -61,9 +61,11 @@ class RecordTests(unittest.TestCase):
         from lib_brand import load_domains, save_domain
 
         p = Path(tempfile.mkdtemp()) / "domains.json"
-        save_domain({"domain": "Brand.com", "email": "a@brand.com"}, p)
+        save_domain({"domain": "Brand.com", "email": "a@brand.com", "verified": True}, p)
+        save_domain({"domain": "brand.com", "email": "b@brand.com"}, p)
         store = load_domains(p)
-        self.assertEqual(store["brand.com"]["email"], "a@brand.com")
+        self.assertEqual(store["brand.com"]["email"], "b@brand.com")
+        self.assertTrue(store["brand.com"]["verified"])
 
     def test_lookup_without_azure_is_mx_only(self):
         from lib_brand import lookup_dns
@@ -255,6 +257,106 @@ class VerifyLinkTests(unittest.TestCase):
             self.assertTrue(phronen["send_ready"])
             self.assertEqual(data["mailbox_count"], 2)
             self.assertIsNone(data["error"])
+        finally:
+            lib_brand.DOMAINS_PATH = prev
+
+    def test_linked_domain_name_parses_resource_id(self):
+        from lib_brand import linked_domain_name
+
+        path = (
+            "/subscriptions/sub/resourceGroups/mailboxRg/providers/"
+            "Microsoft.Communication/emailServices/mail-box/domains/talentql.org"
+        )
+        self.assertEqual(linked_domain_name(path), "talentql.org")
+        self.assertEqual(linked_domain_name(path + "/"), "talentql.org")
+        self.assertEqual(linked_domain_name("seethinajayadileep.dev"), "seethinajayadileep.dev")
+        self.assertEqual(
+            linked_domain_name(
+                "/subscriptions/sub/resourceGroups/mailboxRg/providers/"
+                "Microsoft.Communication/emailServices/mail-box/domains/AzureManagedDomain"
+            ),
+            "",
+        )
+        self.assertEqual(linked_domain_name(""), "")
+
+    @patch("lib_brand.mailcow")
+    @patch("lib_brand.linked_domain_names")
+    def test_mail_directory_uses_live_linked_and_hides_leftover(self, linked_names, mailcow_api):
+        from lib_brand import mail_directory, save_domain
+
+        linked_names.return_value = {"talentql.org", "seethinajayadileep.dev"}
+        mailcow_api.side_effect = [
+            [
+                {"domain_name": "talentql.org", "active": "1"},
+                {"domain_name": "seethinajayadileep.dev", "active": "1"},
+            ],
+            [
+                {
+                    "username": "adewale@talentql.org",
+                    "local_part": "adewale",
+                    "domain": "talentql.org",
+                    "name": "adewale",
+                    "active": "1",
+                },
+                {
+                    "username": "hi@seethinajayadileep.dev",
+                    "local_part": "hi",
+                    "domain": "seethinajayadileep.dev",
+                    "name": "hi",
+                    "active": "1",
+                },
+            ],
+        ]
+        p = Path(tempfile.mkdtemp()) / "domains.json"
+        import lib_brand
+
+        prev = lib_brand.DOMAINS_PATH
+        lib_brand.DOMAINS_PATH = p
+        try:
+            save_domain({"domain": "talentql.org", "email": "adewale@talentql.org"}, p)
+            save_domain({"domain": "test.example", "email": "hi@test.example"}, p)
+            data = mail_directory(
+                {
+                    "MAIL_HOSTNAME": "mail.example",
+                    "MAILCOW_API_URL": "https://mail.example",
+                    "MAILCOW_API_KEY": "k",
+                    "AZURE_TENANT_ID": "t",
+                    "AZURE_CLIENT_ID": "c",
+                    "AZURE_CLIENT_SECRET": "s",
+                    "AZURE_SUBSCRIPTION_ID": "sub",
+                }
+            )
+            names = [d["domain"] for d in data["domains"]]
+            self.assertEqual(names, ["seethinajayadileep.dev", "talentql.org"])
+            self.assertNotIn("test.example", names)
+            talent = next(d for d in data["domains"] if d["domain"] == "talentql.org")
+            self.assertTrue(talent["send_ready"])
+            stored = lib_brand.load_domains(p)
+            self.assertTrue(stored["talentql.org"]["send_ready"])
+            self.assertTrue(stored["talentql.org"]["verified"])
+        finally:
+            lib_brand.DOMAINS_PATH = prev
+
+    @patch("lib_brand.mailcow")
+    @patch("lib_brand.linked_domain_names", return_value=None)
+    def test_mail_directory_falls_back_to_saved_when_mailcow_fails(self, _linked, mailcow_api):
+        from lib_brand import mail_directory, save_domain
+
+        mailcow_api.side_effect = RuntimeError("Mailcow down")
+        p = Path(tempfile.mkdtemp()) / "domains.json"
+        import lib_brand
+
+        prev = lib_brand.DOMAINS_PATH
+        lib_brand.DOMAINS_PATH = p
+        try:
+            save_domain(
+                {"domain": "talentql.org", "email": "adewale@talentql.org", "send_ready": True},
+                p,
+            )
+            data = mail_directory({"MAIL_HOSTNAME": "mail.example", "MAILCOW_API_URL": "https://mail.example", "MAILCOW_API_KEY": "k"})
+            self.assertEqual([d["domain"] for d in data["domains"]], ["talentql.org"])
+            self.assertTrue(data["domains"][0]["send_ready"])
+            self.assertTrue(data["error"])
         finally:
             lib_brand.DOMAINS_PATH = prev
 

@@ -160,7 +160,9 @@ def save_domain(info: dict, path: Path | None = None) -> None:
     store = load_domains(path)
     domain = (info.get("domain") or "").lower()
     if domain:
-        store[domain] = info
+        prev = store.get(domain) or {}
+        merged = {**prev, **info, "domain": domain}
+        store[domain] = merged
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(store, indent=2) + "\n")
         os.chmod(path, 0o600)
@@ -212,11 +214,40 @@ def check_failed(status: str) -> bool:
     return (status or "") in FAILED_STATES
 
 
+def linked_domain_name(item: object) -> str:
+    """Parse a custom domain from an ACS linkedDomains resource id or hostname."""
+    text = str(item or "").strip().rstrip("/")
+    if not text:
+        return ""
+    name = text.split("/")[-1] if "/domains/" in text.lower() else text
+    name = name.lower().rstrip(".")
+    if not name or name == "azuremanageddomain" or "." not in name:
+        return ""
+    return name
+
+
+def linked_domain_names(env: dict[str, str]) -> set[str] | None:
+    """One ACS GET of linkedDomains. None if Azure is not configured or the call fails."""
+    if not azure_ready(env):
+        return None
+    try:
+        _email_id, acs_id, _dom_id, _managed = acs_paths(env, "x")
+        cur = az(env, "GET", acs_id, API_ACS)
+    except Exception:  # noqa: BLE001 — Central mail still uses saved flags
+        return None
+    names: set[str] = set()
+    for item in (cur.get("properties") or {}).get("linkedDomains") or []:
+        name = linked_domain_name(item)
+        if name:
+            names.add(name)
+    return names
+
+
 def domain_linked(env: dict[str, str], domain: str) -> bool:
-    _email_id, acs_id, dom_id, _managed = acs_paths(env, domain)
-    cur = az(env, "GET", acs_id, API_ACS)
-    linked = (cur.get("properties") or {}).get("linkedDomains") or []
-    return dom_id in linked
+    names = linked_domain_names(env)
+    if names is None:
+        return False
+    return domain.lower().strip().rstrip(".") in names
 
 
 def _initiate(env: dict[str, str], dom_id: str, kind: str, log: LogFn) -> None:
@@ -457,7 +488,7 @@ def list_mailcow_mailboxes(env: dict[str, str]) -> list[dict]:
 
 
 def mail_directory(env: dict[str, str]) -> dict:
-    """Central view: Mailcow domains + mailboxes, plus saved Azure send state."""
+    """Central view: Mailcow domains + mailboxes, plus live Azure send state."""
     saved = load_domains()
     mail_host = env.get("MAIL_HOSTNAME") or "mail.seethinajayadileep.dev"
     error = None
@@ -468,6 +499,13 @@ def mail_directory(env: dict[str, str]) -> dict:
         cow_boxes = list_mailcow_mailboxes(env)
     except Exception as exc:  # noqa: BLE001 — still show saved domains if Mailcow is down
         error = str(exc)
+
+    live_linked = linked_domain_names(env)
+
+    def send_ready_of(name: str, info: dict) -> bool:
+        if live_linked is not None:
+            return name in live_linked
+        return bool(info.get("send_ready") or info.get("verified"))
 
     by_domain: dict[str, dict] = {}
 
@@ -481,7 +519,7 @@ def mail_directory(env: dict[str, str]) -> dict:
                 "active": True,
                 "mailboxes": [],
                 "source": source,
-                "send_ready": bool(info.get("send_ready") or info.get("verified")),
+                "send_ready": send_ready_of(name, info),
                 "saved": info,
             }
             by_domain[name] = row
@@ -494,21 +532,33 @@ def mail_directory(env: dict[str, str]) -> dict:
     for box in cow_boxes:
         row = ensure(box["domain"], "mailcow")
         row["mailboxes"].append(box)
-    for name, info in saved.items():
-        if "." not in name:
-            continue
-        row = ensure(name, "saved")
-        if not row["mailboxes"] and info.get("email"):
-            row["mailboxes"].append(
-                {
-                    "email": info["email"],
-                    "local_part": info.get("local_part") or str(info["email"]).split("@")[0],
-                    "domain": name,
-                    "name": info.get("local_part") or "",
-                    "active": True,
-                    "from_saved": True,
-                }
-            )
+    # Leftover saved-only rows (test.example after a Mailcow delete) stay hidden
+    # while Mailcow answers. If Mailcow is down, fall back to the saved list.
+    if error is not None:
+        for name, info in saved.items():
+            if "." not in name:
+                continue
+            row = ensure(name, "saved")
+            if not row["mailboxes"] and info.get("email"):
+                row["mailboxes"].append(
+                    {
+                        "email": info["email"],
+                        "local_part": info.get("local_part") or str(info["email"]).split("@")[0],
+                        "domain": name,
+                        "name": info.get("local_part") or "",
+                        "active": True,
+                        "from_saved": True,
+                    }
+                )
+    if live_linked is not None:
+        for name, info in saved.items():
+            ready = name in live_linked
+            if bool(info.get("send_ready")) != ready or bool(info.get("verified")) != ready:
+                updated = dict(info)
+                updated["send_ready"] = ready
+                updated["verified"] = ready
+                updated["linked"] = ready
+                save_domain(updated)
     for row in by_domain.values():
         seen: set[str] = set()
         unique = []
