@@ -184,7 +184,6 @@ class VerifyLinkTests(unittest.TestCase):
 
         done = {"Domain": "Verified", "SPF": "Verified", "DKIM": "Verified", "DKIM2": "Verified"}
         status.return_value = done
-        verify.return_value = done
         logs: list[str] = []
         extra = attach_send_state(
             {
@@ -197,10 +196,41 @@ class VerifyLinkTests(unittest.TestCase):
             ["adewale"],
             logs.append,
         )
+        verify.assert_not_called()
         self.assertTrue(extra["verified"])
         self.assertTrue(extra["send_ready"])
         self.assertEqual(extra["verify_status"]["SPF"], "Verified")
-        self.assertTrue(any("already" in line.lower() or "ready" in line.lower() for line in logs))
+        self.assertTrue(any("already" in line.lower() or "linked" in line.lower() for line in logs))
+
+    @patch("lib_brand.domain_linked", return_value=False)
+    @patch("lib_brand.verify_acs")
+    @patch("lib_brand.verification_status")
+    def test_attach_send_state_does_not_verify_new_domain(self, status, verify, _linked):
+        from lib_brand import attach_send_state
+
+        status.return_value = {
+            "Domain": "NotStarted",
+            "SPF": "NotStarted",
+            "DKIM": "NotStarted",
+            "DKIM2": "NotStarted",
+        }
+        logs: list[str] = []
+        extra = attach_send_state(
+            {
+                "AZURE_TENANT_ID": "t",
+                "AZURE_CLIENT_ID": "c",
+                "AZURE_CLIENT_SECRET": "s",
+                "AZURE_SUBSCRIPTION_ID": "sub",
+            },
+            "newbrand.com",
+            ["hi"],
+            logs.append,
+        )
+        verify.assert_not_called()
+        self.assertFalse(extra["verified"])
+        self.assertFalse(extra["send_ready"])
+        self.assertEqual(extra["verify_status"], {})
+        self.assertTrue(any("click verify" in line.lower() for line in logs))
 
     def test_mailcow_failed_reads_list(self):
         from lib_brand import _mailcow_already, _mailcow_failed

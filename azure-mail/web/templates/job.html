@@ -16,7 +16,7 @@
     {% include "_csrf.html" %}
     <input type="hidden" name="domain" id="again-domain" value="">
     <input type="hidden" name="local_part" id="again-local" value="hi">
-    <button type="submit">Verify again</button>
+    <button type="submit" id="again-btn">Verify</button>
     <a class="btn ghost" id="again-link" href="{{ url_for('dns_page') }}">Open DNS page</a>
   </form>
 </div>
@@ -72,7 +72,8 @@ async function tick() {
   const verified = !!(j.result && (j.result.verified || j.result.send_ready));
   const localPart = (j.result && j.result.local_part) || 'hi';
   const st = (j.result && j.result.verify_status) || null;
-  if (st) {
+  const isVerifyJob = (j.kind || 'add') === 'verify';
+  if (st && (isVerifyJob || verified)) {
     const c = document.getElementById('checks');
     c.classList.remove('hidden');
     c.innerHTML = checksHtml(st, verified);
@@ -111,6 +112,10 @@ async function tick() {
       document.getElementById('again').classList.add('hidden');
       return;
     }
+  } else if (!isVerifyJob) {
+    document.getElementById('heading').textContent = 'Add DNS';
+    document.getElementById('status').textContent =
+      'Mailbox created. Copy the records below, then click Verify. Azure is not checked until you click Verify.';
   } else {
     document.getElementById('heading').textContent = pending.length ? ('Pending: ' + pending.join(', ')) : 'Check DNS';
     document.getElementById('status').textContent = pending.length
@@ -119,11 +124,14 @@ async function tick() {
   }
   if (domain) {
     document.getElementById('again').classList.remove('hidden');
+    document.getElementById('again-btn').textContent = isVerifyJob ? 'Verify again' : 'Verify';
     document.getElementById('again-why').textContent = verified
       ? ('Send already works. Click Verify again to finish ' + pending.join(', ') + '.')
-      : (pending.length
-        ? ('Azure is still checking ' + pending.join(', ') + '. If Domain failed, wait until the TXT is public, then Verify again. Do not add the other records again.')
-        : 'Not finished yet. After DNS is saved, click Verify again.');
+      : (isVerifyJob
+        ? (pending.length
+          ? ('Azure is still checking ' + pending.join(', ') + '. If Domain failed, wait until the TXT is public, then Verify again. Do not add the other records again.')
+          : 'Not finished yet. After DNS is saved, click Verify again.')
+        : 'After DNS is saved at the registrar, click Verify.');
     document.getElementById('again-domain').value = domain;
     document.getElementById('again-local').value = localPart;
     document.getElementById('again-link').href = dnsPage + '?domain=' + encodeURIComponent(domain);

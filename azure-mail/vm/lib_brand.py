@@ -1080,7 +1080,7 @@ def add_acs(
 
 
 def attach_send_state(env: dict[str, str], domain: str, locals_: list[str], log: LogFn) -> dict:
-    """After Add, reuse live Azure state so an already-verified domain is not left 'unfinished'."""
+    """Read-only after Add. Never start Azure checks — that is the Verify button."""
     st: dict[str, str] = {}
     linked = False
     if not azure_ready(env):
@@ -1089,18 +1089,17 @@ def attach_send_state(env: dict[str, str], domain: str, locals_: list[str], log:
         st = verification_status(env, domain)
     except Exception as exc:  # noqa: BLE001
         log(f"Azure status: {exc}")
-        return {"verify_status": st, "verified": False, "send_ready": False, "linked": False}
-    if st:
-        log("Checking whether Azure can already link this domain…")
-        st = verify_acs(env, domain, locals_, log)
+        return {"verify_status": {}, "verified": False, "send_ready": False, "linked": False}
     try:
         linked = domain_linked(env, domain)
     except Exception:  # noqa: BLE001
         linked = False
     send_ok = can_link_domain(st) and linked
     if send_ok:
-        log("Azure send is ready. You do not need to add those DNS rows again.")
-    return {"verify_status": st, "verified": send_ok, "send_ready": send_ok, "linked": linked}
+        log("Azure send is already linked. You do not need to add those DNS rows again.")
+        return {"verify_status": st, "verified": True, "send_ready": True, "linked": True}
+    log("Add those rows at the DNS provider, then click Verify. Azure is not checked until then.")
+    return {"verify_status": {}, "verified": False, "send_ready": False, "linked": False}
 
 
 def provision(

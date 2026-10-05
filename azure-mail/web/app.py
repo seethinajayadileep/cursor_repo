@@ -325,7 +325,7 @@ def add():
             flash("Enter a domain like shop.example or brand.com")
             return redirect(url_for("add"))
         job_id = uuid.uuid4().hex[:12]
-        JOBS[job_id] = {"status": "running", "log": [], "result": None, "error": None}
+        JOBS[job_id] = {"status": "running", "log": [], "result": None, "error": None, "kind": "add"}
 
         def run() -> None:
             def log(msg: str) -> None:
@@ -484,6 +484,7 @@ def job_json(job_id: str):
         "log": data["log"],
         "result": result,
         "error": data["error"],
+        "kind": data.get("kind") or "add",
     }
 
 

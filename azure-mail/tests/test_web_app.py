@@ -92,6 +92,10 @@ class WebAppTests(unittest.TestCase):
         for name in ("job.html", "dns.html"):
             html = (ROOT / "web" / "templates" / name).read_text()
             self.assertNotIn("akruti", html)
+        job = (ROOT / "web" / "templates" / "job.html").read_text()
+        self.assertIn('id="again-btn"', job)
+        self.assertIn("isVerifyJob", job)
+        self.assertIn("Add DNS", job)
 
     def test_central_mail_lists_domains_and_mailboxes(self):
         self.webapp.mail_directory = lambda _e: {
@@ -249,6 +253,12 @@ class CsrfAddTests(unittest.TestCase):
         )
         self.assertEqual(opened.status_code, 302)
         self.assertIn("/job/", opened.headers["Location"])
+        job_id = opened.headers["Location"].rsplit("/", 1)[-1]
+        page = self.client.get(f"/job/{job_id}")
+        self.assertIn(b'id="again-btn">Verify</button>', page.data)
+        data = self.client.get(f"/job/{job_id}.json").get_json()
+        self.assertEqual(data["kind"], "add")
+        self.assertTrue(started["ran"])
 
 
 class PrefixTests(unittest.TestCase):
